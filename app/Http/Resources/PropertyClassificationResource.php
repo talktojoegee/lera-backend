@@ -16,6 +16,7 @@ class PropertyClassificationResource extends JsonResource
     {
         //return parent::toArray($request);
         return [
+            'id'=>$this->id,
             'className'=>$this->class_name
         ];
     }
