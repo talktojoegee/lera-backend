@@ -9,6 +9,10 @@ class Billing extends Model
 {
     //
 
+    public function getBilledBy(){
+        return $this->belongsTo(User::class, 'billed_by');
+    }
+
     public function getLGA(){
         return $this->belongsTo(Lga::class, 'lga_id');
     }

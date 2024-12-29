@@ -27,8 +27,8 @@ class DashboardStatisticsResource extends JsonResource
             'noOfProperties'=>$propertyCount,
             'noOfBills'=>$billCount,
             'objections'=>$objectionCount,
-            'billAmount'=>$billAmount,
-            'amountPaid'=>$paidAmount
+            'billAmount'=>number_format($billAmount ?? 0,2),
+            'amountPaid'=>number_format($paidAmount ?? 0,2)
         ];
     }
 }
