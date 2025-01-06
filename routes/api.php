@@ -54,6 +54,8 @@ Route::middleware([\App\Http\Middleware\JsonApiMiddleware::class])->group( funct
     Route::get('/property/distribution', [\App\Http\Controllers\BillingController::class, 'showPropertyDistributionByLGA']);
     Route::get('/dashboard/statistics', [\App\Http\Controllers\BillingController::class, 'showDashboardStatistics']);
     Route::get('/billing/outstanding-bills', [\App\Http\Controllers\BillingController::class, 'showOutstandingBills']);
+
+    Route::get('/billing/paid', [\App\Http\Controllers\BillingController::class, 'showPaidBills']);
     Route::get('/billing/detail/{url}', [\App\Http\Controllers\BillingController::class, 'showBillDetails']);
 
 

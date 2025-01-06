@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\ApiResponse;
 use App\Http\Resources\BillDetailResource;
 use App\Http\Resources\BillingRecordResource;
 use App\Http\Resources\DashboardStatisticsResource;
 use App\Http\Resources\OutstandingBillResource;
+use App\Http\Resources\PaidBillResource;
 use App\Http\Resources\RetrieveBillResource;
 use App\Models\Billing;
 use App\Models\Lga;
@@ -23,13 +25,13 @@ class BillingController extends Controller
 
     public function retrieveBills(Request $request){
         $validator = Validator::make($request->all(),[
-            "lgaId"=>"required",
+            //"lgaId"=>"required",
             "year"=>"required",
-            //"billedBy"=>"required",
+            "billedBy"=>"required",
         ],[
-            "lgaId.required"=>"LGA value is required",
+            //"lgaId.required"=>"LGA value is required",
             "year.required"=>"Year field is required",
-            //"billedBy.required"=>"",
+            "billedBy.required"=>"",
         ]);
         if($validator->fails() ){
             return response()->json([
@@ -58,17 +60,24 @@ class BillingController extends Controller
             ],422);
         }
 
+        $currentYear = date('Y');
+        if($request->year > $currentYear){
+            return ApiResponse::error("Whoops! You're trying to be faster than your shadow. Calm down :) You can't process bill ahead.",400);
+        }
 
-        $propertyLists = PropertyList::where('lga_id', $request->lgaId)->take(5)->get();
+
+        $propertyLists = PropertyList::where('lga_id', $request->lgaId)/*->take(10)*/->get();
         if (empty($propertyLists)) {
-            return response()->json(["data"=>"Whoops! There is nothing to process"],401);
+            return ApiResponse::error("Whoops! There is nothing to process",400);
         }
         // Check if a bill for the specified year and LGA already exists
         $existingBills = Billing::where('lga_id', $request->lgaId)->where('year', $request->year)->get();
         if (count($existingBills) > 0) {
             // Return the existing bills if they have already been processed
-            return response()->json(["data"=>"Whoops! Bill for the specified year and LGA has already been processed."],401);
+            return ApiResponse::error("Whoops! Bill for the specified year and LGA has already been processed.",400);
         }
+
+
         foreach ($propertyLists as $list) {
 
             $pavOptional = PropertyAssessmentValue::where("pav_code", $list->pav_code)->first();
@@ -134,6 +143,12 @@ class BillingController extends Controller
     public function showOutstandingBills(){
 
         return OutstandingBillResource::collection(Billing::getOutstandingBills());
+    }
+
+
+    public function showPaidBills(){
+
+        return PaidBillResource::collection(Billing::getPaidBills());
     }
 
 

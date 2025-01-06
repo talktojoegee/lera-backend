@@ -37,4 +37,9 @@ class Billing extends Model
     public static function getOutstandingBills(){
         return Billing::where('paid', 0)->where('objection', 0)->orderBy('id', 'DESC')->get();
     }
+
+    public static function getPaidBills(){
+        return Billing::where('paid', 1)->where('objection', 0)->orderBy('id', 'DESC')->get();
+    }
+
 }
