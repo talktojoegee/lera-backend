@@ -80,13 +80,17 @@ class RemoteController extends Controller
 
     private function _fetchBuildingsByLGAName($lgaName)
     {
-        $url = "http://127.0.0.1:8001/api/lga/{$lgaName}";
+        $url = "http://laravel.kofooni.ca/api/lga/{$lgaName}";
+        //$url = "http://127.0.0.1:8001/api/lga/{$lgaName}";
+
         $response = Http::withHeaders([
             //'Authorization' => 'Bearer your-access-token',
             'Accept' => 'application/json',
         ])->get($url);
         // Get the response body as JSON
-        $data = $response->json();
+        //$data = $response->json();
+
+        $data = json_decode($response->getBody(), true);
         if ($response->successful()) {
             // Process the data
             return $data; //response()->json(['data' => $data], 200);
