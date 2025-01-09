@@ -2,14 +2,18 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+//use Tymon\JWTAuth\Http\Middleware\Check as JWTMiddleware;
 
-Route::get('/user', function (Request $request) {
+Route::post('/register',[\App\Http\Controllers\AuthenticationController::class, 'register']);
+Route::post('/authenticate',[\App\Http\Controllers\AuthenticationController::class, 'authenticate']);
+Route::post('/logout', [\App\Http\Controllers\AuthenticationController::class, 'logout']);
+
+
+/*Route::get('/user', function (Request $request) {
     return $request->user();
-})->middleware('auth:sanctum');
+})->middleware('auth:sanctum');*/
 
-
-Route::middleware([\App\Http\Middleware\JsonApiMiddleware::class])->group( function(){
-
+Route::group(['middleware' => 'api'], function(){
     Route::post('/lga/new', [\App\Http\Controllers\LGAController::class, 'createLGA']);
     Route::get('/lga/all', [\App\Http\Controllers\LGAController::class, 'showAllLGAs']);
 
@@ -62,5 +66,15 @@ Route::middleware([\App\Http\Middleware\JsonApiMiddleware::class])->group( funct
 
     Route::get('/property-list/all', [\App\Http\Controllers\PropertyListController::class, 'getPropertyList']);
     //Route::get('/property-list/all', [\App\Http\Controllers\PropertyListController::class, 'showPropertyLists']);
+
+
+
+    Route::get('/chart-test', [\App\Http\Controllers\BillingController::class, 'chartTest']);
+
 });
+Route::middleware([\App\Http\Middleware\JsonApiMiddleware::class])->group( function(){
+
+
+});
+
 //

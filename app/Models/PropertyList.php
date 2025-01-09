@@ -27,6 +27,11 @@ class PropertyList extends Model
         'zone_name',
         'lga_id',
         'class_id',
+        'class_name',
+        'sub_zone',
+        'occupant',
+        'building_age',
+        'pay_status',
     ];
 
 

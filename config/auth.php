@@ -14,9 +14,13 @@ return [
     */
 
     'defaults' => [
-        'guard' => env('AUTH_GUARD', 'web'),
+        'guard' => env('AUTH_GUARD', 'api'),
         'passwords' => env('AUTH_PASSWORD_BROKER', 'users'),
     ],
+   /* 'defaults' => [
+        'guard' => env('AUTH_GUARD', 'web'),
+        'passwords' => env('AUTH_PASSWORD_BROKER', 'users'),
+    ],*/
 
     /*
     |--------------------------------------------------------------------------
@@ -36,11 +40,17 @@ return [
     */
 
     'guards' => [
+        'api' => [
+            'driver' => 'jwt',
+            'provider' => 'users',
+        ],
+    ],
+    /*'guards' => [
         'web' => [
             'driver' => 'session',
             'provider' => 'users',
         ],
-    ],
+    ],*/
 
     /*
     |--------------------------------------------------------------------------
@@ -63,6 +73,7 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', App\Models\User::class),
+            'identifier'=>'username', //use username for authentication instead of email field
         ],
 
         // 'users' => [
