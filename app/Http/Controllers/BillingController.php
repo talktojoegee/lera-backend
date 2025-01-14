@@ -43,81 +43,98 @@ class BillingController extends Controller
 
     }
 
+    public function test(){
+        echo "Test value.";
+    }
 
-    public function processBill(Request $request){
-        $validator = Validator::make($request->all(),[
-            "lgaId"=>"required",
-            "year"=>"required",
+
+    public function processBill(/*Request $request*/)
+    {
+        $year = 2025; //$request->year;
+        $lgaId = 12;//$request->lgaId;
+
+       /* $validator = Validator::make($request->all(), [
+            "lgaId" => "required",
+            "year" => "required",
             //"billedBy"=>"required",
-        ],[
-            "lgaId.required"=>"LGA value is required",
-            "year.required"=>"Year field is required",
+        ], [
+            "lgaId.required" => "LGA value is required",
+            "year.required" => "Year field is required",
             //"billedBy.required"=>"",
         ]);
-        if($validator->fails() ){
-            return ApiResponse::error($validator->messages(),422);
+        if ($validator->fails()) {
+            return ApiResponse::error($validator->messages(), 422);
 
-        }
+        }*/
 
         $currentYear = date('Y');
-        if($request->year > $currentYear){
-            return ApiResponse::error("Whoops! You're trying to be faster than your shadow. Calm down :) You can't process bill ahead.",400);
+        if ($year > $currentYear) {
+            return ApiResponse::error("Whoops! You can't process bill ahead.", 400);
+        }
+        $propertyLists = [];
+        if ($lgaId == 0) { //All locations/LGAs
+            $propertyLists = PropertyList::orderBy('id', 'DESC')->get();
+        } else {
+            $propertyLists = PropertyList::where('lga_id', $lgaId)/*->take(10)*/ ->get();
         }
 
 
-        $propertyLists = PropertyList::where('lga_id', $request->lgaId)/*->take(10)*/->get();
         if (empty($propertyLists)) {
-            return ApiResponse::error("Whoops! There is nothing to process",400);
+            return ApiResponse::error("Whoops! There is nothing to process", 400);
         }
         // Check if a bill for the specified year and LGA already exists
-        $existingBills = Billing::where('lga_id', $request->lgaId)->where('year', $request->year)->get();
+        /*$existingBills = Billing::where('lga_id', $request->lgaId)->where('year', $request->year)->get();
+
         if (count($existingBills) > 0) {
             return ApiResponse::error("Whoops! Bill for the specified year and LGA has already been processed.",400);
-        }
+        }*/
 
 
         foreach ($propertyLists as $list) {
+            //echo "LGA ID:: ".$list->lga_id;
+            $existingBill = Billing::getBillByYearLgaId($year, $list->lga_id);
+         //if(empty($existingBill)){ //If there is no existing bill
+             echo "Existing Bill ID:: ".$existingBill->id;
 
             $pavOptional = PropertyAssessmentValue::where("pav_code", $list->pav_code)->first();
-         /*   $pavCode = null;
-           if(){
 
-           }*/
-
-           /*
-            * Tie Government = State government, religious = commercial, recreational = commercial
-            * Religious =
-            * Residential =
-            * Commercial =
-            * Tie Owner to = Owner occupied; tenant to = 3rd Party Only
-            */
-            $lga = Lga::find($list->lga_id);
-
-                  if (!empty($pavOptional) && !empty($lga)) {
+                /*
+                 * Tie Government = State government, religious = commercial, recreational = commercial
+                 * Religious =
+                 * Residential =
+                 * Commercial =
+                 * Tie Owner to = Owner occupied; tenant to = 3rd Party Only
+                 */
+                $lga = Lga::find($list->lga_id);
+                if (!empty($pavOptional) && !empty($lga)) {
                     $uniqueNumber = uniqid();
-                    $billAmount = ($pavOptional->value_rate/100) * $pavOptional->assessed_amount;
+                    $billAmount = ($pavOptional->value_rate / 100) * $pavOptional->assessed_amount;
                     $billing = new Billing();
                     $billing->building_code = $list->building_code ?? null;
                     $billing->assessment_no = $uniqueNumber;
                     $billing->assessed_value = $pavOptional->assessed_amount ?? 0;
                     $billing->bill_amount = $billAmount ?? 0;
-                    $billing->year = $request->year;
+                    $billing->year = $year;
                     $billing->entry_date = now();
                     $billing->billed_by = 1;
-                    $billing->paid = 0 ;
+                    $billing->paid = 0;
                     $billing->paid_amount = 0.00;
                     $billing->objection = 0;
-                    $billing->lga_id = $request->lgaId;
+                    $billing->lga_id = $list->lga_id; //$request->lgaId;
                     $billing->property_id = $list->id;
                     $billing->bill_rate = $pavOptional->value_rate ?? 0;
                     $billing->pav_code = $pavOptional->pav_code;
-                    $billing->zone_name = $list->zone_name ?? '';
-                    $billing->url = substr(sha1(time()),29,40);
+                    $billing->zone_name = $list->sub_zone ?? '';
+                    $billing->url = substr(sha1(time()), 29, 40);
                     $billing->save();
                 }
 
-          }
-        return BillingRecordResource::collection($this->_fetchProcessedBills($request->year, $request->lgaId));
+
+        //}
+
+    }
+        //return response()->json(['data'=>$counter],200);
+        return response()->json(['data'=>"Bill processed!"], 201);  // BillingRecordResource::collection($this->_fetchProcessedBills($request->year, $request->lgaId));
 
     }
 
@@ -125,9 +142,9 @@ class BillingController extends Controller
         return Billing::where("year", $year)->where("lga_id", $lgaId)->get();
     }
 
-    public function showBillDataOnDashboard(){
+    public function showBillDataOnDashboard(Request $request){
 
-        return response()->json($this->getMonthlyBillPaymentForCurrentYear());
+        return response()->json($this->getMonthlyBillPaymentByYear($request->year));
     }
 
 
@@ -136,9 +153,9 @@ class BillingController extends Controller
     }
 
 
-    public function showPropertyDistributionByZones(){
+    public function showPropertyDistributionByZones(Request $request){
 
-        return response()->json($this->getPropertyDistributionByZones());
+        return response()->json($this->getPropertyDistributionByZones($request->year));
     }
 
 
@@ -151,15 +168,29 @@ class BillingController extends Controller
 
 
 
-    public function showOutstandingBills(){
-
-        return OutstandingBillResource::collection(Billing::getOutstandingBills());
+    public function showOutstandingBills(Request $request){
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
+        return response()->json([
+            'data'=>OutstandingBillResource::collection(Billing::getBills($limit, $skip, 0, 0)),
+            'total'=>Billing::getBillsByParams(0,0)->count(),
+            'grossBills'=>Billing::getBillsByParams(0,0)->sum('bill_amount'),
+            'grossAmountPaid'=>Billing::getBillsByParams(0,0)->sum('paid_amount'),
+            'balanceAmount'=>(Billing::getBillsByParams(0,0)->sum('bill_amount') - Billing::getBillsByParams(0,0)->sum('paid_amount')),
+        ],200);
     }
 
 
-    public function showPaidBills(){
-
-        return PaidBillResource::collection(Billing::getPaidBills());
+    public function showPaidBills(Request $request){
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
+        return response()->json([
+            'data'=>PaidBillResource::collection(Billing::getBills($limit, $skip, 1, 0)),
+            'total'=>Billing::getBillsByParams(1,0)->count(),
+            'grossBills'=>Billing::getBillsByParams(1,0)->sum('bill_amount'),
+            'grossAmountPaid'=>Billing::getBillsByParams(1,0)->sum('paid_amount'),
+            'balanceAmount'=>(Billing::getBillsByParams(1,0)->sum('bill_amount') - Billing::getBillsByParams(1,0)->sum('paid_amount')),
+        ]);
     }
 
 
@@ -183,10 +214,10 @@ class BillingController extends Controller
 
 
 
-    private function getMonthlyBillPaymentForCurrentYear(){
+    private function getMonthlyBillPaymentByYear($year){
         $billsData = DB::table('billings')
             ->selectRaw('MONTH(created_at) AS month, SUM(bill_amount) AS totalBillAmount')
-            ->whereYear('created_at', '=', date('Y')) // Filter for the current year
+            ->whereYear('created_at', '=', $year) // Filter for the chosen year
             ->groupBy('month')
             ->orderBy('month')
             ->get();
@@ -290,12 +321,12 @@ class BillingController extends Controller
     }
 
 
-    private function getPropertyDistributionByZones(){
+    private function getPropertyDistributionByZones($year){
 
         $propertyData = DB::table('property_lists')
             ->join('zones', 'property_lists.zone_name', '=', 'zones.zone_name')
             ->selectRaw('MONTH(property_lists.created_at) AS month, zones.zone_name AS zoneName, COUNT(property_lists.id) AS totalProperties')
-            ->whereYear('property_lists.created_at', '=', date('Y') ) // Filter for the current year
+            ->whereYear('property_lists.created_at', '=', $year ) // Filter for the current year
             ->groupBy('month', 'zoneName')
             ->orderBy('month')
             ->orderBy('zoneName')
@@ -370,11 +401,11 @@ class BillingController extends Controller
     }
 
 
-    public function chartTest(){
+    public function chartTest(Request $request){
         return response()->json([
-            'billAmount'=>Billing::getCurrentYearMonthlyBillAmount(),
-            'amountPaid'=>Billing::getCurrentYearMonthlyAmountPaid(),
-            'byZones'=>Billing::getCurrentYearBillsByZone(),
+            'billAmount'=>Billing::getCurrentYearMonthlyBillAmount($request->year),
+            'amountPaid'=>Billing::getCurrentYearMonthlyAmountPaid($request->year),
+            'byZones'=>Billing::getCurrentYearBillsByZone($request->year),
             ]);
     }
 

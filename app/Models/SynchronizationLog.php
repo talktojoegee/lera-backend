@@ -24,7 +24,7 @@ class SynchronizationLog extends Model
     }
 
 
-    public static function getSyncReport(){
-        return SynchronizationLog::orderBy('id', 'DESC')->get();
+    public static function getSyncReport($limit, $skip){
+        return SynchronizationLog::skip($skip)->take($limit)->orderBy('id', 'DESC')->get();
     }
 }

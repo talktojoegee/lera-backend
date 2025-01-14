@@ -39,24 +39,53 @@ class Billing extends Model
             ->groupBy('lga_id')
             ->get();
     }
+    public static function getBills($limit = 0, $skip = 0, $paid = 0, $objection = 0)
+    {
+        return Billing::where('paid', $paid)
+            ->where('objection', $objection)
+            ->skip($skip)
+            ->take($limit)
+            ->orderBy('id', 'DESC')
+            ->get();
+    /*    if (!is_null($skip)) {
+            $query->skip($skip);
+        }
 
+        if (!is_null($limit)) {
+            $query->take($limit);
+        }
 
-    public static function getOutstandingBills(){
-        return Billing::where('paid', 0)->where('objection', 0)->orderBy('id', 'DESC')->get();
+        return $query->get();*/
     }
+    public static function getBillsByParams($paid = 0, $objection = 0)
+    {
+        return Billing::where('paid', $paid)
+            ->where('objection', $objection)
+            ->get();
+
+    }
+
+
+    /*public static function getOutstandingBills(){
+        return Billing::where('paid', 0)
+            ->where('objection', 0)
+            ->orderBy('id', 'DESC')
+            ->get();
+    }*/
+
 
     public static function getPaidBills(){
         return Billing::where('paid', 1)->where('objection', 0)->orderBy('id', 'DESC')->get();
     }
 
-    public static function getCurrentYearMonthlyBillAmount(){
-        $currentYear = Carbon::now()->year;
+    public static function getCurrentYearMonthlyBillAmount($year){
+
 
         $monthlyBills = Billing::select(
             DB::raw('MONTH(entry_date) as month'),
             DB::raw('SUM(bill_amount) as total_bill_amount')
         )
-            ->whereYear('entry_date', $currentYear)
+            ->whereYear('entry_date', $year)
             ->groupBy(DB::raw('MONTH(entry_date)'))
             ->orderBy(DB::raw('MONTH(entry_date)'))
             ->get();
@@ -69,14 +98,14 @@ class Billing extends Model
 
     }
 
-    public static function getCurrentYearMonthlyAmountPaid(){
-        $currentYear = Carbon::now()->year;
+    public static function getCurrentYearMonthlyAmountPaid($year){
+
 
         $monthlyBills = Billing::select(
             DB::raw('MONTH(entry_date) as month'),
             DB::raw('SUM(paid_amount) as total_bill_amount')
         )
-            ->whereYear('entry_date', $currentYear)
+            ->whereYear('entry_date', $year)
             ->groupBy(DB::raw('MONTH(entry_date)'))
             ->orderBy(DB::raw('MONTH(entry_date)'))
             ->get();
@@ -88,17 +117,21 @@ class Billing extends Model
         return  $billAmountsByMonth;
 
     }
-    public static function getCurrentYearBillsByZone(){
-        $currentYear = Carbon::now()->year;
+    public static function getCurrentYearBillsByZone($year){
+
 
         return DB::table('billings')
-            ->join('zones', 'billings.zone_name', '=', 'zones.zone_name')
-            ->select('zones.zone_name', DB::raw('SUM(billings.bill_amount) as total_bills'))
-            ->whereYear('billings.entry_date', $currentYear)
-            ->groupBy('zones.zone_name')
-            ->orderBy('zones.zone_name', 'ASC')
+            ->join('zones', 'billings.zone_name', '=', 'zones.sub_zone')
+            ->select('zones.sub_zone', DB::raw('SUM(billings.bill_amount) as total_bills'))
+            ->whereYear('billings.entry_date', $year)
+            ->groupBy('zones.sub_zone')
+            ->orderBy('zones.sub_zone', 'ASC')
             ->get();
 
+    }
+
+    public static function getBillByYearLgaId($year, $lgaId){
+        return Billing::where('lga_id', $lgaId)->where('year', $year)->first();
     }
 
 }

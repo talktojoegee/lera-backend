@@ -11,6 +11,7 @@ use App\Models\SynchronizationLog;
 use App\Models\Zone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class RemoteController extends Controller
 {
@@ -21,23 +22,26 @@ class RemoteController extends Controller
 
     public function showBuildingsByLGAId($lgaId){
         $lga = Lga::find($lgaId);
-        if(empty($lga)){
+        if(empty($lga) && $lgaId != 0){
             return response()->json(['data'=>"Whoops! Something went wrong."],401);
         }
         $addedCount = 0;
         $rejectedCount = 0;
-        //load properties by local government
-        $data =  $this->_fetchBuildingsByLGAName($lga->lga_name);
-        //return $data;
+        if($lgaId == 0){
+            $data = $this->_fetchAllBuildings();
+        }else{
+            $data =  $this->_fetchBuildingsByLGAName($lga->lga_name);
+        }
+        if(count($data['data']) <= 0){
+            return response()->json(['data'=>"Whoops! Nothing to synchronize"],401);
+        }
         foreach($data['data'] as  $record){
-            //return response()->json(['some'=>$record['LGA']  ],200) ;
-
              $lgaOne = Lga::where('lga_name',$record['LGA'])->first();;
              $propertyList = PropertyList::where("building_code", $record["Bld_ID"])->first();
-             $propertyClassification = $this->_getClass($record["Bld_Cat"]); //PropertyClassification::where("class_name", $record["Bld_Cat"])->first();
-             $zoneOne = Zone::where("sub_zone", $record["Zone"])->first();
+            $propertyClassification = $this->_getClass($record["Bld_Cat"]);
+            $zoneOne = Zone::where("sub_zone", $record["Zone"])->first();
 
-              if (!empty($lgaOne) && !empty($propertyClassification) && !empty($zoneOne)) {
+              if (!empty($lgaOne) /*&& !empty($propertyClassification)*/ && !empty($zoneOne)) {
                   if (empty($propertyList)) {
                      $zoneChar = $this->_getZoneCharacter($record['Zone']) ?? 'Z';
                     //pav
@@ -66,7 +70,7 @@ class RemoteController extends Controller
                               'occupant'=>$record["Occupant"],
                               'building_age'=>$record["Bld_Age"],
                               'pay_status'=>$record["Pay_Status"],
-                              'lga_id'=>$lgaId ?? null,
+                              'lga_id'=>$lgaOne->id ?? null,
                               'class_id'=>$propertyClassification->id ?? null,
                           ]);
                           $addedCount++;
@@ -84,8 +88,8 @@ class RemoteController extends Controller
 
     private function _fetchBuildingsByLGAName($lgaName)
     {
-        $url = "http://laravel.kofooni.ca/api/lga/{$lgaName}";
-        //$url = "http://127.0.0.1:8000/api/lga/{$lgaName}";
+        //$url = "http://laravel.kofooni.ca/api/lga/{$lgaName}";
+        $url = "http://127.0.0.1:8000/api/lga/{$lgaName}";
 
         $response = Http::withHeaders([
             //'Authorization' => 'Bearer your-access-token',
@@ -102,10 +106,28 @@ class RemoteController extends Controller
             return response()->json(['data' => $response->body()], $response->status());
         }
     }
+    private function _fetchAllBuildings()
+    {
+        $url = "http://127.0.0.1:8000/api/lga-list";
+
+        $response = Http::withHeaders([
+            //'Authorization' => 'Bearer your-access-token',
+            'Accept' => 'application/json',
+        ])->get($url);
+        $data = json_decode($response->getBody(), true);
+        if ($response->successful()) {
+            return $data;
+        } else {
+            return response()->json(['data' => $response->body()], $response->status());
+        }
+    }
 
 
-    public function showSyncReport(){
-        return SyncResource::collection(SynchronizationLog::getSyncReport());
+    public function showSyncReport(Request $request){
+        return response()->json([
+            'data'=>SyncResource::collection(SynchronizationLog::getSyncReport($request->limit, $request->skip)),
+            'total'=>SynchronizationLog::count()
+            ]);
     }
 
 
@@ -140,12 +162,17 @@ class RemoteController extends Controller
             case 'tenant':
                 return PropertyAssessmentValue::where("class_id", $classId)
                     ->where("occupancy", '3rd Party Only')
-                    //->where("occupancy", $occupancy)
+                    //->orWhere("occupancy", 'Commercial')
+                    ->orWhere("occupancy", 'Used for Business') //Religious
                     ->where("zones",'LIKE', '%'.$zone.'%')
                     ->first();
             case 'owner':
                 return PropertyAssessmentValue::where("class_id", $classId)
-                    ->where("occupancy", 'Owner Occupied')
+                    ->where("occupancy", 'Owner Occupied') //owner
+                    ->orWhere("occupancy", 'Kogi State Govt') //Government
+                    ->orWhere("occupancy", 'Used for Business') //Recreational
+                    ->orWhere("occupancy", 'Vacant/Open Empty Land') //Open Land
+                    ->orWhere("occupancy", 'Used for Business') //Health || Educational
                     ->where("zones",'LIKE', '%'.$zone.'%')
                     ->first();
 
@@ -154,49 +181,28 @@ class RemoteController extends Controller
         return $pavRecord;
     }
 
-    private function _getClass($className){
-        $normalizedClassName = $className; //trim(strtolower($className));
-        if ($normalizedClassName == 'Government') {
+    public function _getClass($className){
+        $normalizedClassName = trim(strtolower($className));
+        if ($normalizedClassName == 'government') {
             return PropertyClassification::where("class_name",  'Kogi State Govt.')->first();
 
-        }elseif ($normalizedClassName == 'Residential') {
+        }elseif ($normalizedClassName == 'residential') {
             return PropertyClassification::where("class_name",  'Residential')->first();
 
-        } elseif (in_array($normalizedClassName, ['Recreational', 'Religious', 'Commercial'])) {
+        } elseif (in_array($normalizedClassName, ['recreational', 'religious', 'commercial'])) {
             return PropertyClassification::where("class_name",  'Commercial')->first();
 
-        } elseif ($normalizedClassName == 'Educational') {
+        } elseif ($normalizedClassName == 'educational') {
             return PropertyClassification::where("class_name",  'Education (Private)')->first();
 
-        } elseif ($normalizedClassName == 'Health') {
+        } elseif ($normalizedClassName == 'health') {
             return PropertyClassification::where("class_name",  'Hospital')->first();
 
-        } elseif ($normalizedClassName == 'Open Land') {
+        } elseif ($normalizedClassName == 'open land') {
             return PropertyClassification::where("class_name",  'Vacant Properties & Open Land')->first();
 
         }  else {
             return null;
         }
-        /*switch ($normalizedClassName){
-            case 'government':
-                return  PropertyClassification::where("class_name", 'LIKE', 'Kogi State Govt.')->first();
-                //PropertyClassification::where("class_name", $record["Bld_Cat"])->first();
-
-            case 'recreational':
-            case 'religious':
-            case 'commercial':
-                return  PropertyClassification::where("class_name", 'LIKE', 'Commercial')->first();
-            case 'educational':
-                return  PropertyClassification::where("class_name", 'LIKE', 'Education (Private)')->first();
-            case 'health':
-                return  PropertyClassification::where("class_name", 'LIKE', 'Hospital')->first();
-            case 'open land':
-                return  PropertyClassification::where("class_name", 'LIKE', 'Vacant Properties & Open Land')->first();
-            case 'residential':
-                return PropertyClassification::where("class_name", 'LIKE', 'Residential')->first();
-            default:
-                return null;
-
-        }*/
     }
 }

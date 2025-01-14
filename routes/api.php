@@ -47,29 +47,30 @@ Route::group(['middleware' => 'api'], function(){
 
 
     Route::get('/sync-data/{lgaId}', [\App\Http\Controllers\RemoteController::class, 'showBuildingsByLGAId']);
-    Route::get('/synchronization-report', [\App\Http\Controllers\RemoteController::class, 'showSyncReport']);
+    Route::get('/synchronization-report/{limit}/{skip}', [\App\Http\Controllers\RemoteController::class, 'showSyncReport']);
 
 
     Route::post('/billing/retrieve', [\App\Http\Controllers\BillingController::class, 'retrieveBills']);
     Route::post('/billing/process', [\App\Http\Controllers\BillingController::class, 'processBill']);
 
-    Route::get('/billing/chart-summary', [\App\Http\Controllers\BillingController::class, 'showBillDataOnDashboard']);
-    Route::get('/billing/property-distribution', [\App\Http\Controllers\BillingController::class, 'showPropertyDistributionByZones']);
+    Route::get('/billing/chart-summary/{year}', [\App\Http\Controllers\BillingController::class, 'showBillDataOnDashboard']);
+    Route::get('/billing/property-distribution/{year}', [\App\Http\Controllers\BillingController::class, 'showPropertyDistributionByZones']);
     Route::get('/property/distribution', [\App\Http\Controllers\BillingController::class, 'showPropertyDistributionByLGA']);
-    Route::get('/dashboard/statistics', [\App\Http\Controllers\BillingController::class, 'showDashboardStatistics']);
-    Route::get('/billing/outstanding-bills', [\App\Http\Controllers\BillingController::class, 'showOutstandingBills']);
+    Route::get('/dashboard/statistics/{year}', [\App\Http\Controllers\BillingController::class, 'showDashboardStatistics']);
+    Route::get('/billing/outstanding-bills/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showOutstandingBills']);
+    //Route::get('/billing/outstanding-bills', [\App\Http\Controllers\BillingController::class, 'showOutstandingBills']);
 
-    Route::get('/billing/paid', [\App\Http\Controllers\BillingController::class, 'showPaidBills']);
+    Route::get('/billing/paid/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showPaidBills']);
     Route::get('/billing/detail/{url}', [\App\Http\Controllers\BillingController::class, 'showBillDetails']);
 
 
 
-    Route::get('/property-list/all', [\App\Http\Controllers\PropertyListController::class, 'getPropertyList']);
+    Route::get('/property-list/all/{limit}/{skip}', [\App\Http\Controllers\PropertyListController::class, 'getPropertyList']);
     //Route::get('/property-list/all', [\App\Http\Controllers\PropertyListController::class, 'showPropertyLists']);
 
 
 
-    Route::get('/chart-test', [\App\Http\Controllers\BillingController::class, 'chartTest']);
+    Route::get('/chart-test/{year}', [\App\Http\Controllers\BillingController::class, 'chartTest']);
 
 });
 Route::middleware([\App\Http\Middleware\JsonApiMiddleware::class])->group( function(){

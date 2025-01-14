@@ -24,6 +24,7 @@ class PropertyListResource extends JsonResource
           "lgaName"=>$this->getLGA->lga_name ?? '',
           "size"=>$this->size ?? '',
           "area"=>$this->area ?? '',
+          "class"=>$this->getPropertyClassification->class_name ?? '',
         ];
     }
 }

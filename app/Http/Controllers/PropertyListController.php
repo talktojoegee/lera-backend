@@ -17,6 +17,8 @@ class PropertyListController extends Controller
 
 
     public function showPropertyLists(Request $request){
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
         //$perPage = $request->query('perPage', 10); // Default to 10 items per page
         $data = PropertyList::query()
         ->orderBy('id', 'DESC')
@@ -28,22 +30,34 @@ class PropertyListController extends Controller
 
     public function getPropertyList(Request $request)
     {
-        // Default values
-        $limit = (int) $request->query('limit', 10); // Number of records per page
-        $page = (int) $request->query('page', 1);
-        $offset = ($page - 1) * $limit; // Calculate offset
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
+        // Base query
+        $records = PropertyList::skip($skip)
+            ->take($limit)
+            ->orderBy('property_lists.created_at', 'desc')
+            ->get();
 
+        return  response()->json([
+            'list' => PropertyListResource::collection($records),
+            'total' => PropertyList::count(),
+        ]);
+    }
+
+
+/*
+    public function getPropertyList(Request $request)
+    {
+         $limit = (int) $request->query('limit', 10);
+         $page = (int) $request->query('page', 1);
+         $offset = ($page - 1) * $limit;
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
         // Base query
         $query = PropertyList::join('lgas as l', 'property_lists.lga_id', '=', 'l.id')
-            //->join('employees as e', 'orders.EmployeeID', '=', 'e.id')
-            //->join('shippers as s', 'orders.ShipperID', '=', 's.id')
-            ->select(
-                'property_lists.*',
-                //DB::raw("DATE_FORMAT(orders.OrderDate, '%d-%b-%y') AS ODate"),
-                //'c.CustomerName',
-                //DB::raw("CONCAT(e.FirstName, ' ', e.LastName) AS EmployeeName"),
-                'l.lga_name'
-            );
+            ->select('property_lists.*', 'l.lga_name')
+            ->skip($skip)
+            ->take($limit);
 
         // Apply search and filters
         $filters = $request->query('filter', []);
@@ -63,9 +77,9 @@ class PropertyListController extends Controller
                 $query->where('property_lists.id', 'like', '%' . $searchTerm . '%')
                     ->orWhere('property_lists.building_code', 'like', '%' . $searchTerm . '%')
                     ->orWhere('property_lists.pav_code', 'like', '%' . $searchTerm . '%');
-                    //->orWhere('property_lists.pav_code', 'like', '%' . $searchTerm . '%')
-                    //->orWhere(DB::raw("CONCAT(e.FirstName, ' ', e.LastName)"), 'like', '%' . $searchTerm . '%')
-                    //->orWhere('s.ShipperName', 'like', '%' . $searchTerm . '%');
+                //->orWhere('property_lists.pav_code', 'like', '%' . $searchTerm . '%')
+                //->orWhere(DB::raw("CONCAT(e.FirstName, ' ', e.LastName)"), 'like', '%' . $searchTerm . '%')
+                //->orWhere('s.ShipperName', 'like', '%' . $searchTerm . '%');
             });
         }
 
@@ -102,5 +116,5 @@ class PropertyListController extends Controller
             'page' => $page,
             'limit' => $limit,
         ]);
-    }
+    }*/
 }

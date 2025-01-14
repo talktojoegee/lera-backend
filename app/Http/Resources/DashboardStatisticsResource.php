@@ -17,11 +17,11 @@ class DashboardStatisticsResource extends JsonResource
     public function toArray(Request $request): array
     {
         //return parent::toArray($request);
-        $propertyCount = PropertyList::count();
-        $billCount = Billing::count();
-        $objectionCount = Billing::where("objection", 1)->count();
-        $billAmount = Billing::sum("bill_amount");
-        $paidAmount = Billing::sum("paid_amount");
+        $propertyCount = PropertyList::whereYear('created_at', $request->year)->count();
+        $billCount = Billing::whereYear('created_at', $request->year)->count();
+        $objectionCount = Billing::whereYear('created_at', $request->year)->where("objection", 1)->count();
+        $billAmount = Billing::whereYear('created_at', $request->year)->sum("bill_amount");
+        $paidAmount = Billing::whereYear('created_at', $request->year)->sum("paid_amount");
 
         return [
             'noOfProperties'=>$propertyCount,

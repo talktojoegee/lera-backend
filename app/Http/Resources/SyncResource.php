@@ -19,7 +19,7 @@ class SyncResource extends JsonResource
           "gis"=>$this->g_gis,
             "labs"=>$this->k_labs,
             "lastSync"=>date('d M, Y h:ia', strtotime($this->last_sync)),
-            "lgaName"=>$this->getLGA->lga_name ?? ''
+            "lgaName"=>$this->getLGA->lga_name ?? 'All LGAs'
         ];
     }
 }
