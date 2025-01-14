@@ -88,8 +88,8 @@ class RemoteController extends Controller
 
     private function _fetchBuildingsByLGAName($lgaName)
     {
-        //$url = "http://laravel.kofooni.ca/api/lga/{$lgaName}";
-        $url = "http://127.0.0.1:8000/api/lga/{$lgaName}";
+        $url = "http://laravel.kofooni.ca/api/lga/{$lgaName}";
+        //$url = "http://127.0.0.1:8000/api/lga/{$lgaName}";
 
         $response = Http::withHeaders([
             //'Authorization' => 'Bearer your-access-token',
@@ -108,7 +108,8 @@ class RemoteController extends Controller
     }
     private function _fetchAllBuildings()
     {
-        $url = "http://127.0.0.1:8000/api/lga-list";
+        //$url = "http://127.0.0.1:8000/api/lga-list";
+        $url = "http://laravel.kofooni.ca/api/lga-list";
 
         $response = Http::withHeaders([
             //'Authorization' => 'Bearer your-access-token',
