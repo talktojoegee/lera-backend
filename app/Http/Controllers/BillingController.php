@@ -48,12 +48,12 @@ class BillingController extends Controller
     }
 
 
-    public function processBill(/*Request $request*/)
+    public function processBill(Request $request)
     {
-        $year = 2025; //$request->year;
-        $lgaId = 12;//$request->lgaId;
+        $year = $request->year;
+        $lgaId = $request->lgaId;
 
-       /* $validator = Validator::make($request->all(), [
+        $validator = Validator::make($request->all(), [
             "lgaId" => "required",
             "year" => "required",
             //"billedBy"=>"required",
@@ -65,7 +65,7 @@ class BillingController extends Controller
         if ($validator->fails()) {
             return ApiResponse::error($validator->messages(), 422);
 
-        }*/
+        }
 
         $currentYear = date('Y');
         if ($year > $currentYear) {
