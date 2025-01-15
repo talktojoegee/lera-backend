@@ -217,6 +217,30 @@ class BillingController extends Controller
     private function getMonthlyBillPaymentByYear($year){
         $billsData = DB::table('billings')
             ->selectRaw('MONTH(created_at) AS month, SUM(bill_amount) AS totalBillAmount')
+            ->whereYear('created_at', '=', $year)
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get();
+                $chartData = ['labels' => [
+                        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                    'datasets' => [
+                        [
+                            'data' => array_fill(0, 12, 0),
+                        ]
+                    ]
+                ];
+
+                foreach ($billsData as $bill) {
+                    $chartData['datasets'][0]['data'][$bill->month - 1] = $bill->totalBillAmount;
+                }
+                return $chartData;
+    }
+
+    /*
+    private function getMonthlyBillPaymentByYear($year){
+        $billsData = DB::table('billings')
+            ->selectRaw('MONTH(created_at) AS month, SUM(bill_amount) AS totalBillAmount')
             ->whereYear('created_at', '=', $year) // Filter for the chosen year
             ->groupBy('month')
             ->orderBy('month')
@@ -242,7 +266,7 @@ class BillingController extends Controller
                     $chartData['datasets'][0]['data'][$bill->month - 1] = $bill->totalBillAmount;
                 }
                 return $chartData;
-    }
+    }*/
 
 
 
@@ -323,9 +347,23 @@ class BillingController extends Controller
 
     private function getPropertyDistributionByZones($year){
 
+        return DB::table('property_lists')
+            ->join('zones', 'property_lists.sub_zone', '=', 'zones.sub_zone')
+            ->selectRaw('zones.sub_zone AS zoneName, COUNT(property_lists.id) AS totalProperties')
+            ->whereYear('property_lists.created_at', '=', $year )
+            ->groupBy('zoneName')
+            //->orderBy('month')
+            ->orderBy('zoneName')
+            ->get();
+
+    }
+    /*
+
+    private function getPropertyDistributionByZones($year){
+
         $propertyData = DB::table('property_lists')
-            ->join('zones', 'property_lists.zone_name', '=', 'zones.zone_name')
-            ->selectRaw('MONTH(property_lists.created_at) AS month, zones.zone_name AS zoneName, COUNT(property_lists.id) AS totalProperties')
+            ->join('zones', 'property_lists.sub_zone', '=', 'zones.sub_zone')
+            ->selectRaw('MONTH(property_lists.created_at) AS month, zones.sub_zone AS zoneName, COUNT(property_lists.id) AS totalProperties')
             ->whereYear('property_lists.created_at', '=', $year ) // Filter for the current year
             ->groupBy('month', 'zoneName')
             ->orderBy('month')
@@ -345,7 +383,7 @@ class BillingController extends Controller
         $groupedProperties = $propertyData->groupBy('zoneName');
         foreach ($groupedProperties as $zoneName => $data) {
             $dataset = [
-                'label' => 'Zone ' . $zoneName,
+                'label' => $zoneName,
                 'data' => array_fill(0, 12, 0), // Initialize all months with 0
                 'backgroundColor' => '#' . substr(md5($zoneName), 0, 6), // Generate unique color
             ];
@@ -358,7 +396,7 @@ class BillingController extends Controller
         }
         return $chartData;
 
-    }
+    }*/
 
 
     private function getPropertyDistributionByLGA(){

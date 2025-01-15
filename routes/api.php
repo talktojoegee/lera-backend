@@ -23,6 +23,7 @@ Route::group(['middleware' => 'api'], function(){
     #Relief settings
     Route::post('/relief/new', [\App\Http\Controllers\ReliefController::class, 'storeReliefSettings']);
     Route::get('/relief/all', [\App\Http\Controllers\ReliefController::class, 'showReliefSetup']);
+    Route::get('/relief/all/{type}', [\App\Http\Controllers\ReliefController::class, 'showReliefSetupByType']);
 
     #Property title settings
     Route::post('/property-title/new', [\App\Http\Controllers\PropertyTitleController::class, 'storePropertyTitle']);
@@ -70,7 +71,13 @@ Route::group(['middleware' => 'api'], function(){
 
 
 
-    Route::get('/chart-test/{year}', [\App\Http\Controllers\BillingController::class, 'chartTest']);
+    Route::get('/chart-record/{year}', [\App\Http\Controllers\BillingController::class, 'chartTest']);
+
+
+    Route::post('/objection/new', [\App\Http\Controllers\ObjectionController::class, 'handleNewObjection']);
+    Route::get('/objection/detail/{requestId}', [\App\Http\Controllers\ObjectionController::class, 'showObjectionDetail']);
+    Route::get('/objection/all/{status}/{limit}/{skip}', [\App\Http\Controllers\ObjectionController::class, 'showObjectionListByStatus']);
+    Route::post('objection/action-objection', [\App\Http\Controllers\ObjectionController::class, 'actionObjection']);
 
 });
 Route::middleware([\App\Http\Middleware\JsonApiMiddleware::class])->group( function(){

@@ -16,6 +16,7 @@ class ReliefResource extends JsonResource
     {
         //return parent::toArray($request);
         return [
+          "id"=>$this->id,
           "item"=>$this->item,
           "description"=>$this->description,
           "rate"=>$this->rate

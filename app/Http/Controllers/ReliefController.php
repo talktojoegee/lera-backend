@@ -38,4 +38,8 @@ class ReliefController extends Controller
     public function showReliefSetup(){
         return ReliefResource::collection(Relief::all());
     }
+    public function showReliefSetupByType(Request $request){
+
+        return ReliefResource::collection(Relief::where('type', $request->type)->get());
+    }
 }
