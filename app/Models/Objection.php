@@ -24,6 +24,21 @@ class Objection extends Model
         return $this->belongsTo(User::class, 'submitted_by');
     }
 
+    public function getBilledBy(){
+        return $this->belongsTo(User::class, 'billed_by');
+    }
+
+    public function getVerifiedBy(){
+        return $this->belongsTo(User::class, 'actioned_by');
+    }
+    public function getAuthorizedBy(){
+        return $this->belongsTo(User::class, 'authorized_by');
+    }
+
+    public function getApprovedBy(){
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
     public function getBill(){
         return $this->belongsTo(Billing::class, 'bill_id');
     }

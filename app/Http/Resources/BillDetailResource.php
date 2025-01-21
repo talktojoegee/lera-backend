@@ -16,6 +16,7 @@ class BillDetailResource extends JsonResource
     {
         //return parent::toArray($request);
         return [
+            'billId'=>$this->id,
             'ownerName'=>$this->getPropertyList->owner_name ?? '',
             'buildingCode'=>$this->building_code ?? '',
             'contactAddress'=>$this->getPropertyList->address ?? '',
@@ -30,12 +31,13 @@ class BillDetailResource extends JsonResource
             'chargeRate'=>$this->bill_rate ?? 0,
             'year'=>$this->year,
             'objection'=>$this->objection,
+            'statusInt'=>$this->status,
             'pavCode'=>$this->pav_code,
             'lgaName'=>$this->getLGA->lga_name ?? 'N/A',
             'billAmount'=>number_format($this->bill_amount ?? 0,2),
             'paidAmount'=>number_format($this->paid_amount ?? 0,2),
             'url'=>$this->url,
-            'billedBy'=>$this->getBilledBy->name,
+            'billedBy'=>$this->getBilledBy->name ?? '',
             'balance'=>number_format($this->bill_amount  - $this->paid_amount,2)
         ];
     }

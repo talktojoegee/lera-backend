@@ -16,9 +16,7 @@ class Billing extends Model
       $this->currentYear = Carbon::now()->year;
   }
 
-    public function getBilledBy(){
-        return $this->belongsTo(User::class, 'billed_by');
-    }
+
 
     public function getLGA(){
         return $this->belongsTo(Lga::class, 'lga_id');
@@ -57,10 +55,25 @@ class Billing extends Model
 
         return $query->get();*/
     }
+
+    public static function getBillsByStatus($limit = 0, $skip = 0, $status = 0)
+    {
+        return Billing::where('status', $status)
+            ->skip($skip)
+            ->take($limit)
+            ->orderBy('id', 'DESC')
+            ->get();
+    }
     public static function getBillsByParams($paid = 0, $objection = 0)
     {
         return Billing::where('paid', $paid)
             ->where('objection', $objection)
+            ->get();
+
+    }
+    public static function getBillsByParamsByStatus($status = 0)
+    {
+        return Billing::where('status', $status)
             ->get();
 
     }

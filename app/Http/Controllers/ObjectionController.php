@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\ObjectionResource;
+use App\Models\Billing;
 use App\Models\Lga;
 use App\Models\Objection;
 use App\Models\ObjectionAttachment;
@@ -111,12 +112,72 @@ class ObjectionController extends Controller
                 'message' => 'Whoops! No record found.'
             ], 404);
         }
-        $record->status = $request->action;
-        $record->actioned_by = $request->actionedBy;
-        $record->date_actioned = now();
-        $record->save();
+        if($request->action == 1 || $request->action == 2){
+            $record->status = $request->action;
+            $record->actioned_by = $request->actionedBy;
+            $record->date_actioned = now();
+            $record->save();
+        }
+        if($request->action == 3){ //authorization
+            $record->status = $request->action;
+            $record->actioned_by = $request->actionedBy;
+            $record->date_actioned = now();
+            $record->luc_amount = $request->lucAmount ?? 0;
+            $record->rate = $request->chargeRate ?? 0;
+            $record->assess_value = $request->assessedValue ?? 0;
+            $record->authorized_by = $request->actionedBy;
+            $record->date_authorized = now();
+            $record->save();
+        }
+        if($request->action == 4){ //approved
+            $record->status = $request->action;
+            $record->actioned_by = $request->actionedBy;
+            $record->date_actioned = now();
+            $record->luc_amount = $request->lucAmount ?? 0;
+            $record->rate = $request->chargeRate ?? 0;
+            $record->assess_value = $request->assessedValue ?? 0;
+            $record->approved_by = $request->actionedBy;
+            $record->date_approved = now();
+            $record->save();
 
+            //let's archive bill & generate a new one;
+            $bill = Billing::find($record->bill_id);
+            if (empty($bill)) {
+                return response()->json([
+                    'message' => 'Whoops! Something went wrong.'
+                ], 404);
+            }else{
+                $updatedRecord = Objection::where('request_id', $request->requestId)->first();
+                $bill->status = 4; //archived
+                $bill->objection = 1; //archived through objection
+                $bill->save();
+                //new bill
+                $uniqueNumber = uniqid();
+                $billAmount = $updatedRecord->luc_amount ?? 0;
+                $billing = new Billing();
+                $billing->building_code = $bill->building_code ?? null;
+                $billing->assessment_no = $uniqueNumber;
 
+                $billing->assessed_value = $updatedRecord->assess_value ?? 0;
+                $billing->bill_amount = $billAmount ?? 0;
+                $billing->bill_rate = $updatedRecord->rate ?? 0;
+
+                $billing->year = $bill->year;
+                $billing->entry_date = $bill->entry_date;
+                $billing->billed_by = 1;
+                $billing->paid = 0;
+                $billing->paid_amount = 0.00;
+                $billing->objection = 0;
+                $billing->lga_id = $bill->lga_id; //$request->lgaId;
+                $billing->property_id = $bill->property_id;
+
+                $billing->pav_code = $bill->pav_code;
+                $billing->zone_name = $bill->sub_zone ?? '';
+                $billing->url = substr(sha1(time()), 29, 40);
+                $billing->save();
+            }
+
+        }
         return response()->json(['message' => 'Success! Action successful.'], 201);
     }
 }

@@ -180,6 +180,16 @@ class BillingController extends Controller
         ],200);
     }
 
+    public function showBills(Request $request){
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
+        $status = $request->status ?? 0;
+        return response()->json([
+            'data'=>OutstandingBillResource::collection(Billing::getBillsByStatus($limit, $skip, $status, )),
+            'total'=>Billing::getBillsByParamsByStatus($status)->count(),
+        ],200);
+    }
+
 
     public function showPaidBills(Request $request){
         $limit = $request->limit ?? 0;
@@ -447,6 +457,52 @@ class BillingController extends Controller
             ]);
     }
 
+    public function actionBill(Request $request){
+
+        $validator = Validator::make($request->all(),
+            [
+                "requestId"=>"required",
+                "actionedBy"=>"required",
+                "action"=>"required",
+            ],
+            [
+                "requestId.required"=>"Whoops! Something is missing",
+                "actionedBy.required"=>"Who action this objection?",
+                "action.required"=>"Missing status update",
+            ]
+        );
+        if($validator->fails() ){
+            return response()->json([
+                "errors"=>$validator->messages()
+            ],422);
+        }
+        $record = Billing::find( $request->requestId);
+        if (!$record) {
+            return response()->json([
+                'message' => 'Whoops! No record found.'
+            ], 404);
+        }
+        if($request->action == 1 || $request->action == 2){
+            $record->status = $request->action;
+            $record->actioned_by = $request->actionedBy;
+            $record->date_actioned = now();
+            $record->save();
+        }
+        if($request->action == 3){ //authorization
+            $record->status = $request->action;
+            $record->authorized_by = $request->actionedBy;
+            $record->date_authorized = now();
+            $record->save();
+        }
+        if($request->action == 4){ //approved
+            $record->status = $request->action;
+            $record->approved_by = $request->actionedBy;
+            $record->date_approved = now();
+            $record->save();
+
+        }
+        return response()->json(['message' => 'Success! Action successful.'], 201);
+    }
 
 
 }

@@ -59,10 +59,12 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('/property/distribution', [\App\Http\Controllers\BillingController::class, 'showPropertyDistributionByLGA']);
     Route::get('/dashboard/statistics/{year}', [\App\Http\Controllers\BillingController::class, 'showDashboardStatistics']);
     Route::get('/billing/outstanding-bills/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showOutstandingBills']);
+    Route::get('/billing/bills/{limit}/{skip}/{status}', [\App\Http\Controllers\BillingController::class, 'showBills']);
     //Route::get('/billing/outstanding-bills', [\App\Http\Controllers\BillingController::class, 'showOutstandingBills']);
 
     Route::get('/billing/paid/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showPaidBills']);
     Route::get('/billing/detail/{url}', [\App\Http\Controllers\BillingController::class, 'showBillDetails']);
+    Route::post('billing/action-bill', [\App\Http\Controllers\BillingController::class, 'actionBill']);
 
 
 
