@@ -17,6 +17,7 @@ class PropertyListResource extends JsonResource
         //return parent::toArray($request);
 
         return [
+          "id"=>$this->id,
           "buildingCode"=>$this->building_code,
           "owner"=>$this->owner_name ?? '',
           "pavCode"=>$this->pav_code,
@@ -24,6 +25,8 @@ class PropertyListResource extends JsonResource
           "lgaName"=>$this->getLGA->lga_name ?? '',
           "size"=>$this->size ?? '',
           "area"=>$this->area ?? '',
+          "zoneName"=>$this->sub_zone ?? '',
+          "occupancy"=>$this->occupant ?? '',
           "class"=>$this->getPropertyClassification->class_name ?? '',
         ];
     }

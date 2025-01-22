@@ -20,7 +20,7 @@ class OutstandingBillResource extends JsonResource
           'assessmentNo'=>$this->assessment_no,
           'buildingCode'=>$this->building_code,
            'year'=>$this->year,
-          'zoneName'=>$this->getPropertyList->zone_name ?? '',
+          'zoneName'=>$this->getPropertyList->sub_zone ?? '',
           'categoryName'=>$this->getPropertyList->getPropertyClassification->class_name ?? '',
           'owner'=>$this->getPropertyList->owner_name ?? '',
           'billAmount'=>$this->bill_amount,

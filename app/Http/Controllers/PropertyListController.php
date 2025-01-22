@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\PropertyDetailResource;
 use App\Http\Resources\PropertyListResource;
 use App\Models\PropertyList;
 use Illuminate\Http\Request;
@@ -117,4 +118,17 @@ class PropertyListController extends Controller
             'limit' => $limit,
         ]);
     }*/
+
+
+    public function showPropertyDetail(Request $request){
+        $propertyDetail = PropertyList::find($request->id);
+
+        if (!$propertyDetail) {
+            return response()->json([
+                'message' => 'Whoops! No record found.'
+            ], 404);
+        }
+
+        return new PropertyDetailResource($propertyDetail);
+    }
 }

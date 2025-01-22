@@ -34,8 +34,8 @@ class BillDetailResource extends JsonResource
             'statusInt'=>$this->status,
             'pavCode'=>$this->pav_code,
             'lgaName'=>$this->getLGA->lga_name ?? 'N/A',
-            'billAmount'=>number_format($this->bill_amount ?? 0,2),
-            'paidAmount'=>number_format($this->paid_amount ?? 0,2),
+            'billAmount'=>$this->bill_amount ?? 0,
+            'paidAmount'=>$this->paid_amount ?? 0,
             'url'=>$this->url,
             'billedBy'=>$this->getBilledBy->name ?? '',
             'balance'=>number_format($this->bill_amount  - $this->paid_amount,2)

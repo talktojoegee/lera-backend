@@ -59,6 +59,6 @@ class Objection extends Model
     }
 
     public function getReliefs($ids){
-        return Relief::whereIn('id', $ids)->pluck('item');
+        return Relief::whereIn('id', $ids)->get('item');
     }
 }

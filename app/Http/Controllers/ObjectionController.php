@@ -21,15 +21,16 @@ class ObjectionController extends Controller
         $validator = Validator::make($request->all(),
             [
             "reason"=>"required",
-            "selectedReliefs"=>"required|array",
-            "selectedReliefs.*"=>"required",
+            "selectedReliefs"=>"required",
+            //"selectedReliefs"=>"required|array",
+            //"selectedReliefs.*"=>"required",
             "submittedBy"=>"required",
             "billId"=>"required",
         ],
             [
             "reason.required"=>"Type your objection in the field provided.",
             "selectedReliefs.required"=>"Choose at least one relief",
-            "selectedReliefs.array"=>"Choose at least one relief",
+            //"selectedReliefs.array"=>"Choose at least one relief",
             "submittedBy.required"=>"Who is submitting this request?",
             "billId.required"=>"Whoops! Something is missing.",
         ]
@@ -41,11 +42,27 @@ class ObjectionController extends Controller
         }
         $uniqueNumber = time();
         $objection = Objection::create([
+            'request_id'=>$uniqueNumber,
             'bill_id'=>$request->billId,
             'submitted_by'=>$request->submittedBy,
             'reason'=>$request->reason,
-            'relief_ids'=>implode(',', $request->selectedReliefs),
+            'relief_ids'=>$request->selectedReliefs,
+           // 'relief_ids'=>implode(',', $request->selectedReliefs),
         ]);
+
+        $file_names = $_FILES["uploadedFiles"]["name"];
+
+    /*    for ($i = 0; $i < count($file_names); $i++) {
+            $file_name=$file_names[$i];
+            $extension = end(explode(".", $file_name));
+
+            $original_file_name = pathinfo($file_name, PATHINFO_FILENAME);
+
+            $file_url = $original_file_name . "-" . date("YmdHis") . "." . $extension;
+
+            move_uploaded_file($_FILES["file"]["tmp_name"][$i], $folderPath . $file_url);
+
+        }*/
 
         if ($request->hasFile('uploadedFiles')) {
             foreach ($request->file('uploadedFiles') as $file) {
@@ -120,8 +137,6 @@ class ObjectionController extends Controller
         }
         if($request->action == 3){ //authorization
             $record->status = $request->action;
-            $record->actioned_by = $request->actionedBy;
-            $record->date_actioned = now();
             $record->luc_amount = $request->lucAmount ?? 0;
             $record->rate = $request->chargeRate ?? 0;
             $record->assess_value = $request->assessedValue ?? 0;
@@ -131,11 +146,9 @@ class ObjectionController extends Controller
         }
         if($request->action == 4){ //approved
             $record->status = $request->action;
-            $record->actioned_by = $request->actionedBy;
-            $record->date_actioned = now();
-            $record->luc_amount = $request->lucAmount ?? 0;
-            $record->rate = $request->chargeRate ?? 0;
-            $record->assess_value = $request->assessedValue ?? 0;
+            //$record->luc_amount = $request->lucAmount ?? 0;
+            //$record->rate = $request->chargeRate ?? 0;
+            //$record->assess_value = $request->assessedValue ?? 0;
             $record->approved_by = $request->actionedBy;
             $record->date_approved = now();
             $record->save();
@@ -147,20 +160,19 @@ class ObjectionController extends Controller
                     'message' => 'Whoops! Something went wrong.'
                 ], 404);
             }else{
-                $updatedRecord = Objection::where('request_id', $request->requestId)->first();
                 $bill->status = 4; //archived
                 $bill->objection = 1; //archived through objection
                 $bill->save();
                 //new bill
                 $uniqueNumber = uniqid();
-                $billAmount = $updatedRecord->luc_amount ?? 0;
+                $billAmount = $record->luc_amount ?? 0;
                 $billing = new Billing();
                 $billing->building_code = $bill->building_code ?? null;
                 $billing->assessment_no = $uniqueNumber;
 
-                $billing->assessed_value = $updatedRecord->assess_value ?? 0;
+                $billing->assessed_value = $record->assess_value ?? 0;
                 $billing->bill_amount = $billAmount ?? 0;
-                $billing->bill_rate = $updatedRecord->rate ?? 0;
+                $billing->bill_rate = $record->rate ?? 0;
 
                 $billing->year = $bill->year;
                 $billing->entry_date = $bill->entry_date;
