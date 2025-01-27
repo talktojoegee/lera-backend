@@ -94,7 +94,7 @@ class BillingController extends Controller
             //echo "LGA ID:: ".$list->lga_id;
             $existingBill = Billing::getBillByYearLgaId($year, $list->lga_id);
          //if(empty($existingBill)){ //If there is no existing bill
-             echo "Existing Bill ID:: ".$existingBill->id;
+            // echo "Existing Bill ID:: ".$existingBill->id;
 
             $pavOptional = PropertyAssessmentValue::where("pav_code", $list->pav_code)->first();
 

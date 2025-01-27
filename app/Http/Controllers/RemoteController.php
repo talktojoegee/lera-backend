@@ -88,8 +88,8 @@ class RemoteController extends Controller
 
     private function _fetchBuildingsByLGAName($lgaName)
     {
-        $url = "http://laravel.kofooni.ca/api/lga/{$lgaName}";
-        //$url = "http://127.0.0.1:8000/api/lga/{$lgaName}";
+        //$url = env('REMOTE_LIVE_SERVER')."lga/{$lgaName}";
+        $url = env('REMOTE_LOCAL_SERVER')."lga/{$lgaName}";
 
         $response = Http::withHeaders([
             //'Authorization' => 'Bearer your-access-token',

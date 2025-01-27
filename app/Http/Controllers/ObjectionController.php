@@ -7,11 +7,15 @@ use App\Models\Billing;
 use App\Models\Lga;
 use App\Models\Objection;
 use App\Models\ObjectionAttachment;
+use App\Models\User;
+use App\Traits\EmailTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class ObjectionController extends Controller
 {
+    use EmailTrait;
+
     public function __construct(){
 
     }
@@ -20,20 +24,20 @@ class ObjectionController extends Controller
 
         $validator = Validator::make($request->all(),
             [
-            "reason"=>"required",
-            "selectedReliefs"=>"required",
-            //"selectedReliefs"=>"required|array",
-            //"selectedReliefs.*"=>"required",
-            "submittedBy"=>"required",
-            "billId"=>"required",
-        ],
+                "reason"=>"required",
+                "selectedReliefs"=>"required",
+                //"selectedReliefs"=>"required|array",
+                //"selectedReliefs.*"=>"required",
+                "submittedBy"=>"required",
+                "billId"=>"required",
+            ],
             [
-            "reason.required"=>"Type your objection in the field provided.",
-            "selectedReliefs.required"=>"Choose at least one relief",
-            //"selectedReliefs.array"=>"Choose at least one relief",
-            "submittedBy.required"=>"Who is submitting this request?",
-            "billId.required"=>"Whoops! Something is missing.",
-        ]
+                "reason.required"=>"Type your objection in the field provided.",
+                "selectedReliefs.required"=>"Choose at least one relief",
+                //"selectedReliefs.array"=>"Choose at least one relief",
+                "submittedBy.required"=>"Who is submitting this request?",
+                "billId.required"=>"Whoops! Something is missing.",
+            ]
         );
         if($validator->fails() ){
             return response()->json([
@@ -47,29 +51,29 @@ class ObjectionController extends Controller
             'submitted_by'=>$request->submittedBy,
             'reason'=>$request->reason,
             'relief_ids'=>$request->selectedReliefs,
-           // 'relief_ids'=>implode(',', $request->selectedReliefs),
+            // 'relief_ids'=>implode(',', $request->selectedReliefs),
         ]);
 
         $file_names = $_FILES["uploadedFiles"]["name"];
 
-    /*    for ($i = 0; $i < count($file_names); $i++) {
-            $file_name=$file_names[$i];
-            $extension = end(explode(".", $file_name));
+        /*    for ($i = 0; $i < count($file_names); $i++) {
+                $file_name=$file_names[$i];
+                $extension = end(explode(".", $file_name));
 
-            $original_file_name = pathinfo($file_name, PATHINFO_FILENAME);
+                $original_file_name = pathinfo($file_name, PATHINFO_FILENAME);
 
-            $file_url = $original_file_name . "-" . date("YmdHis") . "." . $extension;
+                $file_url = $original_file_name . "-" . date("YmdHis") . "." . $extension;
 
-            move_uploaded_file($_FILES["file"]["tmp_name"][$i], $folderPath . $file_url);
+                move_uploaded_file($_FILES["file"]["tmp_name"][$i], $folderPath . $file_url);
 
-        }*/
+            }*/
 
         if ($request->hasFile('uploadedFiles')) {
             foreach ($request->file('uploadedFiles') as $file) {
                 $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
                 $path = $file->storeAs('uploads', $fileName, 'public');
                 $fileSize = $file->getSize();
-                    ObjectionAttachment::create([
+                ObjectionAttachment::create([
                     'objection_id' => $objection->id,
                     'attachment' => $fileName,
                     'filename' => $path,
@@ -89,7 +93,7 @@ class ObjectionController extends Controller
         return response()->json([
             'data'=>ObjectionResource::collection($records),
             'total'=>Objection::fetchObjectionByParam($status)
-            ]);
+        ]);
     }
 
 
@@ -129,11 +133,15 @@ class ObjectionController extends Controller
                 'message' => 'Whoops! No record found.'
             ], 404);
         }
+
         if($request->action == 1 || $request->action == 2){
             $record->status = $request->action;
             $record->actioned_by = $request->actionedBy;
             $record->date_actioned = now();
             $record->save();
+            //send email
+
+
         }
         if($request->action == 3){ //authorization
             $record->status = $request->action;
@@ -146,13 +154,9 @@ class ObjectionController extends Controller
         }
         if($request->action == 4){ //approved
             $record->status = $request->action;
-            //$record->luc_amount = $request->lucAmount ?? 0;
-            //$record->rate = $request->chargeRate ?? 0;
-            //$record->assess_value = $request->assessedValue ?? 0;
             $record->approved_by = $request->actionedBy;
             $record->date_approved = now();
             $record->save();
-
             //let's archive bill & generate a new one;
             $bill = Billing::find($record->bill_id);
             if (empty($bill)) {
@@ -190,6 +194,38 @@ class ObjectionController extends Controller
             }
 
         }
+        $bill = Billing::find($record->bill_id);
+        $this->sendEmailHandler($record, $bill, $request->action);
         return response()->json(['message' => 'Success! Action successful.'], 201);
+    }
+
+
+    private function sendEmailHandler($objection, $bill, $action){
+        $user = User::find($objection->submitted_by);
+        if(!empty($user) && !empty($bill) && !empty($objection)){
+            $status = null;
+            switch ($action){
+                case 1:
+                    $status = 'Verified';
+                    break;
+                case 2:
+                    $status = 'Declined';
+                    break;
+                case 3:
+                    $status = 'Authorized';
+                    break;
+                case 4:
+                    $status = 'Approved';
+                    break;
+            }
+            //$status = $action == 1 ? 'Verified' : 'Declined';
+            $data = [
+                "name"=>$user->name,
+                "status"=>$status,
+                "requestId"=>$objection->request_id
+            ];
+            $this->sendEmail($user->email, 'Update on Your Objection', 'emails.objection', $data);
+        }
+
     }
 }

@@ -4,6 +4,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 //use Tymon\JWTAuth\Http\Middleware\Check as JWTMiddleware;
 
+
+Route::options('{any}', function () {
+    return response()->json(['status' => 'OK'], 200);
+})->where('any', '.*');
+
 Route::post('/register',[\App\Http\Controllers\AuthenticationController::class, 'register']);
 Route::post('/authenticate',[\App\Http\Controllers\AuthenticationController::class, 'authenticate']);
 Route::post('/logout', [\App\Http\Controllers\AuthenticationController::class, 'logout']);

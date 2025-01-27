@@ -15,16 +15,18 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
-    //'paths' => ['api/*', 'sanctum/csrf-cookie', '/api/*', 'sanctum/csrf-cookie'],
+    //'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie', 'sanctum/csrf-cookie'],
 
-    'allowed_methods' => ['GET', 'POST', 'PUT', 'OPTIONS'],
+    'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['*'],
+    'allowed_origins' => ['https://kslas.kofooni.ca',
+        'https://www.kofooni.ca',
+        'http://localhost:4200'],
 
     'allowed_origins_patterns' => [],
 
-    'allowed_headers' => ['Origin', 'Content-Type', 'X-Auth-Token', 'Cookie'],
+    'allowed_headers' => ['*'],
 
     'exposed_headers' => [],
 
@@ -33,22 +35,6 @@ return [
     'supports_credentials' => true,
 
 
-        /*
-    'paths' => ['api/*', 'sanctum/csrf-cookie', '/api/*', 'sanctum/csrf-cookie'],
 
-    'allowed_methods' => ['*'],
-
-    'allowed_origins' => ['*'],
-
-    'allowed_origins_patterns' => ['*'],
-
-    'allowed_headers' => ['*'],
-
-    'exposed_headers' => [],
-
-    'max_age' => 0,
-
-    'supports_credentials' => false,
-    */
 
 ];
