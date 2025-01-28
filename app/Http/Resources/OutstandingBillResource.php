@@ -17,7 +17,7 @@ class OutstandingBillResource extends JsonResource
     {
         //return parent::toArray($request);
         $objection = Objection::where('bill_id', $this->id)->first();
-        $objectionCount = $objection->count();
+        $objectionCount = !empty($objection) ? $objection->count() : 0;
         return [
           'approvedDate'=>date('d M, Y', strtotime($objection->date_approved)),
           'billId'=>$this->id ?? '',
@@ -25,7 +25,7 @@ class OutstandingBillResource extends JsonResource
           'buildingCode'=>$this->building_code ?? '',
           'pavCode'=>$this->pav_code ?? '',
            'year'=>$this->year ?? '',
-           'requestId'=>$objection->request_id ?? '',
+           'requestId'=> !empty($objection) ? $objection->request_id : '',
           'zoneName'=>$this->zone_name ?? '',
           'categoryName'=>$this->getPropertyClassification->class_name ?? '',
           'owner'=>$this->getPropertyList->owner_name ?? '',
