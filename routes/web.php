@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 Route::get('/migration', function(){
-    \Illuminate\Support\Facades\Artisan::call('config:cache');
+    \Illuminate\Support\Facades\Artisan::call('migrate');
     return dd('success');
 });
 
