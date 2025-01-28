@@ -19,7 +19,7 @@ class OutstandingBillResource extends JsonResource
         $objection = Objection::where('bill_id', $this->id)->first();
         $objectionCount = !empty($objection) ? $objection->count() : 0;
         return [
-          'approvedDate'=>date('d M, Y', strtotime($objection->date_approved)),
+          'approvedDate'=> !empty($objection) ? date('d M, Y', strtotime($objection->date_approved)) : '',
           'billId'=>$this->id ?? '',
           'assessmentNo'=>$this->assessment_no ?? '',
           'buildingCode'=>$this->building_code ?? '',
