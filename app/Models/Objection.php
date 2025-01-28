@@ -18,6 +18,7 @@ class Objection extends Model
         'actioned_by',
         'date_actioned',
         'request_id',
+            'objection_id'
         ];
 
     public function getSubmittedBy(){
@@ -41,6 +42,10 @@ class Objection extends Model
 
     public function getBill(){
         return $this->belongsTo(Billing::class, 'bill_id');
+    }
+
+    public function getObjectionAttachments(){
+        return $this->hasMany(ObjectionAttachment::class, 'objection_id');
     }
 
 

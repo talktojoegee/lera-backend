@@ -17,6 +17,14 @@ class Billing extends Model
   }
 
 
+    public function getPropertyClassification(){
+        return $this->belongsTo(PropertyClassification::class, "class_id");
+    }
+
+    public function getObjection(){
+        return $this->belongsTo(Objection::class, "bill_id");
+    }
+
 
     public function getLGA(){
         return $this->belongsTo(Lga::class, 'lga_id');
@@ -37,10 +45,11 @@ class Billing extends Model
             ->groupBy('lga_id')
             ->get();
     }
-    public static function getBills($limit = 0, $skip = 0, $paid = 0, $objection = 0)
+    public static function getBills($limit = 0, $skip = 0, $paid = 0, $objection = 0, $status=0)
     {
         return Billing::where('paid', $paid)
             ->where('objection', $objection)
+            ->where('status', $status)
             ->skip($skip)
             ->take($limit)
             ->orderBy('id', 'DESC')
@@ -64,10 +73,11 @@ class Billing extends Model
             ->orderBy('id', 'DESC')
             ->get();
     }
-    public static function getBillsByParams($paid = 0, $objection = 0)
+    public static function getBillsByParams($paid = 0, $objection = 0, $status=0)
     {
         return Billing::where('paid', $paid)
             ->where('objection', $objection)
+            ->where('status', $status)
             ->get();
 
     }

@@ -125,7 +125,11 @@ class BillingController extends Controller
                     $billing->bill_rate = $pavOptional->value_rate ?? 0;
                     $billing->pav_code = $pavOptional->pav_code;
                     $billing->zone_name = $list->sub_zone ?? '';
-                    $billing->url = substr(sha1(time()), 29, 40);
+                    $billing->url = substr(sha1( (time()+rand(9,99999)) ), 29, 40);
+                    //
+                    //occupancy
+                    $billing->class_id = $list->class_id;
+                    $billing->occupancy = $list->occupant;
                     $billing->save();
                 }
 
@@ -172,11 +176,11 @@ class BillingController extends Controller
         $limit = $request->limit ?? 0;
         $skip = $request->skip ?? 0;
         return response()->json([
-            'data'=>OutstandingBillResource::collection(Billing::getBills($limit, $skip, 0, 0)),
-            'total'=>Billing::getBillsByParams(0,0)->count(),
-            'grossBills'=>Billing::getBillsByParams(0,0)->sum('bill_amount'),
-            'grossAmountPaid'=>Billing::getBillsByParams(0,0)->sum('paid_amount'),
-            'balanceAmount'=>(Billing::getBillsByParams(0,0)->sum('bill_amount') - Billing::getBillsByParams(0,0)->sum('paid_amount')),
+            'data'=>OutstandingBillResource::collection(Billing::getBills($limit, $skip, 0, 0, 3)),
+            'total'=>Billing::getBillsByParams(0,0,3)->count(),
+            'grossBills'=>Billing::getBillsByParams(0,0,3)->sum('bill_amount'),
+            'grossAmountPaid'=>Billing::getBillsByParams(0,0,3)->sum('paid_amount'),
+            'balanceAmount'=>(Billing::getBillsByParams(0,0,3)->sum('bill_amount') - Billing::getBillsByParams(0,0,3)->sum('paid_amount')),
         ],200);
     }
 

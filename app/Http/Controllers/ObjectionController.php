@@ -54,34 +54,25 @@ class ObjectionController extends Controller
             // 'relief_ids'=>implode(',', $request->selectedReliefs),
         ]);
 
-        $file_names = $_FILES["uploadedFiles"]["name"];
 
-        /*    for ($i = 0; $i < count($file_names); $i++) {
-                $file_name=$file_names[$i];
-                $extension = end(explode(".", $file_name));
-
-                $original_file_name = pathinfo($file_name, PATHINFO_FILENAME);
-
-                $file_url = $original_file_name . "-" . date("YmdHis") . "." . $extension;
-
-                move_uploaded_file($_FILES["file"]["tmp_name"][$i], $folderPath . $file_url);
-
-            }*/
-
-        if ($request->hasFile('uploadedFiles')) {
-            foreach ($request->file('uploadedFiles') as $file) {
-                $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $path = $file->storeAs('uploads', $fileName, 'public');
-                $fileSize = $file->getSize();
+        $uploadDir = public_path('assets/drive/');
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+        if (count($request->allFiles() ) > 0) {
+            foreach ($request->allFiles() as $attachment) {
+                $filename = uniqid() . '_' . $attachment->getClientOriginalName();
+                $size = $attachment->getSize();
+                $originalFilename = $attachment->getClientOriginalName();
+                $attachment->move($uploadDir, $filename);
                 ObjectionAttachment::create([
                     'objection_id' => $objection->id,
-                    'attachment' => $fileName,
-                    'filename' => $path,
-                    'size' => $fileSize,
+                    'attachment' => $filename,
+                    'filename' => $originalFilename,
+                    'size' => $size,
                 ]);
             }
         }
-
         return response()->json(['message' => 'Success! Action successful.'], 201);
     }
 
@@ -225,6 +216,29 @@ class ObjectionController extends Controller
                 "requestId"=>$objection->request_id
             ];
             $this->sendEmail($user->email, 'Update on Your Objection', 'emails.objection', $data);
+        }
+
+    }
+
+    public function downloadAttachment(Request $request){
+        try{
+            $attachment = ObjectionAttachment::where('filename', $request->slug)->first();
+            if (empty($attachment)) {
+                return response()->json([
+                    'message' => 'Whoops! No record found'
+                ], 404);
+            }else{
+                $file_path = public_path('assets/drive/'.$request->slug);
+                if(file_exists($file_path)){
+                    return response()->download($file_path, $attachment->attachment);
+                }else{
+                    return 0; //file not found.
+                }
+            }
+
+        }catch (\Exception $ex){
+            session()->flash("error", "Whoops! File does not exist.");
+            return back();
         }
 
     }

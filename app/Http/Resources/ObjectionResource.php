@@ -95,6 +95,10 @@ class ObjectionResource extends JsonResource
 
           "approvedBy"=>$this->getApprovedBy->name ?? '',
           "approvedDate"=> !is_null($this->date_approved) ? date('d M, Y', strtotime($this->date_approved)) : '-',
+          "attachments"=>  $this->getObjectionAttachments,
         ];
     }
+
+
+
 }
