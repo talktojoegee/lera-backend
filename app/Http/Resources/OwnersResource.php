@@ -16,6 +16,7 @@ class OwnersResource extends JsonResource
     {
         //return parent::toArray($request);
         return [
+          "id"=>$this->id,
           "kgtin"=>$this->kgtin,
           "name"=>$this->name,
           "telephone"=>$this->telephone,

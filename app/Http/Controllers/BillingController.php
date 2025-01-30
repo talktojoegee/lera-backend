@@ -93,50 +93,50 @@ class BillingController extends Controller
         foreach ($propertyLists as $list) {
             //echo "LGA ID:: ".$list->lga_id;
             $existingBill = Billing::getBillByYearLgaId($year, $list->lga_id);
-         //if(empty($existingBill)){ //If there is no existing bill
+            //if(empty($existingBill)){ //If there is no existing bill
             // echo "Existing Bill ID:: ".$existingBill->id;
 
             $pavOptional = PropertyAssessmentValue::where("pav_code", $list->pav_code)->first();
 
-                /*
-                 * Tie Government = State government, religious = commercial, recreational = commercial
-                 * Religious =
-                 * Residential =
-                 * Commercial =
-                 * Tie Owner to = Owner occupied; tenant to = 3rd Party Only
-                 */
-                $lga = Lga::find($list->lga_id);
-                if (!empty($pavOptional) && !empty($lga)) {
-                    $uniqueNumber = uniqid();
-                    $billAmount = ($pavOptional->value_rate / 100) * $pavOptional->assessed_amount;
-                    $billing = new Billing();
-                    $billing->building_code = $list->building_code ?? null;
-                    $billing->assessment_no = $uniqueNumber;
-                    $billing->assessed_value = $pavOptional->assessed_amount ?? 0;
-                    $billing->bill_amount = $billAmount ?? 0;
-                    $billing->year = $year;
-                    $billing->entry_date = now();
-                    $billing->billed_by = 1;
-                    $billing->paid = 0;
-                    $billing->paid_amount = 0.00;
-                    $billing->objection = 0;
-                    $billing->lga_id = $list->lga_id; //$request->lgaId;
-                    $billing->property_id = $list->id;
-                    $billing->bill_rate = $pavOptional->value_rate ?? 0;
-                    $billing->pav_code = $pavOptional->pav_code;
-                    $billing->zone_name = $list->sub_zone ?? '';
-                    $billing->url = substr(sha1( (time()+rand(9,99999)) ), 29, 40);
-                    //
-                    //occupancy
-                    $billing->class_id = $list->class_id;
-                    $billing->occupancy = $list->occupant;
-                    $billing->save();
-                }
+            /*
+             * Tie Government = State government, religious = commercial, recreational = commercial
+             * Religious =
+             * Residential =
+             * Commercial =
+             * Tie Owner to = Owner occupied; tenant to = 3rd Party Only
+             */
+            $lga = Lga::find($list->lga_id);
+            if (!empty($pavOptional) && !empty($lga)) {
+                $uniqueNumber = uniqid();
+                $billAmount = ($pavOptional->value_rate / 100) * $pavOptional->assessed_amount;
+                $billing = new Billing();
+                $billing->building_code = $list->building_code ?? null;
+                $billing->assessment_no = $uniqueNumber;
+                $billing->assessed_value = $pavOptional->assessed_amount ?? 0;
+                $billing->bill_amount = $billAmount ?? 0;
+                $billing->year = $year;
+                $billing->entry_date = now();
+                $billing->billed_by = 1;
+                $billing->paid = 0;
+                $billing->paid_amount = 0.00;
+                $billing->objection = 0;
+                $billing->lga_id = $list->lga_id; //$request->lgaId;
+                $billing->property_id = $list->id;
+                $billing->bill_rate = $pavOptional->value_rate ?? 0;
+                $billing->pav_code = $pavOptional->pav_code;
+                $billing->zone_name = $list->sub_zone ?? '';
+                $billing->url = substr(sha1( (time()+rand(9,99999)) ), 29, 40);
+                //
+                //occupancy
+                $billing->class_id = $list->class_id;
+                $billing->occupancy = $list->occupant;
+                $billing->save();
+            }
 
 
-        //}
+            //}
 
-    }
+        }
         //return response()->json(['data'=>$counter],200);
         return response()->json(['data'=>"Bill processed!"], 201);  // BillingRecordResource::collection($this->_fetchProcessedBills($request->year, $request->lgaId));
 
@@ -159,7 +159,12 @@ class BillingController extends Controller
 
     public function showPropertyDistributionByZones(Request $request){
 
-        return response()->json($this->getPropertyDistributionByZones($request->year));
+        return response()->json(
+            [
+                'zone'=>$this->getPropertyDistributionByZones($request->year),
+                'lga'=>$this->getPropertyDistributionByLGA($request->year)
+            ]
+        );
     }
 
 
@@ -230,25 +235,25 @@ class BillingController extends Controller
 
     private function getMonthlyBillPaymentByYear($year){
         $billsData = DB::table('billings')
-            ->selectRaw('MONTH(created_at) AS month, SUM(bill_amount) AS totalBillAmount')
+            ->selectRaw('MONTH(created_at) AS month, SUM(paid_amount) AS totalBillAmount')
             ->whereYear('created_at', '=', $year)
             ->groupBy('month')
             ->orderBy('month')
             ->get();
-                $chartData = ['labels' => [
-                        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-                    'datasets' => [
-                        [
-                            'data' => array_fill(0, 12, 0),
-                        ]
-                    ]
-                ];
+        $chartData = ['labels' => [
+            'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            'datasets' => [
+                [
+                    'data' => array_fill(0, 12, 0),
+                ]
+            ]
+        ];
 
-                foreach ($billsData as $bill) {
-                    $chartData['datasets'][0]['data'][$bill->month - 1] = $bill->totalBillAmount;
-                }
-                return $chartData;
+        foreach ($billsData as $bill) {
+            $chartData['datasets'][0]['data'][$bill->month - 1] = $bill->totalBillAmount;
+        }
+        return $chartData;
     }
 
     /*
@@ -371,6 +376,19 @@ class BillingController extends Controller
             ->get();
 
     }
+
+    private function getPropertyDistributionByLGA($year){
+
+        return DB::table('property_lists')
+            ->join('lgas', 'property_lists.lga_id', '=', 'lgas.id')
+            ->selectRaw('lgas.lga_name AS lgaName, COUNT(property_lists.id) AS totalProperties')
+            ->whereYear('property_lists.created_at', '=', $year )
+            ->groupBy('lgaName')
+            //->orderBy('month')
+            ->orderBy('lgaName')
+            ->get();
+
+    }
     /*
 
     private function getPropertyDistributionByZones($year){
@@ -413,7 +431,7 @@ class BillingController extends Controller
     }*/
 
 
-    private function getPropertyDistributionByLGA(){
+   /* private function getPropertyDistributionByLGA(){
 
         $propertyData = DB::table('property_lists')
             ->join('lgas', 'property_lists.lga_id', '=', 'lgas.id')
@@ -450,7 +468,7 @@ class BillingController extends Controller
         }
         return $chartData;
 
-    }
+    }*/
 
 
     public function chartTest(Request $request){
@@ -458,7 +476,9 @@ class BillingController extends Controller
             'billAmount'=>Billing::getCurrentYearMonthlyBillAmount($request->year),
             'amountPaid'=>Billing::getCurrentYearMonthlyAmountPaid($request->year),
             'byZones'=>Billing::getCurrentYearBillsByZone($request->year),
-            ]);
+            'byLGA'=>Billing::getCurrentYearBillsByLGA($request->year),
+            'paymentByLGA'=>Billing::getCurrentYearPaymentByLGA($request->year),
+        ]);
     }
 
     public function actionBill(Request $request){

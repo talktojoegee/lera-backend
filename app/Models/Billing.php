@@ -153,6 +153,32 @@ class Billing extends Model
 
     }
 
+    public static function getCurrentYearBillsByLGA($year){
+
+        return DB::table('billings')
+            ->join('lgas', 'billings.lga_id', '=', 'lgas.id')
+            ->select('lgas.lga_name', DB::raw('SUM(billings.bill_amount) as total_bills'))
+            ->whereYear('billings.entry_date', $year)
+            ->groupBy('lgas.lga_name')
+            ->orderBy('lgas.lga_name', 'ASC')
+            ->get();
+
+
+    }
+
+    public static function getCurrentYearPaymentByLGA($year){
+
+        return DB::table('billings')
+            ->join('lgas', 'billings.lga_id', '=', 'lgas.id')
+            ->select('lgas.lga_name', DB::raw('SUM(billings.paid_amount) as amount'))
+            ->whereYear('billings.entry_date', $year)
+            ->groupBy('lgas.lga_name')
+            ->orderBy('lgas.lga_name', 'ASC')
+            ->get();
+
+
+    }
+
     public static function getBillByYearLgaId($year, $lgaId){
         return Billing::where('lga_id', $lgaId)->where('year', $year)->first();
     }

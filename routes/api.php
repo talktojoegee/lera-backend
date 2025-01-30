@@ -49,6 +49,8 @@ Route::group(['middleware' => 'api'], function(){
     #Owners
     Route::post('/owners/new', [\App\Http\Controllers\OwnersController::class, 'storeOwner']);
     Route::get('/owners/all', [\App\Http\Controllers\OwnersController::class, 'showAllOwners']);
+    Route::get('/owners/{kgtin}', [\App\Http\Controllers\OwnersController::class, 'showOwnerByKGTin']);
+    Route::post('/owners/save-changes', [\App\Http\Controllers\OwnersController::class, 'saveOwnerChanges']);
 
 
 
@@ -58,6 +60,8 @@ Route::group(['middleware' => 'api'], function(){
 
     Route::post('/billing/retrieve', [\App\Http\Controllers\BillingController::class, 'retrieveBills']);
     Route::post('/billing/process', [\App\Http\Controllers\BillingController::class, 'processBill']);
+
+    Route::post('/billing/make-payment', [\App\Http\Controllers\PaymentController::class, 'handlePaymentRequest']);
 
     Route::get('/billing/chart-summary/{year}', [\App\Http\Controllers\BillingController::class, 'showBillDataOnDashboard']);
     Route::get('/billing/property-distribution/{year}', [\App\Http\Controllers\BillingController::class, 'showPropertyDistributionByZones']);
