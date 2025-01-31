@@ -14,9 +14,9 @@ class BillDetailResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        //return parent::toArray($request);
         return [
             'billId'=>$this->id,
+            'paid'=>$this->paid,
             'ownerName'=>$this->getPropertyList->owner_name ?? '',
             'buildingCode'=>$this->building_code ?? '',
             'contactAddress'=>$this->getPropertyList->address ?? '',
@@ -25,6 +25,7 @@ class BillDetailResource extends JsonResource
             'entryDate'=>date('d M, Y', strtotime($this->entry_date)),
             'assessmentNo'=>$this->assessment_no ?? '',
             'propertyAddress'=>$this->getPropertyList->address ?? '',
+            'ownerEmail'=>$this->getPropertyList->owner_email ?? '',
             'zone'=>$this->getPropertyList->sub_zone ?? '',
             'phoneNo'=>$this->getPropertyList->owner_gsm ?? '',
             'assessValue'=>$this->assessed_value ?? 0,

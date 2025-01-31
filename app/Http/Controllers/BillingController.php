@@ -204,11 +204,11 @@ class BillingController extends Controller
         $limit = $request->limit ?? 0;
         $skip = $request->skip ?? 0;
         return response()->json([
-            'data'=>PaidBillResource::collection(Billing::getBills($limit, $skip, 1, 0)),
-            'total'=>Billing::getBillsByParams(1,0)->count(),
-            'grossBills'=>Billing::getBillsByParams(1,0)->sum('bill_amount'),
-            'grossAmountPaid'=>Billing::getBillsByParams(1,0)->sum('paid_amount'),
-            'balanceAmount'=>(Billing::getBillsByParams(1,0)->sum('bill_amount') - Billing::getBillsByParams(1,0)->sum('paid_amount')),
+            'data'=>PaidBillResource::collection(Billing::getBills($limit, $skip, 1, 0, 3)),
+            'total'=>Billing::getBillsByParams(1,0,3)->count(),
+            'grossBills'=>Billing::getBillsByParams(1,0,3)->sum('bill_amount'),
+            'grossAmountPaid'=>Billing::getBillsByParams(1,0,3)->sum('paid_amount'),
+            'balanceAmount'=>(Billing::getBillsByParams(1,0,3)->sum('bill_amount') - Billing::getBillsByParams(1,0,3)->sum('paid_amount')),
         ]);
     }
 

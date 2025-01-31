@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\BillPaymentLog;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -14,7 +15,7 @@ class PaidBillResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        //return parent::toArray($request);
+        $payment = BillPaymentLog::where('bill_master', $this->id)->sum('amount') ?? 0;
         return [
             'billId'=>$this->id,
             'assessmentNo'=>$this->assessment_no,
@@ -24,9 +25,10 @@ class PaidBillResource extends JsonResource
             'categoryName'=>$this->getPropertyList->getPropertyClassification->class_name ?? '',
             'owner'=>$this->getPropertyList->owner_name ?? '',
             'billAmount'=>$this->bill_amount,
-            'balance'=>$this->bill_amount ?? 0 - $this->paid_amount,
+            'balance'=>($this->bill_amount  - $payment),
             'lgaName'=>$this->getLGA->lga_name ?? 'N/A',
-            'url'=>$this->url
+            'url'=>$this->url,
+            'payment'=>$payment
         ];
     }
 }

@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Billing;
+use App\Models\BillPaymentLog;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Yabacon\Paystack;
 
 class PaymentController extends Controller
@@ -10,42 +13,46 @@ class PaymentController extends Controller
 
 
     public function handlePaymentRequest(Request $request){
-        $this->validate($request,[
-            'amount'=>'required',
+        $validator = Validator::make($request->all(),[
+            'name'=>'required',
+            'mobileNo'=>'required',
             'email'=>'required|email',
-            'ownerId'=>'required',
+            'amount'=>'required',
+            'billId'=>'required',
+            'paidBy'=>'required',
         ],[
             'amount.required'=>"Enter an amount" ,
             'email.required'=>"Enter a valid email address" ,
-            'ownerId.required'=>"" ,
+            'billId.required'=>"" ,
+            'paidBy.required'=>"" ,
             'email.email'=>"Enter a valid email address" ,
+            'mobileNo.required'=>"Enter mobile number" ,
         ]);
-        try{
-            $paystack = new Paystack(env('PAYSTACK_SECRET_KEY'));
-            $cost = $request->amount;
-            $builder = new Paystack\MetadataBuilder();
-            $builder->withCost($cost);
-            $builder->withUser($request->ownerId);
-
-            $metadata = $builder->build();
-            $charge = $cost < 2500 ? ceil($cost*1.7/100) : ceil($cost*1.7/100)+100;
-            $tranx = $paystack->transaction->initialize([
-                'amount'=>($cost+$charge)*100,
-                'email'=>$request->email,
-                'reference'=>substr(sha1(time()),23,40),
-                'metadata'=>$metadata
-            ]);
-            $response = $tranx->data->authorization_url;
-            if ('success' === $response->data->status) {
-                $ownerId = $tranx->data->metadata->user ;
-                $cost = $tranx->data->metadata->cost ;
-
-            }
-            //return redirect()->to($tranx->data->authorization_url)->send();
-        }catch (Paystack\Exception\ApiException $exception){
-            session()->flash("error", "Whoops! Something went wrong. Try again.");
-            return back();
+        if($validator->fails() ){
+            return response()->json([
+                "errors"=>$validator->messages()
+            ],422);
         }
+        $bill = Billing::find($request->billId);
+        if(empty($bill)){
+            return response()->json([
+                'message' => 'Whoops! No record found.'
+            ], 404);
+        }
+        $bill->paid = 1;
+        $bill->paid_amount = $request->amount;
+        $bill->paid_by = $request->paidBy;
+        $bill->date_paid = now();
+        $bill->payment_ref = substr(sha1(time()),30,40);
+        $bill->save();
+        //log it
+        BillPaymentLog::create([
+            'bill_master'=>$request->billId,
+            'paid_by'=>$request->paidBy,
+            'amount'=>$request->amount
+        ]);
+        return response()->json(['data'=>"Payment recorded"], 201);
+
     }
 
 

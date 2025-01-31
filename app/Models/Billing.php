@@ -54,15 +54,6 @@ class Billing extends Model
             ->take($limit)
             ->orderBy('id', 'DESC')
             ->get();
-    /*    if (!is_null($skip)) {
-            $query->skip($skip);
-        }
-
-        if (!is_null($limit)) {
-            $query->take($limit);
-        }
-
-        return $query->get();*/
     }
 
     public static function getBillsByStatus($limit = 0, $skip = 0, $status = 0)
