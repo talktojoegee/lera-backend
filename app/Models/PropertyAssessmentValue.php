@@ -12,7 +12,11 @@ class PropertyAssessmentValue extends Model
       "occupancy",
       "pav_code",
       "zones",
-      "class_id"
+      "class_id",
+      "lr",
+      "ba",
+      "rr",
+      "br",
     ];
 
     public function getClass(){

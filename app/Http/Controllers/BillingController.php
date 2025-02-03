@@ -194,8 +194,18 @@ class BillingController extends Controller
         $skip = $request->skip ?? 0;
         $status = $request->status ?? 0;
         return response()->json([
-            'data'=>OutstandingBillResource::collection(Billing::getBillsByStatus($limit, $skip, $status, )),
+            'data'=>OutstandingBillResource::collection(Billing::getBillsByStatus($limit, $skip, $status)),
             'total'=>Billing::getBillsByParamsByStatus($status)->count(),
+        ],200);
+    }
+
+
+    public function showReturnedBills(Request $request){
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
+        return response()->json([
+            'data'=>OutstandingBillResource::collection(Billing::getAllReturnedBills($limit, $skip)),
+            'total'=>Billing::getAllReturnedBillsByParams()->count(),
         ],200);
     }
 
@@ -204,11 +214,11 @@ class BillingController extends Controller
         $limit = $request->limit ?? 0;
         $skip = $request->skip ?? 0;
         return response()->json([
-            'data'=>PaidBillResource::collection(Billing::getBills($limit, $skip, 1, 0, 3)),
-            'total'=>Billing::getBillsByParams(1,0,3)->count(),
-            'grossBills'=>Billing::getBillsByParams(1,0,3)->sum('bill_amount'),
-            'grossAmountPaid'=>Billing::getBillsByParams(1,0,3)->sum('paid_amount'),
-            'balanceAmount'=>(Billing::getBillsByParams(1,0,3)->sum('bill_amount') - Billing::getBillsByParams(1,0,3)->sum('paid_amount')),
+            'data'=>PaidBillResource::collection(Billing::getAllPaidBills($limit, $skip, 1, 0, 3)),
+            'total'=>Billing::getAllBillsByParams(1,0,3)->count(),
+            'grossBills'=>Billing::getAllBillsByParams(1,0,3)->sum('bill_amount'),
+            'grossAmountPaid'=>Billing::getAllBillsByParams(1,0,3)->sum('paid_amount'),
+            'balanceAmount'=>(Billing::getAllBillsByParams(1,0,3)->sum('bill_amount') - Billing::getAllBillsByParams(1,0,3)->sum('paid_amount')),
         ]);
     }
 
@@ -225,6 +235,50 @@ class BillingController extends Controller
         }
 
         return new BillDetailResource($billDetail);
+    }
+
+
+
+    public function updateBillChanges(Request $request){
+
+        $validator = Validator::make($request->all(),
+            [
+                "billId"=>"required",
+                "actionedBy"=>"required",
+                //"action"=>"required",
+                "lucAmount"=>"required",
+                "chargeRate"=>"required",
+                "assessedValue"=>"required",
+            ],
+            [
+                "billId.required"=>"Whoops! Something is missing",
+                "actionedBy.required"=>"Who action this objection?",
+                //"action.required"=>"Missing status update",
+                "lucAmount.required"=>"Enter amount",
+                "chargeRate.required"=>"Enter rate",
+                "assessedValue.required"=>"Enter assess value",
+            ]
+        );
+        if($validator->fails() ){
+            return response()->json([
+                "errors"=>$validator->messages()
+            ],422);
+        }
+        $record = Billing::find( $request->billId);
+        if (!$record) {
+            return response()->json([
+                'message' => 'Whoops! No record found.'
+            ], 404);
+        }
+        $record->assessed_value = $request->assessedValue;
+        $record->bill_amount = $request->lucAmount;
+        $record->bill_rate = $request->chargeRate;
+        $record->returned = 2; //processed
+        $record->status = 0; //take it back to pending for it to re-enter the workflow process
+        $record->save();
+
+        //$this->sendEmailHandler($record, $bill, $request->action);
+        return response()->json(['message' => 'Success! Action successful.'], 200);
     }
 
 
@@ -522,6 +576,14 @@ class BillingController extends Controller
             $record->status = $request->action;
             $record->approved_by = $request->actionedBy;
             $record->date_approved = now();
+            $record->save();
+
+        }
+        if($request->action == 5){ //return bill
+            $record->status = $request->action;
+            $record->returned = 1;
+            $record->returned_by = $request->actionedBy;
+            $record->date_returned = now();
             $record->save();
 
         }

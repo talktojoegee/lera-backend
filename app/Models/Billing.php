@@ -45,7 +45,30 @@ class Billing extends Model
             ->groupBy('lga_id')
             ->get();
     }
-    public static function getBills($limit = 0, $skip = 0, $paid = 0, $objection = 0, $status=0)
+    public static function getBills($limit = 0,
+                                    $skip = 0,
+                                    $paid = 0,
+                                    $objection = 0,
+                                    $status = 0,
+                                    //$returned = 0,
+    )
+    {
+        return Billing::where('paid', $paid)
+            ->where('objection', $objection)
+            ->where('status', $status)
+            //->orWhere('returned', $returned)
+            ->skip($skip)
+            ->take($limit)
+            ->orderBy('id', 'DESC')
+            ->get();
+    }
+
+    public static function getAllPaidBills($limit = 0,
+                                    $skip = 0,
+                                    $paid = 0,
+                                    $objection = 0,
+                                    $status = 0,
+    )
     {
         return Billing::where('paid', $paid)
             ->where('objection', $objection)
@@ -56,7 +79,10 @@ class Billing extends Model
             ->get();
     }
 
-    public static function getBillsByStatus($limit = 0, $skip = 0, $status = 0)
+    public static function getBillsByStatus($limit = 0,
+                                            $skip = 0,
+                                            $status = 0
+    )
     {
         return Billing::where('status', $status)
             ->skip($skip)
@@ -64,20 +90,51 @@ class Billing extends Model
             ->orderBy('id', 'DESC')
             ->get();
     }
+
+
+    public static function getAllReturnedBills($limit = 0,
+                                            $skip = 0,
+    )
+    {
+        return Billing::where('returned', 1)
+            ->skip($skip)
+            ->take($limit)
+            ->orderBy('id', 'DESC')
+            ->get();
+    }
+
+    public static function getAllBillsByParams($paid = 0, $objection = 0, $status=0)
+    {
+        return Billing::where('paid', $paid)
+            ->where('objection', $objection)
+            ->where('status', $status)
+            ->get();
+
+    }
+
     public static function getBillsByParams($paid = 0, $objection = 0, $status=0)
     {
         return Billing::where('paid', $paid)
             ->where('objection', $objection)
             ->where('status', $status)
+            //->orWhere('returned', $returned)
             ->get();
 
     }
     public static function getBillsByParamsByStatus($status = 0)
     {
         return Billing::where('status', $status)
+            //->orWhere('returned', $returned)
             ->get();
 
     }
+
+     public static function getAllReturnedBillsByParams()
+        {
+            return Billing::where('returned', 1)
+                ->get();
+
+        }
 
 
     /*public static function getOutstandingBills(){
@@ -113,8 +170,6 @@ class Billing extends Model
     }
 
     public static function getCurrentYearMonthlyAmountPaid($year){
-
-
         $monthlyBills = Billing::select(
             DB::raw('MONTH(entry_date) as month'),
             DB::raw('SUM(paid_amount) as total_bill_amount')
@@ -132,8 +187,6 @@ class Billing extends Model
 
     }
     public static function getCurrentYearBillsByZone($year){
-
-
         return DB::table('billings')
             ->join('zones', 'billings.zone_name', '=', 'zones.sub_zone')
             ->select('zones.sub_zone', DB::raw('SUM(billings.bill_amount) as total_bills'))

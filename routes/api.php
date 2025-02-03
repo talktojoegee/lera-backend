@@ -42,9 +42,14 @@ Route::group(['middleware' => 'api'], function(){
     Route::post('/property-classification/new', [\App\Http\Controllers\PropertyClassificationController::class, 'storeClass']);
     Route::get('/property-classification/all', [\App\Http\Controllers\PropertyClassificationController::class, 'showAllPropertyClassifications']);
 
+    #Depreciation
+    Route::post('/depreciation/new', [\App\Http\Controllers\DepreciationController::class, 'createDepreciation']);
+    Route::get('/depreciation/all', [\App\Http\Controllers\DepreciationController::class, 'showAllDepreciations']);
+
     #PAV
     Route::post('/property-assessment-value/new', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'storePAV']);
     Route::get('/property-assessment-value/all', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'showAllPAVs']);
+    Route::post('/property-assessment-value/update', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'updatePAV']);
 
     #Owners
     Route::post('/owners/new', [\App\Http\Controllers\OwnersController::class, 'storeOwner']);
@@ -69,11 +74,14 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('/dashboard/statistics/{year}', [\App\Http\Controllers\BillingController::class, 'showDashboardStatistics']);
     Route::get('/billing/outstanding-bills/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showOutstandingBills']);
     Route::get('/billing/bills/{limit}/{skip}/{status}', [\App\Http\Controllers\BillingController::class, 'showBills']);
+
+    Route::get('/billing/returned-bills/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showReturnedBills']);
     //Route::get('/billing/outstanding-bills', [\App\Http\Controllers\BillingController::class, 'showOutstandingBills']);
 
     Route::get('/billing/paid/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showPaidBills']);
     Route::get('/billing/detail/{url}', [\App\Http\Controllers\BillingController::class, 'showBillDetails']);
     Route::post('billing/action-bill', [\App\Http\Controllers\BillingController::class, 'actionBill']);
+    Route::post('billing/update-bill-changes', [\App\Http\Controllers\BillingController::class, 'updateBillChanges']);
 
 
 
@@ -90,6 +98,7 @@ Route::group(['middleware' => 'api'], function(){
     Route::post('/objection/new', [\App\Http\Controllers\ObjectionController::class, 'handleNewObjection']);
     Route::get('/objection/detail/{requestId}', [\App\Http\Controllers\ObjectionController::class, 'showObjectionDetail']);
     Route::get('/objection/all/{status}/{limit}/{skip}', [\App\Http\Controllers\ObjectionController::class, 'showObjectionListByStatus']);
+
     Route::post('objection/action-objection', [\App\Http\Controllers\ObjectionController::class, 'actionObjection']);
 
 

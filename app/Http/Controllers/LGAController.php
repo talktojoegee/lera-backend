@@ -35,4 +35,5 @@ class LGAController extends Controller
     public function showAllLGAs(){
         return LGAResource::collection(Lga::fetchAllLGAs());
     }
+
 }
