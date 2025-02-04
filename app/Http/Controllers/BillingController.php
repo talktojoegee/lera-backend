@@ -10,6 +10,7 @@ use App\Http\Resources\OutstandingBillResource;
 use App\Http\Resources\PaidBillResource;
 use App\Http\Resources\RetrieveBillResource;
 use App\Models\Billing;
+use App\Models\Depreciation;
 use App\Models\Lga;
 use App\Models\PropertyAssessmentValue;
 use App\Models\PropertyList;
@@ -106,9 +107,29 @@ class BillingController extends Controller
              * Tie Owner to = Owner occupied; tenant to = 3rd Party Only
              */
             $lga = Lga::find($list->lga_id);
-            if (!empty($pavOptional) && !empty($lga)) {
+            $depreciation = Depreciation::getDepreciationByValue($list->building_age ?? 0);
+            if (!empty($pavOptional) && !empty($lga) && !empty($depreciation)) {
+
                 $uniqueNumber = uniqid();
-                $billAmount = ($pavOptional->value_rate / 100) * $pavOptional->assessed_amount;
+                /*
+                 * LA = from Property(Area of Land)
+                    LR = from Billing Setup
+                    BA% = from Billing Setup (BA%) * 0.01
+                    BR = from Billing Setup
+                    DR% = from Depreciation Table using age of property to match * 0.01
+                    RR% = from Billing Setup * 0.01
+                 */
+                //LUC = {(LA * LR) + (BA% x BR x DR)} * RR% * CR
+                $la = $list->area ?? 1; //la
+                $lr = $pavOptional->lr ?? 1;
+                $ba = $pavOptional->ba * 0.01;
+                $br = $pavOptional->br * $list->area;
+                $dr = $depreciation->depreciation_rate * 0.01; //carry to billing table
+                $rr = $pavOptional->rr * 0.01;
+                $cr = ($pavOptional->value_rate * 0.01) * ($la * $lr);
+                $luc = (($la * $lr) + ($ba * $br * $dr)) * ($rr * $cr);
+                $billAmount = $luc; // ($pavOptional->value_rate / 100) * $pavOptional->assessed_amount;
+
                 $billing = new Billing();
                 $billing->building_code = $list->building_code ?? null;
                 $billing->assessment_no = $uniqueNumber;
@@ -117,7 +138,14 @@ class BillingController extends Controller
                 $billing->year = $year;
                 $billing->entry_date = now();
                 $billing->billed_by = 1;
-                $billing->paid = 0;
+
+                $billing->rr = $pavOptional->rr ?? 0;
+                $billing->lr = $pavOptional->lr ?? 0;
+                $billing->ba = $pavOptional->ba ?? 0;
+                $billing->br = $pavOptional->br ?? 0;
+                $billing->la = $la ?? 0;
+                $billing->dr = $dr ?? 0;
+
                 $billing->paid_amount = 0.00;
                 $billing->objection = 0;
                 $billing->lga_id = $list->lga_id; //$request->lgaId;

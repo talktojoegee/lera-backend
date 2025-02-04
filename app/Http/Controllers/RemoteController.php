@@ -45,6 +45,7 @@ class RemoteController extends Controller
                   if (empty($propertyList)) {
                      $zoneChar = $this->_getZoneCharacter($record['Zone']) ?? 'Z';
                     //pav
+                      //When synchronizing properties, First Match Zones, Class & Occupancy – this you have done already
                       $pavRecord = $this->_getPavCode($propertyClassification->id, $record["Occupant"], $record["Zone"]);
                       if(!empty($pavRecord)){
                           PropertyList::create([
@@ -71,6 +72,7 @@ class RemoteController extends Controller
                               'building_age'=>$record["Bld_Age"],
                               'pay_status'=>$record["Pay_Status"],
                               'lga_id'=>$lgaOne->id ?? null,
+                              'special'=>rand(0,1),
                               'class_id'=>$propertyClassification->id ?? null,
                           ]);
                           $addedCount++;

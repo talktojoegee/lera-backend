@@ -11,4 +11,11 @@ class Depreciation extends Model
         'building_age_to',
         'depreciation_rate',
     ];
+
+
+    public static function getDepreciationByValue($age){
+        return Depreciation::where('building_age_from', '<=', $age)
+            ->where('building_age_to', '>=', $age)
+            ->first();
+    }
 }
