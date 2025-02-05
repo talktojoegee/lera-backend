@@ -612,6 +612,7 @@ class BillingController extends Controller
             $record->returned = 1;
             $record->returned_by = $request->actionedBy;
             $record->date_returned = now();
+            $record->return_reason = $request->reason ?? '';
             $record->save();
 
         }
