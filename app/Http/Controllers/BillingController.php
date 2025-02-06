@@ -10,6 +10,7 @@ use App\Http\Resources\OutstandingBillResource;
 use App\Http\Resources\PaidBillResource;
 use App\Http\Resources\RetrieveBillResource;
 use App\Models\Billing;
+use App\Models\ChargeRate;
 use App\Models\Depreciation;
 use App\Models\Lga;
 use App\Models\PropertyAssessmentValue;
@@ -107,8 +108,9 @@ class BillingController extends Controller
              * Tie Owner to = Owner occupied; tenant to = 3rd Party Only
              */
             $lga = Lga::find($list->lga_id);
-            $depreciation = Depreciation::getDepreciationByValue($list->building_age ?? 0);
-            if (!empty($pavOptional) && !empty($lga) && !empty($depreciation)) {
+            $depreciation = Depreciation::find($list->dep_id);
+            $chargeRate = ChargeRate::find($list->cr);
+            if (!empty($pavOptional) && !empty($lga) && !empty($depreciation) && !empty($chargeRate)) {
 
                 $uniqueNumber = uniqid();
                 /*
@@ -122,11 +124,14 @@ class BillingController extends Controller
                 //LUC = {(LA * LR) + (BA% x BR x DR)} * RR% * CR
                 $la = $list->area ?? 1; //la
                 $lr = $pavOptional->lr ?? 1;
-                $ba = $pavOptional->ba * 0.01;
-                $br = $pavOptional->br * $list->area;
-                $dr = $depreciation->depreciation_rate * 0.01; //carry to billing table
+                $ba = ($pavOptional->ba * 0.01) * $la;
+                $br = $pavOptional->br;
+                $dr = $depreciation->value * 0.01; //carry to billing table
                 $rr = $pavOptional->rr * 0.01;
-                $cr = ($pavOptional->value_rate * 0.01) * ($la * $lr);
+
+
+                $cr = ($chargeRate->rate * 0.01) * ($la * $lr);// ($pavOptional->value_rate * 0.01) * ($la * $lr);
+
                 $luc = (($la * $lr) + ($ba * $br * $dr)) * ($rr * $cr);
                 $billAmount = $luc; // ($pavOptional->value_rate / 100) * $pavOptional->assessed_amount;
 
@@ -134,7 +139,7 @@ class BillingController extends Controller
                 $billing->building_code = $list->building_code ?? null;
                 $billing->assessment_no = $uniqueNumber;
                 $billing->assessed_value = $pavOptional->assessed_amount ?? 0;
-                $billing->bill_amount = $billAmount ?? 0;
+                $billing->bill_amount = number_format($billAmount,2, '.', '') ?? 0;
                 $billing->year = $year;
                 $billing->entry_date = now();
                 $billing->billed_by = 1;
@@ -143,8 +148,11 @@ class BillingController extends Controller
                 $billing->lr = $pavOptional->lr ?? 0;
                 $billing->ba = $pavOptional->ba ?? 0;
                 $billing->br = $pavOptional->br ?? 0;
-                $billing->la = $la ?? 0;
                 $billing->dr = $dr ?? 0;
+
+                $billing->cr = $chargeRate->rate;
+                $billing->dr_value = $depreciation->value;
+
 
                 $billing->paid_amount = 0.00;
                 $billing->objection = 0;
@@ -157,7 +165,7 @@ class BillingController extends Controller
                 //
                 //occupancy
                 $billing->class_id = $list->class_id;
-                $billing->occupancy = $list->occupant;
+                $billing->property_use = $list->occupant;
                 $billing->save();
             }
 
@@ -226,6 +234,15 @@ class BillingController extends Controller
             'total'=>Billing::getBillsByParamsByStatus($status)->count(),
         ],200);
     }
+    public function showSpecialInterestBills(Request $request){
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
+        $status = $request->status ?? 0;
+        return response()->json([
+            'data'=>OutstandingBillResource::collection(Billing::getSpecialInterestBillsByStatus($limit, $skip, $status)),
+            'total'=>Billing::getSpecialInterestBillsByParamsByStatus($status)->count(),
+        ],200);
+    }
 
 
     public function showReturnedBills(Request $request){
@@ -234,6 +251,15 @@ class BillingController extends Controller
         return response()->json([
             'data'=>OutstandingBillResource::collection(Billing::getAllReturnedBills($limit, $skip)),
             'total'=>Billing::getAllReturnedBillsByParams()->count(),
+        ],200);
+    }
+
+    public function showSpecialInterestReturnedBills(Request $request){
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
+        return response()->json([
+            'data'=>OutstandingBillResource::collection(Billing::getAllSpecialInterestReturnedBills($limit, $skip)),
+            'total'=>Billing::getAllSpecialInterestReturnedBillsByParams()->count(),
         ],200);
     }
 
@@ -617,6 +643,20 @@ class BillingController extends Controller
 
         }
         return response()->json(['message' => 'Success! Action successful.'], 201);
+    }
+
+    public function rollbackBill($year){
+        $bills = Billing::where('year', $year)->get();
+        if(count($bills) > 0){
+            foreach($bills as $bill){
+                if($bill->status <= 2){
+                    $bill->delete();
+                }
+
+            }
+        }
+        return response()->json(['message' => 'Success! Action successful.'], 200);
+
     }
 
 

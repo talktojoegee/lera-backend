@@ -18,8 +18,8 @@ class PropertyAssessmentValueController extends Controller
     public function storePAV(Request $request){
         $validator = Validator::make($request->all(),[
             "pav_code"=>"required",
-            "assessed_amount"=>"required",
-            "value_rate"=>"required",
+            //"assessed_amount"=>"required",
+            //"value_rate"=>"required",
             "class_id"=>"required",
             "zone"=>"required",
             "ba"=>"required",
@@ -29,8 +29,8 @@ class PropertyAssessmentValueController extends Controller
             "description"=>"required",
         ],[
             "pav_code.required"=>"PAV Code is required",
-            "assessed_amount.required"=>"Enter Assessed Amount",
-            "value_rate.required"=>"Enter value rate",
+            //"assessed_amount.required"=>"Enter Assessed Amount",
+            //"value_rate.required"=>"Enter value rate",
             "class_id.required"=>"Indicate property classification",
             "zone.required"=>"Zone is required",
             "description.required"=>"Enter a brief description",
@@ -45,9 +45,9 @@ class PropertyAssessmentValueController extends Controller
             ],422);
         }
         PropertyAssessmentValue::create([
-            "assessed_amount"=>$request->assessed_amount,
-            "value_rate"=>$request->value_rate,
-            "occupancy"=>$request->description,
+            //"assessed_amount"=>$request->assessed_amount,
+            //"value_rate"=>$request->value_rate,
+            "property_use"=>$request->description,
             "pav_code"=>$request->pav_code,
             "zones"=>implode(", ",$request->zone),
             "class_id"=>$request->class_id,
@@ -64,8 +64,8 @@ class PropertyAssessmentValueController extends Controller
     public function updatePAV(Request $request){
         $validator = Validator::make($request->all(),[
             "pav_code"=>"required",
-            "assessed_amount"=>"required",
-            "value_rate"=>"required",
+            //"assessed_amount"=>"required",
+            //"value_rate"=>"required",
             "class_id"=>"required",
             "zone"=>"required",
             "ba"=>"required",
@@ -76,8 +76,8 @@ class PropertyAssessmentValueController extends Controller
             "id"=>"required",
         ],[
             "pav_code.required"=>"PAV Code is required",
-            "assessed_amount.required"=>"Enter Assessed Amount",
-            "value_rate.required"=>"Enter value rate",
+            //"assessed_amount.required"=>"Enter Assessed Amount",
+            //"value_rate.required"=>"Enter value rate",
             "class_id.required"=>"Indicate property classification",
             "zone.required"=>"Zone is required",
             "description.required"=>"Enter a brief description",
@@ -95,9 +95,9 @@ class PropertyAssessmentValueController extends Controller
 
         $propertyAssessment = PropertyAssessmentValue::findOrFail($request->id); // Ensure $id is passed correctly
         $propertyAssessment->update([
-            "assessed_amount" => $request->assessed_amount,
-            "value_rate" => $request->value_rate,
-            "occupancy" => $request->description,
+            //"assessed_amount" => $request->assessed_amount,
+            //"value_rate" => $request->value_rate,
+            "property_use" => $request->description,
             "pav_code" => $request->pav_code,
             "zones" => isset($request->zone) ? implode(", ", $request->zone) : null,
             "class_id" => $request->class_id,
@@ -112,7 +112,14 @@ class PropertyAssessmentValueController extends Controller
 
 
 
-    public function showAllPAVs(){
-        return PAVResource::collection(PropertyAssessmentValue::all());
+    public function showAllPAVs(Request $request){
+        return response()->json([
+            'data'=>PAVResource::collection($this->getBillSetup($request->limit, $request->skip)),
+            'total'=>PropertyAssessmentValue::count()
+        ]);
+    }
+
+    private function getBillSetup($limit, $skip){
+        return PropertyAssessmentValue::skip($skip)->take($limit)->orderBy('id', 'DESC')->get();
     }
 }

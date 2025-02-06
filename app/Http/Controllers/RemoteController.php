@@ -3,18 +3,23 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\SyncResource;
+use App\Models\ChargeRate;
+use App\Models\Depreciation;
 use App\Models\Lga;
 use App\Models\PropertyAssessmentValue;
 use App\Models\PropertyClassification;
 use App\Models\PropertyList;
 use App\Models\SynchronizationLog;
 use App\Models\Zone;
+use App\Traits\UtilityTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class RemoteController extends Controller
 {
+    use UtilityTrait;
+
     public function __construct(){
 
     }
@@ -27,6 +32,7 @@ class RemoteController extends Controller
         }
         $addedCount = 0;
         $rejectedCount = 0;
+        //$data = [];
         if($lgaId == 0){
             $data = $this->_fetchAllBuildings();
         }else{
@@ -35,48 +41,77 @@ class RemoteController extends Controller
         if(count($data['data']) <= 0){
             return response()->json(['data'=>"Whoops! Nothing to synchronize"],401);
         }
+        $test = null;
         foreach($data['data'] as  $record){
-             $lgaOne = Lga::where('lga_name',$record['LGA'])->first();;
-             $propertyList = PropertyList::where("building_code", $record["Bld_ID"])->first();
-            $propertyClassification = $this->_getClass($record["Bld_Cat"]);
-            $zoneOne = Zone::where("sub_zone", $record["Zone"])->first();
+             $lgaOne = Lga::where('lga_name',$record['lga'])->first();
+             //$lgaOne = Lga::where('lga_name',$record['LGA'])->first();
+             $propertyList = PropertyList::where("building_code", $record["prop_id"])->first();
+             //$propertyList = PropertyList::where("building_code", $record["Bld_ID"])->first();
+            //$propertyClassification = $this->_getClass($record["Bld_Cat"]);
+            $propertyClassification = PropertyClassification::find($record['landuse']);// $this->_getClass($record["Bld_Cat"]);
+            $zoneOne = Zone::where("sub_zone", $record["zone"])->first();
+            //$zoneOne = Zone::where("sub_zone", $record["Zone"])->first();
 
               if (!empty($lgaOne) /*&& !empty($propertyClassification)*/ && !empty($zoneOne)) {
+                  //$medianAge = $this->median(); [in the property table, save media age, actual age,]
+                  //add charge rate ID to the property table
+                  //2. Charge rate will be based on occupancy
+                  //carry occupancy details from property table(from GIS) and match it with occupancy on charge rate table
+                  //then it will assign a charge rate ID to the property
+
+
+                  //When Processing Bill
+                  //if you don't have billing code, median age or charge rate ID - bill cannot be calculated
+                  //
                   if (empty($propertyList)) {
-                     $zoneChar = $this->_getZoneCharacter($record['Zone']) ?? 'Z';
+                     $zoneChar = $this->_getZoneCharacter($record['zone']) ?? 'Z';
+                     $chargeRate = $this->_getChargeRate($record['occupier_s']);
+                     $dep = Depreciation::where('range', $record['property_age'])->first();
                     //pav
                       //When synchronizing properties, First Match Zones, Class & Occupancy – this you have done already
-                      $pavRecord = $this->_getPavCode($propertyClassification->id, $record["Occupant"], $record["Zone"]);
-                      if(!empty($pavRecord)){
+                      $pavRecord = $this->_getPavCode($record['landuse'], $record["zone"]);
+                      //$pavRecord = $this->_getPavCode($propertyClassification->id, $record["Occupant"], $record["Zone"]);
+                      //if(!empty($pavRecord)){
+                      $areaVal = $this->convertToSqm($record["property_area"]);
                           PropertyList::create([
-                              'address'=>$record["Street"],
-                              'area'=>$record["Bld_area"],
-                              'borehole'=>$record["Borehole"] == 'Yes' ? 1 : 0,
-                              'building_code'=>$record["Bld_ID"],
-                              'image'=>$record["Photo"],
-                              //'owner_email'=>$record["Street"],
-                              //'owner_gsm'=>$record["Street"],
-                              'owner_kgtin'=>$record["KGTIN"],
-                              'owner_name'=>$record["Owner"],
+                              'address'=>$record["street_nam"],
+                              'area'=>str_replace("_sqm", "", $areaVal),
+                              //'area'=>$record["Bld_area"],
+                              'borehole'=>$record["water"] == 'Yes' ? 1 : 0,
+                              'building_code'=>$record["prop_id"],
+                              'image'=>$record["photo_link"],
+                              'owner_email'=>$record["owner_emai"],
+                              'owner_gsm'=>$record["owner_phon"],
+                              'owner_kgtin'=>$record["kgtin"],
+                              'owner_name'=>$record["prop_owner"],
+                              'title'=>$record["land_status"],
                               'pav_code'=> $pavRecord->pav_code ?? null,
-                              'power'=>$record["Power"] == 'Yes' ? 1 : 0,
+                              'power'=>$record["power"] == 'Yes' ? 1 : 0,
                               //'refuse'=>$record["Street"],
                               //'size'=>$record["Street"],
-                              'storey'=> is_int($record["Bld_Storey"]) ? $record["Bld_Storey"] : 0,
+                              'storey'=> '',//is_int($record["Bld_Storey"]) ? $record["Bld_Storey"] : 0,
                               //'title'=>$record["Street"],
-                              'water'=>$record["Water"] == 'Yes' ? 1 : 0,
+                              'water'=>$record["water"] == 'Yes' ? 1 : 0,
                               'zone_name'=>$zoneChar,
-                              'sub_zone'=>$record["Zone"], //'A1','B2'
-                              'class_name'=>$record["Bld_Cat"],
-                              'occupant'=>$record["Occupant"],
-                              'building_age'=>$record["Bld_Age"],
-                              'pay_status'=>$record["Pay_Status"],
+                              'sub_zone'=>$record["zone"], //'A1','B2'
+                              'class_name'=> $propertyClassification->class_name ?? '' ,//$record["Bld_Cat"],
+                              'occupant'=>$record["prop_owner"],
+                              'building_age'=>$record["property_age"],
+                              'pay_status'=>null,//$record["Pay_Status"],
                               'lga_id'=>$lgaOne->id ?? null,
-                              'special'=>rand(0,1),
-                              'class_id'=>$propertyClassification->id ?? null,
+                              //'special'=>rand(0,1),
+                              'class_id'=>$record['landuse'],
+                              //'class_id'=>$propertyClassification->id ?? null,
+                              'cr'=>$chargeRate->id ?? 1,
+                              'actual_age'=>$record['property_age'],
+                              'longitude'=>$record['longitude'],
+                              'latitude'=>$record['latitude'],
+                              'property_name'=>$record['prop_name'],
+                              'occupier'=>$record['occupier_s'],
+                              'dep_id'=> !empty($dep) ? $dep->id : Depreciation::orderBy('id', 'ASC')->first()->id, //depreciation
                           ]);
                           $addedCount++;
-                      }
+                     // }
 
                   }else{
                       $rejectedCount++;
@@ -159,30 +194,36 @@ class RemoteController extends Controller
         }
     }
 
+    private function _getPavCode($classId, $zone){
+        return PropertyAssessmentValue::where("class_id",$classId)
+            ->where("zones",'LIKE', '%'.$zone.'%')
+            ->first();
+    }
+/*
     private function _getPavCode($classId, $occupancy, $zone){
         $pavRecord = null;
         switch (strtolower($occupancy)){
             case 'tenant':
                 return PropertyAssessmentValue::where("class_id", $classId)
-                    ->where("occupancy", '3rd Party Only')
+                    ->where("property_use", '3rd Party Only')
                     //->orWhere("occupancy", 'Commercial')
-                    ->orWhere("occupancy", 'Used for Business') //Religious
+                    ->orWhere("property_use", 'Used for Business') //Religious
                     ->where("zones",'LIKE', '%'.$zone.'%')
                     ->first();
             case 'owner':
                 return PropertyAssessmentValue::where("class_id", $classId)
-                    ->where("occupancy", 'Owner Occupied') //owner
-                    ->orWhere("occupancy", 'Kogi State Govt') //Government
-                    ->orWhere("occupancy", 'Used for Business') //Recreational
-                    ->orWhere("occupancy", 'Vacant/Open Empty Land') //Open Land
-                    ->orWhere("occupancy", 'Used for Business') //Health || Educational
+                    ->where("property_use", 'Owner Occupied') //owner
+                    ->orWhere("property_use", 'Kogi State Govt') //Government
+                    ->orWhere("property_use", 'Used for Business') //Recreational
+                    ->orWhere("property_use", 'Vacant/Open Empty Land') //Open Land
+                    ->orWhere("property_use", 'Used for Business') //Health || Educational
                     ->where("zones",'LIKE', '%'.$zone.'%')
                     ->first();
 
 
         }
         return $pavRecord;
-    }
+    }*/
 
     public function _getClass($className){
         $normalizedClassName = trim(strtolower($className));
@@ -206,6 +247,23 @@ class RemoteController extends Controller
 
         }  else {
             return null;
+        }
+    }
+
+    public function _getChargeRate($occupier){
+        $normalizedClassName = trim($occupier);
+        if ($normalizedClassName == 'Owner_3rd_Party') {
+            return ChargeRate::whereRaw("occupancy LIKE ?", ['%Residential Property (Owner and 3rd Party)%'])->first();
+
+        }elseif ($normalizedClassName == 'Third_party') {
+           return  ChargeRate::whereRaw("occupancy LIKE ?", ['%Residential Property (without Owner in residence)%'])->first();
+
+        } elseif ($normalizedClassName == 'Owner_occupier') {
+            return  ChargeRate::whereRaw("occupancy LIKE ?", ['%Owner-occupied Residential Property%'])->first();
+
+        } elseif ($normalizedClassName == 'Not_Known') {
+            return ChargeRate::whereRaw("occupancy LIKE ?", ['%Owner-occupied Residential Property%'])->first();
+
         }
     }
 }

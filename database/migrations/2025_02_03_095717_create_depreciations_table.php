@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('depreciations', function (Blueprint $table) {
             $table->id();
-            $table->integer('building_age_from')->default(0);
-            $table->integer('building_age_to')->default(0);
+            $table->string('range')->default(0);
+            //$table->integer('building_age_to')->default(0);
             $table->double('depreciation_rate')->default(0);
             $table->timestamps();
         });

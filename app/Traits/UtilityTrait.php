@@ -30,5 +30,29 @@ trait UtilityTrait
         return $randomString;
     }
 
+    public function median(array $data): float {
+        sort($data);
+        $count = count($data);
+        $mid = floor($count / 2);
+
+        if ($count % 2 === 1) {
+            return $data[$mid];
+        } else {
+            return ($data[$mid - 1] + $data[$mid]) / 2;
+        }
+    }
+
+    function convertToSqm($value) {
+        if (str_ends_with($value, "_Acre")) {
+            $number = (int) str_replace("_Acre", "", $value);
+            $sqm = $number * 4046.86;
+            return $sqm . "_sqm";
+        } elseif (str_ends_with($value, "_sqm")) {
+            return $value;
+        } else {
+            return "Invalid format";
+        }
+    }
+
 
 }

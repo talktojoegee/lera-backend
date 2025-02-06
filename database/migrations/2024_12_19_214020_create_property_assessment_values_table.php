@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->double('assessed_amount')->default(0);
             $table->double('value_rate')->default(0);
-            $table->string('occupancy')->nullable();
+            $table->string('property_use')->nullable();
             $table->string('pav_code')->nullable();
             $table->text('zones')->nullable();
             $table->unsignedBigInteger('class_id')->nullable();

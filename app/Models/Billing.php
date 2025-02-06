@@ -92,11 +92,37 @@ class Billing extends Model
     }
 
 
+    public static function getSpecialInterestBillsByStatus($limit = 0,
+                                            $skip = 0,
+                                            $status = 0
+    )
+    {
+        return Billing::where('status', $status)
+            ->where('special', 1)
+            ->skip($skip)
+            ->take($limit)
+            ->orderBy('id', 'DESC')
+            ->get();
+    }
+
+
     public static function getAllReturnedBills($limit = 0,
                                             $skip = 0,
     )
     {
         return Billing::where('returned', 1)
+            ->skip($skip)
+            ->take($limit)
+            ->orderBy('id', 'DESC')
+            ->get();
+    }
+
+    public static function getAllSpecialInterestReturnedBills($limit = 0,
+                                            $skip = 0,
+    )
+    {
+        return Billing::where('returned', 1)
+            ->where('special', 1)
             ->skip($skip)
             ->take($limit)
             ->orderBy('id', 'DESC')
@@ -129,9 +155,25 @@ class Billing extends Model
 
     }
 
+    public static function getSpecialInterestBillsByParamsByStatus($status = 0)
+    {
+        return Billing::where('status', $status)
+            ->where('special', 1)
+            ->get();
+
+    }
+
      public static function getAllReturnedBillsByParams()
         {
             return Billing::where('returned', 1)
+                ->get();
+
+        }
+
+     public static function getAllSpecialInterestReturnedBillsByParams()
+        {
+            return Billing::where('returned', 1)
+                ->where('special', 1)
                 ->get();
 
         }

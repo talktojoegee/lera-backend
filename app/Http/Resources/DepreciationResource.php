@@ -16,9 +16,10 @@ class DepreciationResource extends JsonResource
     {
         return [
           "id"=>$this->id,
-          "ageFrom"=>$this->building_age_from,
-          "ageTo"=>$this->building_age_to,
+          "range"=>$this->range,
+          //"ageTo"=>$this->building_age_to,
           "rate"=>$this->depreciation_rate,
+          "value"=>$this->value,
         ];
     }
 }

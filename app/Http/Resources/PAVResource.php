@@ -17,16 +17,16 @@ class PAVResource extends JsonResource
         //return parent::toArray($request);
         return [
             "id"=>$this->id,
-            "assessedAmount"=>$this->assessed_amount,
-            "valueRate"=>$this->value_rate,
+            //"assessedAmount"=>$this->assessed_amount,
+            //"valueRate"=>$this->value_rate,
             "ba"=>$this->ba,
             "rr"=>$this->rr,
             "br"=>$this->br,
             "lr"=>$this->lr,
-            "occupancy"=>$this->occupancy,
+            "occupancy"=>$this->property_use,
             "pavCode"=>$this->pav_code,
             "zones"=>$this->zones,
-            "className"=>$this->getClass->class_name,
+            "className"=>$this->getClass->class_name ?? '',
         ];
     }
 }

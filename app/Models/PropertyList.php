@@ -32,6 +32,14 @@ class PropertyList extends Model
         'occupant',
         'building_age',
         'pay_status',
+        'cr',
+        'median_age',
+        'actual_age',
+        'longitude',
+        'latitude',
+        'property_name',
+        'occupier',
+        'dep_id'
     ];
 
 

@@ -20,21 +20,32 @@ class DepreciationController extends Controller
 
     public function createDepreciation(Request $request){
         $validator = Validator::make($request->all(),[
-            "ageFrom"=>"required",
-            "ageTo"=>"required",
+            "range"=>"required",
+            //"ageTo"=>"required",
             "depreciationRate"=>"required",
+            "value"=>"required"
         ]);
         if($validator->fails() ){
             return response()->json([
                 "errors"=>$validator->messages()
             ],422);
         }
-        Depreciation::create([
-            'depreciation_rate'=>$request->depreciationRate,
-            'building_age_from'=>$request->ageFrom,
-            'building_age_to'=>$request->ageTo,
+        $value = (100 - $request->depreciationRate);
+        if($value == $request->value){
+            Depreciation::create([
+                'depreciation_rate'=>$request->depreciationRate,
+                'range'=>$request->range,
+                //'building_age_to'=>$request->ageTo,
+                'value'=>(100 - $request->depreciationRate),
             ]);
-        return response()->json(['message' => 'Success! Depreciation added.'], 201);
+            return response()->json(['message' => 'Success! Depreciation added.'], 201);
+        }else{
+            return response()->json([
+                "errors"=>$validator->messages()
+            ],422);
+        }
+
+
     }
 
 

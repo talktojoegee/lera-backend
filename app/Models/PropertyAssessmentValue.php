@@ -9,7 +9,7 @@ class PropertyAssessmentValue extends Model
     protected $fillable = [
       "assessed_amount",
       "value_rate",
-      "occupancy",
+      "property_use",
       "pav_code",
       "zones",
       "class_id",

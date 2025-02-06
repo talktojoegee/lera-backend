@@ -36,7 +36,7 @@ class OutstandingBillResource extends JsonResource
           'assessValue'=>$this->lr ?? '',
           //'assessValue'=>$this->assessed_value ?? '',
           'rate'=>$this->bill_rate ?? '',
-          'occupancy'=>$this->occupancy ?? '',
+          'occupancy'=>$this->property_use ?? '',
           'objection'=>$objectionCount ?? 0,
         ];
     }

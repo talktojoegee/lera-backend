@@ -10,6 +10,7 @@ class Depreciation extends Model
         'building_age_from',
         'building_age_to',
         'depreciation_rate',
+        'value',
     ];
 
 
