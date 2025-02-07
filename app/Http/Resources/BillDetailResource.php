@@ -43,7 +43,7 @@ class BillDetailResource extends JsonResource
             'billAmount'=>$this->bill_amount ?? 0,
             'paidAmount'=>$this->paid_amount ?? 0,
             'url'=>$this->url,
-            'propertyAddress'=>$this->property_address ?? '',
+            //'propertyAddress'=>$this->property_address ?? '',
             'reason'=>$this->return_reason,
             'special'=>$this->special,
             'billedBy'=>$this->getBilledBy->name ?? '',
