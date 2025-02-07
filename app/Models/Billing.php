@@ -92,6 +92,18 @@ class Billing extends Model
     }
 
 
+    public static function getAllPendingBillsByStatus($limit = 0,
+                                            $skip = 0
+    )
+    {
+        return Billing::whereIn('status', [0,1,2])
+            ->skip($skip)
+            ->take($limit)
+            ->orderBy('id', 'DESC')
+            ->get();
+    }
+
+
     public static function getSpecialInterestBillsByStatus($limit = 0,
                                             $skip = 0,
                                             $status = 0
@@ -151,6 +163,13 @@ class Billing extends Model
     {
         return Billing::where('status', $status)
             //->orWhere('returned', $returned)
+            ->get();
+
+    }
+
+    public static function getAllPendingBillsByParamsByStatus()
+    {
+        return Billing::whereIn('status', [0,1,2])
             ->get();
 
     }

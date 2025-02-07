@@ -79,6 +79,7 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('/billing/outstanding-bills/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showOutstandingBills']);
     Route::get('/billing/bills/{limit}/{skip}/{status}', [\App\Http\Controllers\BillingController::class, 'showBills']);
     Route::get('/billing/special-interest-bills/{limit}/{skip}/{status}', [\App\Http\Controllers\BillingController::class, 'showSpecialInterestBills']);
+    Route::get('/billing/all-pending-bills/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showAllPendingBills']);
 
     Route::get('/billing/returned-bills/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showReturnedBills']);
     Route::get('/billing/returned-special-interest-bills/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showSpecialInterestReturnedBills']);
@@ -89,6 +90,7 @@ Route::group(['middleware' => 'api'], function(){
     Route::post('billing/action-bill', [\App\Http\Controllers\BillingController::class, 'actionBill']);
     Route::post('billing/update-bill-changes', [\App\Http\Controllers\BillingController::class, 'updateBillChanges']);
     Route::get('billing/rollback/{year}', [\App\Http\Controllers\BillingController::class, 'rollbackBill']);
+    Route::post('billing/toggle-bill-type', [\App\Http\Controllers\BillingController::class, 'toggleBillType']);
 
 
 

@@ -18,6 +18,21 @@ class OutstandingBillResource extends JsonResource
         //return parent::toArray($request);
         $objection = Objection::where('bill_id', $this->id)->first();
         $objectionCount = !empty($objection) ? $objection->count() : 0;
+        /*$status =  'Pending';
+        switch ($this->status){
+            case 0:
+                $status = 'Pending';
+                break;
+            case 1:
+                $status = 'AV';
+                break;
+            case 2:
+                $status = 'AT';
+                break;
+            case 3:
+                $status = 'AA';
+                break;
+        }*/
         return [
           'approvedDate'=> !empty($objection) ? date('d M, Y', strtotime($objection->date_approved)) : '',
           'billId'=>$this->id ?? '',
@@ -38,6 +53,8 @@ class OutstandingBillResource extends JsonResource
           'rate'=>$this->bill_rate ?? '',
           'occupancy'=>$this->property_use ?? '',
           'objection'=>$objectionCount ?? 0,
+          'special'=>$this->special,
+          'status'=>$this->status,
         ];
     }
 }

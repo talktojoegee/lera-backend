@@ -39,7 +39,8 @@ class PropertyList extends Model
         'latitude',
         'property_name',
         'occupier',
-        'dep_id'
+        'dep_id',
+        'property_address'
     ];
 
 

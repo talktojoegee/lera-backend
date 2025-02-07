@@ -108,6 +108,7 @@ class RemoteController extends Controller
                               'latitude'=>$record['latitude'],
                               'property_name'=>$record['prop_name'],
                               'occupier'=>$record['occupier_s'],
+                              'property_address'=>$record['prop_addre'],
                               'dep_id'=> !empty($dep) ? $dep->id : Depreciation::orderBy('id', 'ASC')->first()->id, //depreciation
                           ]);
                           $addedCount++;

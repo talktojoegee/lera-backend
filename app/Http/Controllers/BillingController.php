@@ -130,7 +130,7 @@ class BillingController extends Controller
                 $rr = $pavOptional->rr * 0.01;
 
 
-                $cr = ($chargeRate->rate * 0.01) * ($la * $lr);// ($pavOptional->value_rate * 0.01) * ($la * $lr);
+                $cr = ($chargeRate->rate * 0.01);// ($pavOptional->value_rate * 0.01) * ($la * $lr);
 
                 $luc = (($la * $lr) + ($ba * $br * $dr)) * ($rr * $cr);
                 $billAmount = $luc; // ($pavOptional->value_rate / 100) * $pavOptional->assessed_amount;
@@ -232,6 +232,14 @@ class BillingController extends Controller
         return response()->json([
             'data'=>OutstandingBillResource::collection(Billing::getBillsByStatus($limit, $skip, $status)),
             'total'=>Billing::getBillsByParamsByStatus($status)->count(),
+        ],200);
+    }
+    public function showAllPendingBills(Request $request){
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
+        return response()->json([
+            'data'=>OutstandingBillResource::collection(Billing::getAllPendingBillsByStatus($limit, $skip)),
+            'total'=>Billing::getAllPendingBillsByParamsByStatus()->count(),
         ],200);
     }
     public function showSpecialInterestBills(Request $request){
@@ -657,6 +665,41 @@ class BillingController extends Controller
         }
         return response()->json(['message' => 'Success! Action successful.'], 200);
 
+    }
+
+    public function toggleBillType(Request $request){
+
+        $validator = Validator::make($request->all(),
+            [
+                "requestId"=>"required",
+                "actionedBy"=>"required",
+                "action"=>"required",
+            ],
+            [
+                "requestId.required"=>"Whoops! Something is missing",
+                "actionedBy.required"=>"Who action this objection?",
+                "action.required"=>"Missing status update",
+            ]
+        );
+        if($validator->fails() ){
+            return response()->json([
+                "errors"=>$validator->messages()
+            ],422);
+        }
+        $record = Billing::find( $request->requestId);
+        if (!$record) {
+            return response()->json([
+                'message' => 'Whoops! No record found.'
+            ], 404);
+        }
+
+        $record->status = 0; //$request->action;
+        $record->special = $request->action;
+        //$record->date_actioned = now();
+        $record->save();
+
+
+        return response()->json(['message' => 'Success! Action successful.'], 201);
     }
 
 
