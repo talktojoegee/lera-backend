@@ -24,7 +24,7 @@ class BillDetailResource extends JsonResource
             'kgTin'=>$this->getPropertyList->owner_kgtin,
             'entryDate'=>date('d M, Y', strtotime($this->entry_date)),
             'assessmentNo'=>$this->assessment_no ?? '',
-            'propertyAddress'=>$this->getPropertyList->address ?? '',
+            'propertyAddress'=>$this->getPropertyList->property_address ?? '',
             'ownerEmail'=>$this->getPropertyList->owner_email ?? '',
             'zone'=>$this->getPropertyList->sub_zone ?? '',
             'phoneNo'=>$this->getPropertyList->owner_gsm ?? '',
