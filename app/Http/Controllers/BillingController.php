@@ -138,7 +138,7 @@ class BillingController extends Controller
                 $billing = new Billing();
                 $billing->building_code = $list->building_code ?? null;
                 $billing->assessment_no = $uniqueNumber;
-                $billing->assessed_value = $pavOptional->assessed_amount ?? 0;
+                $billing->assessed_value = (($la * $lr) + ($ba * $br * $dr)) * ($rr);// $pavOptional->assessed_amount ?? 0;
                 $billing->bill_amount = number_format($billAmount,2, '.', '') ?? 0;
                 $billing->year = $year;
                 $billing->entry_date = now();
@@ -166,6 +166,7 @@ class BillingController extends Controller
                 //occupancy
                 $billing->class_id = $list->class_id;
                 $billing->property_use = $list->occupant;
+                $billing->occupancy = $list->cr;
                 $billing->save();
             }
 
@@ -697,6 +698,57 @@ class BillingController extends Controller
         $record->special = $request->action;
         //$record->date_actioned = now();
         $record->save();
+
+
+        return response()->json(['message' => 'Success! Action successful.'], 201);
+    }
+
+
+    public function handleBillBulkAction(Request $request){
+
+        $validator = Validator::make($request->all(),
+            [
+                "ids"=>"required|array",
+                "ids.*"=>"required",
+                "action"=>"required",
+            ], //67A5ED6D04145 | 67A5ED6D03C54
+            [
+                "ids.required"=>"Missing info",
+                "ids.array"=>"Mismatch data",
+                "action.required"=>"Missing status update",
+            ]
+        );
+        if($validator->fails() ){
+            return response()->json([
+                "errors"=>$validator->messages()
+            ],422);
+        }
+        $records = Billing::whereIn('id', $request->ids)->get();
+        if (count($records) <= 0) {
+            return response()->json([
+                'message' => 'Whoops! No record found.'
+            ], 404);
+        }
+        switch ($request->action){
+            case 'verify':
+                foreach($records as $record){
+                    $record->status = 1;
+                    $record->save();
+                }
+            break;
+            case 'authorize':
+                foreach($records as $record){
+                    $record->status = 2;
+                    $record->save();
+                }
+                break;
+            case 'approve':
+                foreach($records as $record){
+                    $record->status = 3;
+                    $record->save();
+                }
+                break;
+        }
 
 
         return response()->json(['message' => 'Success! Action successful.'], 201);

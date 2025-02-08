@@ -21,6 +21,10 @@ class Billing extends Model
         return $this->belongsTo(PropertyClassification::class, "class_id");
     }
 
+    public function getChargeRate(){
+        return $this->belongsTo(ChargeRate::class, "occupancy");
+    }
+
     public function getObjection(){
         return $this->belongsTo(Objection::class, "bill_id");
     }

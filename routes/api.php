@@ -91,6 +91,7 @@ Route::group(['middleware' => 'api'], function(){
     Route::post('billing/update-bill-changes', [\App\Http\Controllers\BillingController::class, 'updateBillChanges']);
     Route::get('billing/rollback/{year}', [\App\Http\Controllers\BillingController::class, 'rollbackBill']);
     Route::post('billing/toggle-bill-type', [\App\Http\Controllers\BillingController::class, 'toggleBillType']);
+    Route::post('billing/bills/bulk-action', [\App\Http\Controllers\BillingController::class, 'handleBillBulkAction']);
 
 
 

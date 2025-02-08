@@ -28,7 +28,7 @@ class BillDetailResource extends JsonResource
             'ownerEmail'=>$this->getPropertyList->owner_email ?? '',
             'zone'=>$this->getPropertyList->sub_zone ?? '',
             'phoneNo'=>$this->getPropertyList->owner_gsm ?? '',
-            'assessValue'=>$this->lr ?? 0,
+            'assessValue'=>$this->assessed_value ?? 0,
             //'assessValue'=>$this->assessed_value ?? 0,
             'chargeRate'=>$this->cr ?? 0,
             //'chargeRate'=>$this->bill_rate ?? 0,
