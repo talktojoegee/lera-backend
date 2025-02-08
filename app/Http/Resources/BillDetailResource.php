@@ -47,7 +47,14 @@ class BillDetailResource extends JsonResource
             'reason'=>$this->return_reason,
             'special'=>$this->special,
             'billedBy'=>$this->getBilledBy->name ?? '',
-            'balance'=>number_format($this->bill_amount  - $this->paid_amount,2)
+            'balance'=>number_format($this->bill_amount  - $this->paid_amount,2),
+            'la'=>$this->la,
+            'ba'=>$this->ba,
+            'rr'=>$this->rr,
+            'dr'=>$this->dr,
+            'lr'=>$this->lr,
+            'br'=>$this->br,
+            'cr'=>$this->cr,
         ];
     }
 }
