@@ -308,15 +308,18 @@ class BillingController extends Controller
             [
                 "billId"=>"required",
                 "actionedBy"=>"required",
-                //"action"=>"required",
                 "lucAmount"=>"required",
                 "chargeRate"=>"required",
-                "assessedValue"=>"required",
+                "la"=>"required",
+                "ba"=>"required",
+                "rr"=>"required",
+                "dr"=>"required",
+                "br"=>"required",
+                "lr"=>"required",
             ],
             [
                 "billId.required"=>"Whoops! Something is missing",
                 "actionedBy.required"=>"Who action this objection?",
-                //"action.required"=>"Missing status update",
                 "lucAmount.required"=>"Enter amount",
                 "chargeRate.required"=>"Enter rate",
                 "assessedValue.required"=>"Enter assess value",
@@ -333,11 +336,19 @@ class BillingController extends Controller
                 'message' => 'Whoops! No record found.'
             ], 404);
         }
+        $code = $record->pav_code;
         $record->assessed_value = $request->assessedValue;
         $record->bill_amount = $request->lucAmount;
         $record->bill_rate = $request->chargeRate;
         $record->returned = 2; //processed
         $record->status = 0; //take it back to pending for it to re-enter the workflow process
+        $record->la = $request->la ?? 0;
+        $record->ba = $request->ba ?? 0;
+        $record->rr = $request->rr ?? 0;
+        $record->dr = $request->dr ?? 0;
+        $record->br = $request->br ?? 0;
+        $record->lr = $request->lr ?? 0;
+        $record->pav_code = str_replace("B", "CS", $code);
         $record->save();
 
         //$this->sendEmailHandler($record, $bill, $request->action);

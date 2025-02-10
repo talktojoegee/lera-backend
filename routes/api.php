@@ -112,6 +112,17 @@ Route::group(['middleware' => 'api'], function(){
     Route::post('objection/action-objection', [\App\Http\Controllers\ObjectionController::class, 'actionObjection']);
 
 
+
+
+    #Export operations
+    Route::get('/export-bills', [\App\Http\Controllers\ExportController::class, 'exportExcel']);
+
+
+    #Users
+    Route::get('/users/all/{type}/{limit}/{skip}', [\App\Http\Controllers\UserController::class, 'showAllUsers']);
+    Route::post('add-new-user', [\App\Http\Controllers\UserController::class, 'storeUser']);
+
+
 });
 Route::middleware([\App\Http\Middleware\JsonApiMiddleware::class])->group( function(){
 

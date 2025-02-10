@@ -168,6 +168,9 @@ class ObjectionController extends Controller
                 $billing->assessed_value = $record->assess_value ?? 0;
                 $billing->bill_amount = $billAmount ?? 0;
                 $billing->bill_rate = $record->rate ?? 0;
+                $code = $bill->pav_code;
+
+                $billing->pav_code = str_replace("B", "CS", $code);
 
                 $billing->year = $bill->year;
                 $billing->entry_date = $bill->entry_date;
@@ -178,7 +181,7 @@ class ObjectionController extends Controller
                 $billing->lga_id = $bill->lga_id; //$request->lgaId;
                 $billing->property_id = $bill->property_id;
 
-                $billing->pav_code = $bill->pav_code;
+                //$billing->pav_code = $bill->pav_code;
                 $billing->zone_name = $bill->sub_zone ?? '';
                 $billing->url = substr(sha1(time()), 29, 40);
                 $billing->save();

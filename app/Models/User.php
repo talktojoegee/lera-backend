@@ -24,6 +24,10 @@ class User extends Authenticatable implements JWTSubject
         'email',
         'username',
         'password',
+        'type',
+        'id_no',
+        'mobile_no',
+        'sector',
     ];
 
     /**
@@ -64,5 +68,16 @@ class User extends Authenticatable implements JWTSubject
     public function getAuthIdentifierName()
     {
         return 'username';
+    }
+
+
+
+
+    public static function fetchAllAdminUsers($type, $limit, $skip){
+        return User::where('type', $type)
+            ->skip($skip)
+            ->take($limit)
+            ->orderBy('id', 'DESC')
+            ->get();
     }
 }
