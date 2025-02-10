@@ -294,4 +294,11 @@ class Billing extends Model
         return Billing::where('lga_id', $lgaId)->where('year', $year)->first();
     }
 
+    public function balanceBroughtForward($year){
+        return Billing::whereYear('year', '<', $year)
+            ->where('paid', 0)
+            ->sum('bill_amount');
+            //->get();
+    }
+
 }

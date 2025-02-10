@@ -148,10 +148,10 @@ class BillingController extends Controller
                 $billing->lr = $pavOptional->lr ?? 0;
                 $billing->ba = $pavOptional->ba ?? 0;
                 $billing->br = $pavOptional->br ?? 0;
-                $billing->dr = $dr ?? 0;
+                $billing->dr = $depreciation->depreciation_rate ?? 0;
 
                 $billing->cr = $chargeRate->rate;
-                $billing->dr_value = $depreciation->value;
+                $billing->dr_value = $depreciation->depreciation_rate ?? 0; //rate actually
 
 
                 $billing->paid_amount = 0.00;
@@ -167,6 +167,7 @@ class BillingController extends Controller
                 $billing->class_id = $list->class_id;
                 $billing->property_use = $list->occupant;
                 $billing->occupancy = $list->cr;
+                $billing->la = $la;
                 $billing->save();
             }
 
@@ -722,7 +723,7 @@ class BillingController extends Controller
                 "ids"=>"required|array",
                 "ids.*"=>"required",
                 "action"=>"required",
-            ], //67A5ED6D04145 | 67A5ED6D03C54
+            ],
             [
                 "ids.required"=>"Missing info",
                 "ids.array"=>"Mismatch data",

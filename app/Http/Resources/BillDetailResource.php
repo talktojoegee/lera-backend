@@ -14,6 +14,7 @@ class BillDetailResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $bbf = $this->balanceBroughtForward($this->year);
         return [
             'billId'=>$this->id,
             'paid'=>$this->paid,
@@ -55,6 +56,7 @@ class BillDetailResource extends JsonResource
             'lr'=>$this->lr,
             'br'=>$this->br,
             'cr'=>$this->cr,
+            'bbf'=>$bbf
         ];
     }
 }
