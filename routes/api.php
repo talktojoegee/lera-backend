@@ -122,6 +122,16 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('/users/all/{type}/{limit}/{skip}', [\App\Http\Controllers\UserController::class, 'showAllUsers']);
     Route::post('add-new-user', [\App\Http\Controllers\UserController::class, 'storeUser']);
 
+    #Roles
+    Route::post('/access/permissions/new', [\App\Http\Controllers\RolePermissionController::class, 'createPermission']);
+    Route::get('/access/permissions/all', [\App\Http\Controllers\RolePermissionController::class, 'showAllPermissions']);
+
+    #Permission
+    Route::post('/access/roles/new', [\App\Http\Controllers\RolePermissionController::class, 'createRole']);
+    Route::get('/access/roles/all', [\App\Http\Controllers\RolePermissionController::class, 'showAllRoles']);
+
+    //Route::get('/access/all', [\App\Http\Controllers\LGAController::class, 'showAllLGAs']);
+
 
 });
 Route::middleware([\App\Http\Middleware\JsonApiMiddleware::class])->group( function(){

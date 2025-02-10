@@ -127,6 +127,7 @@ class Billing extends Model
     )
     {
         return Billing::where('returned', 1)
+            ->where('special', 0)
             ->skip($skip)
             ->take($limit)
             ->orderBy('id', 'DESC')
@@ -189,6 +190,7 @@ class Billing extends Model
      public static function getAllReturnedBillsByParams()
         {
             return Billing::where('returned', 1)
+                ->where('special', 0)
                 ->get();
 
         }
