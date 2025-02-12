@@ -94,7 +94,7 @@ class BillingController extends Controller
 
         foreach ($propertyLists as $list) {
             //echo "LGA ID:: ".$list->lga_id;
-            $existingBill = Billing::getBillByYearLgaId($year, $list->lga_id);
+            $existingBill = Billing::getBillByYearBuildingCode($year, $list->building_code);
             if(empty($existingBill)){ //If there is no existing bill
             // echo "Existing Bill ID:: ".$existingBill->id;
 

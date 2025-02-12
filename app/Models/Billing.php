@@ -294,6 +294,10 @@ class Billing extends Model
         return Billing::where('lga_id', $lgaId)->where('year', $year)->first();
     }
 
+    public static function getBillByYearBuildingCode($year, $code){
+        return Billing::where('building_code', $code)->where('year', $year)->first();
+    }
+
     public function balanceBroughtForward($year){
         return Billing::whereYear('year', '<', $year)
             ->where('paid', 0)
