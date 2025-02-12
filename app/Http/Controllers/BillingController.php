@@ -85,21 +85,20 @@ class BillingController extends Controller
             return ApiResponse::error("Whoops! There is nothing to process", 400);
         }
         // Check if a bill for the specified year and LGA already exists
-        /*$existingBills = Billing::where('lga_id', $request->lgaId)->where('year', $request->year)->get();
+        /* $existingBills = Billing::/*where('lga_id', $request->lgaId)->where('year', $request->year)->get();
 
         if (count($existingBills) > 0) {
             return ApiResponse::error("Whoops! Bill for the specified year and LGA has already been processed.",400);
-        }*/
+        } */
 
 
         foreach ($propertyLists as $list) {
             //echo "LGA ID:: ".$list->lga_id;
             $existingBill = Billing::getBillByYearLgaId($year, $list->lga_id);
-            //if(empty($existingBill)){ //If there is no existing bill
+            if(empty($existingBill)){ //If there is no existing bill
             // echo "Existing Bill ID:: ".$existingBill->id;
 
             $pavOptional = PropertyAssessmentValue::where("pav_code", $list->pav_code)->first();
-
             /*
              * Tie Government = State government, religious = commercial, recreational = commercial
              * Religious =
@@ -172,7 +171,7 @@ class BillingController extends Controller
             }
 
 
-            //}
+            }
 
         }
         //return response()->json(['data'=>$counter],200);
