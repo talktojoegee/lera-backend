@@ -140,7 +140,10 @@ class BillingController extends Controller
                 $billing->assessed_value = (($la * $lr) + ($ba * $br * $dr)) * ($rr);// $pavOptional->assessed_amount ?? 0;
                 $billing->bill_amount = number_format($billAmount,2, '.', '') ?? 0;
                 $billing->year = $year;
-                $billing->entry_date = now();
+
+                $dateTime = new \DateTime('now');
+                $dateTime->setDate($year, $dateTime->format('m'), $dateTime->format('d'));
+                $billing->entry_date = $dateTime->format('Y-m-d H:i:s'); //now();
                 $billing->billed_by = 1;
 
                 $billing->rr = $pavOptional->rr ?? 0;
