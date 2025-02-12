@@ -367,7 +367,7 @@ class BillingController extends Controller
     private function getMonthlyBillPaymentByYear($year){
         $billsData = DB::table('billings')
             ->selectRaw('MONTH(created_at) AS month, SUM(paid_amount) AS totalBillAmount')
-            ->whereYear('created_at', '=', $year)
+            ->whereYear('entry_date', '=', $year)
             ->groupBy('month')
             ->orderBy('month')
             ->get();

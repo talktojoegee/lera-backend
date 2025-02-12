@@ -18,10 +18,10 @@ class DashboardStatisticsResource extends JsonResource
     {
         //return parent::toArray($request);
         $propertyCount = PropertyList::whereYear('created_at', $request->year)->count();
-        $billCount = Billing::whereYear('created_at', $request->year)->count();
-        $objectionCount = Billing::whereYear('created_at', $request->year)->where("objection", 1)->count();
-        $billAmount = Billing::whereYear('created_at', $request->year)->sum("bill_amount");
-        $paidAmount = Billing::whereYear('created_at', $request->year)->sum("paid_amount");
+        $billCount = Billing::whereYear('entry_date', $request->year)->count();
+        $objectionCount = Billing::whereYear('entry_date', $request->year)->where("objection", 1)->count();
+        $billAmount = Billing::whereYear('entry_date', $request->year)->sum("bill_amount");
+        $paidAmount = Billing::whereYear('entry_date', $request->year)->sum("paid_amount");
 
         return [
             'noOfProperties'=>$propertyCount,
