@@ -73,6 +73,7 @@ class RemoteController extends Controller
                       //$pavRecord = $this->_getPavCode($propertyClassification->id, $record["Occupant"], $record["Zone"]);
                       //if(!empty($pavRecord)){
                       $areaVal = $this->convertToSqm($record["property_area"]);
+
                           PropertyList::create([
                               'address'=>$record["street_nam"],
                               'area'=>str_replace("_sqm", "", $areaVal),

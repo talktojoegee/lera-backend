@@ -126,6 +126,11 @@ Route::group(['middleware' => 'api'], function(){
     Route::post('/access/permissions/new', [\App\Http\Controllers\RolePermissionController::class, 'createPermission']);
     Route::get('/access/permissions/all', [\App\Http\Controllers\RolePermissionController::class, 'showAllPermissions']);
 
+    #Role-permission assignment
+    Route::post('/access/roles-permission/new', [\App\Http\Controllers\RolePermissionController::class, 'assignPermissionToRole']);
+    Route::get('/access/roles-permission/all', [\App\Http\Controllers\RolePermissionController::class, 'showAllRolePermissions']);
+
+
     #Permission
     Route::post('/access/roles/new', [\App\Http\Controllers\RolePermissionController::class, 'createRole']);
     Route::get('/access/roles/all', [\App\Http\Controllers\RolePermissionController::class, 'showAllRoles']);

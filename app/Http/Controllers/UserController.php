@@ -37,6 +37,7 @@ class UserController extends Controller
                 "mobileNo"=>"required",
                 "idNo"=>"required",
                 "sector"=>"required",
+                "role"=>"required",
             ],
             [
                 "username.required"=>"Username is required",
@@ -45,6 +46,7 @@ class UserController extends Controller
                 "mobileNo.required"=>"Mobile number is required",
                 "idNo.required"=>"ID number is required",
                 "sector.required"=>"Sector is required",
+                "role.required"=>"Role is required",
             ]
         );
         if($validator->fails() ){
@@ -62,6 +64,7 @@ class UserController extends Controller
             'id_no'=>$request->idNo,
             'mobile_no'=>$request->mobileNo,
             'sector'=>$request->sector,
+            'role'=>$request->role,
         ]);
 
         return response()->json(['message' => 'Success! Action successful.'], 201);
