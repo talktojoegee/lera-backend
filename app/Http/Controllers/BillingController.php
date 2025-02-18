@@ -218,12 +218,22 @@ class BillingController extends Controller
     public function showOutstandingBills(Request $request){
         $limit = $request->limit ?? 0;
         $skip = $request->skip ?? 0;
+        $userId = $request->user ?? 0;
+        $user = User::find($userId);
+
+        if(empty($user)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong.'
+            ], 404);
+        }
+        $propertyUse = explode(',', $user->sector);
+
         return response()->json([
-            'data'=>OutstandingBillResource::collection(Billing::getBills($limit, $skip, 0, 0, 3)),
-            'total'=>Billing::getBillsByParams(0,0,3)->count(),
-            'grossBills'=>Billing::getBillsByParams(0,0,3)->sum('bill_amount'),
-            'grossAmountPaid'=>Billing::getBillsByParams(0,0,3)->sum('paid_amount'),
-            'balanceAmount'=>(Billing::getBillsByParams(0,0,3)->sum('bill_amount') - Billing::getBillsByParams(0,0,3)->sum('paid_amount')),
+            'data'=>OutstandingBillResource::collection(Billing::getBills($limit, $skip, 0, 0, 3, $propertyUse)),
+            'total'=>Billing::getBillsByParams(0,0,3, $propertyUse)->count(),
+            'grossBills'=>Billing::getBillsByParams(0,0,3, $propertyUse)->sum('bill_amount'),
+            'grossAmountPaid'=>Billing::getBillsByParams(0,0,3, $propertyUse)->sum('paid_amount'),
+            'balanceAmount'=>(Billing::getBillsByParams(0,0,3, $propertyUse)->sum('bill_amount') - Billing::getBillsByParams(0,0,3, $propertyUse)->sum('paid_amount')),
         ],200);
     }
 
@@ -248,27 +258,37 @@ class BillingController extends Controller
     public function showAllPendingBills(Request $request){
         $limit = $request->limit ?? 0;
         $skip = $request->skip ?? 0;
-        $userId = $request->user;
+        $userId = $request->user ?? 0;
         $user = User::find($userId);
+
         if(empty($user)){
             return response()->json([
                 'message' => 'Whoops! Something went wrong.'
             ], 404);
         }
-        $userSectorIds = explode(',', $user->sector);
+        $propertyUse = explode(',', $user->sector);
 
         return response()->json([
-            'data'=>OutstandingBillResource::collection(Billing::getAllPendingBillsByStatus($limit, $skip, $userSectorIds)),
-            'total'=>Billing::getAllPendingBillsByParamsByStatus($userSectorIds)->count(),
+            'data'=>OutstandingBillResource::collection(Billing::getAllPendingBillsByStatus($limit, $skip, $propertyUse)),
+            'total'=>Billing::getAllPendingBillsByParamsByStatus($propertyUse)->count(),
         ],200);
     }
     public function showSpecialInterestBills(Request $request){
         $limit = $request->limit ?? 0;
         $skip = $request->skip ?? 0;
         $status = $request->status ?? 0;
+        $userId = $request->user ?? 0;
+        $user = User::find($userId);
+
+        if(empty($user)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong.'
+            ], 404);
+        }
+        $propertyUse = explode(',', $user->sector);
         return response()->json([
-            'data'=>OutstandingBillResource::collection(Billing::getSpecialInterestBillsByStatus($limit, $skip, $status)),
-            'total'=>Billing::getSpecialInterestBillsByParamsByStatus($status)->count(),
+            'data'=>OutstandingBillResource::collection(Billing::getSpecialInterestBillsByStatus($limit, $skip, $status, $propertyUse)),
+            'total'=>Billing::getSpecialInterestBillsByParamsByStatus($status, $propertyUse)->count(),
         ],200);
     }
 
@@ -276,18 +296,36 @@ class BillingController extends Controller
     public function showReturnedBills(Request $request){
         $limit = $request->limit ?? 0;
         $skip = $request->skip ?? 0;
+        $userId = $request->user ?? 0;
+        $user = User::find($userId);
+
+        if(empty($user)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong.'
+            ], 404);
+        }
+        $propertyUse = explode(',', $user->sector);
         return response()->json([
-            'data'=>OutstandingBillResource::collection(Billing::getAllReturnedBills($limit, $skip)),
-            'total'=>Billing::getAllReturnedBillsByParams()->count(),
+            'data'=>OutstandingBillResource::collection(Billing::getAllReturnedBills($limit, $skip, $propertyUse)),
+            'total'=>Billing::getAllReturnedBillsByParams($propertyUse)->count(),
         ],200);
     }
 
     public function showSpecialInterestReturnedBills(Request $request){
         $limit = $request->limit ?? 0;
         $skip = $request->skip ?? 0;
+        $userId = $request->user ?? 0;
+        $user = User::find($userId);
+
+        if(empty($user)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong.'
+            ], 404);
+        }
+        $propertyUse = explode(',', $user->sector);
         return response()->json([
-            'data'=>OutstandingBillResource::collection(Billing::getAllSpecialInterestReturnedBills($limit, $skip)),
-            'total'=>Billing::getAllSpecialInterestReturnedBillsByParams()->count(),
+            'data'=>OutstandingBillResource::collection(Billing::getAllSpecialInterestReturnedBills($limit, $skip,$propertyUse)),
+            'total'=>Billing::getAllSpecialInterestReturnedBillsByParams($propertyUse)->count(),
         ],200);
     }
 
@@ -295,12 +333,42 @@ class BillingController extends Controller
     public function showPaidBills(Request $request){
         $limit = $request->limit ?? 0;
         $skip = $request->skip ?? 0;
+        $userId = $request->user ?? 0;
+        $user = User::find($userId);
+
+        if(empty($user)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong.'
+            ], 404);
+        }
+        $propertyUse = explode(',', $user->sector);
         return response()->json([
-            'data'=>PaidBillResource::collection(Billing::getAllPaidBills($limit, $skip, 1, 0, 3)),
-            'total'=>Billing::getAllBillsByParams(1,0,3)->count(),
-            'grossBills'=>Billing::getAllBillsByParams(1,0,3)->sum('bill_amount'),
-            'grossAmountPaid'=>Billing::getAllBillsByParams(1,0,3)->sum('paid_amount'),
-            'balanceAmount'=>(Billing::getAllBillsByParams(1,0,3)->sum('bill_amount') - Billing::getAllBillsByParams(1,0,3)->sum('paid_amount')),
+            'data'=>PaidBillResource::collection(Billing::getAllPaidBills($limit, $skip, 1, 0, 3, $propertyUse)),
+            'total'=>Billing::getAllBillsByParams(1,0,3, $propertyUse)->count(),
+            'grossBills'=>Billing::getAllBillsByParams(1,0,3, $propertyUse)->sum('bill_amount'),
+            'grossAmountPaid'=>Billing::getAllBillsByParams(1,0,3, $propertyUse)->sum('paid_amount'),
+            'balanceAmount'=>(Billing::getAllBillsByParams(1,0,3, $propertyUse)->sum('bill_amount') - Billing::getAllBillsByParams(1,0,3, $propertyUse)->sum('paid_amount')),
+        ]);
+    }
+
+    public function showPaidSpecialInterestBills(Request $request){
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
+        $userId = $request->user ?? 0;
+        $user = User::find($userId);
+
+        if(empty($user)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong.'
+            ], 404);
+        }
+        $propertyUse = explode(',', $user->sector);
+        return response()->json([
+            'data'=>PaidBillResource::collection(Billing::getAllPaidSpecialInterestBills($limit, $skip, 1, 0, 3, $propertyUse)),
+            'total'=>Billing::getAllSpecialInterestBillsByParams(1,0,3, $propertyUse)->count(),
+            'grossBills'=>Billing::getAllSpecialInterestBillsByParams(1,0,3, $propertyUse)->sum('bill_amount'),
+            'grossAmountPaid'=>Billing::getAllSpecialInterestBillsByParams(1,0,3, $propertyUse)->sum('paid_amount'),
+            'balanceAmount'=>(Billing::getAllSpecialInterestBillsByParams(1,0,3, $propertyUse)->sum('bill_amount') - Billing::getAllSpecialInterestBillsByParams(1,0,3, $propertyUse)->sum('paid_amount')),
         ]);
     }
 

@@ -54,12 +54,13 @@ class Billing extends Model
                                     $paid = 0,
                                     $objection = 0,
                                     $status = 0,
-                                    //$returned = 0,
+                                    $propertyUse,
     )
     {
         return Billing::where('paid', $paid)
             ->where('objection', $objection)
             ->where('status', $status)
+            ->whereIn('property_use', $propertyUse)
             //->orWhere('returned', $returned)
             ->skip($skip)
             ->take($limit)
@@ -72,11 +73,31 @@ class Billing extends Model
                                     $paid = 0,
                                     $objection = 0,
                                     $status = 0,
+    $propertyUse
     )
     {
         return Billing::where('paid', $paid)
             ->where('objection', $objection)
             ->where('status', $status)
+            ->whereIn('property_use', $propertyUse)
+            ->skip($skip)
+            ->take($limit)
+            ->orderBy('id', 'DESC')
+            ->get();
+    }
+    public static function getAllPaidSpecialInterestBills($limit = 0,
+                                    $skip = 0,
+                                    $paid = 0,
+                                    $objection = 0,
+                                    $status = 0,
+    $propertyUse
+    )
+    {
+        return Billing::where('paid', $paid)
+            ->where('objection', $objection)
+            ->where('status', $status)
+            ->where('special', 1)
+            ->whereIn('property_use', $propertyUse)
             ->skip($skip)
             ->take($limit)
             ->orderBy('id', 'DESC')
@@ -91,6 +112,7 @@ class Billing extends Model
     {
         return Billing::where('status', $status)
             ->whereIn('property_use', $propertyUse)
+            ->where('special', 0)
             ->skip($skip)
             ->take($limit)
             ->orderBy('id', 'DESC')
@@ -114,11 +136,13 @@ class Billing extends Model
 
     public static function getSpecialInterestBillsByStatus($limit = 0,
                                             $skip = 0,
-                                            $status = 0
+                                            $status = 0,
+    $propertyUse
     )
     {
         return Billing::where('status', $status)
             ->where('special', 1)
+            ->whereIn('property_use', $propertyUse)
             ->skip($skip)
             ->take($limit)
             ->orderBy('id', 'DESC')
@@ -128,10 +152,12 @@ class Billing extends Model
 
     public static function getAllReturnedBills($limit = 0,
                                             $skip = 0,
+    $propertyUse
     )
     {
         return Billing::where('returned', 1)
             ->where('special', 0)
+            ->whereIn('property_use', $propertyUse)
             ->skip($skip)
             ->take($limit)
             ->orderBy('id', 'DESC')
@@ -140,30 +166,44 @@ class Billing extends Model
 
     public static function getAllSpecialInterestReturnedBills($limit = 0,
                                             $skip = 0,
+    $propertyUse
     )
     {
         return Billing::where('returned', 1)
             ->where('special', 1)
+            ->whereIn('property_use', $propertyUse)
             ->skip($skip)
             ->take($limit)
             ->orderBy('id', 'DESC')
             ->get();
     }
 
-    public static function getAllBillsByParams($paid = 0, $objection = 0, $status=0)
+    public static function getAllBillsByParams($paid = 0, $objection = 0, $status=0, $propertyUse)
     {
         return Billing::where('paid', $paid)
             ->where('objection', $objection)
             ->where('status', $status)
+            ->whereIn('property_use', $propertyUse)
+            ->get();
+
+    }
+    public static function getAllSpecialInterestBillsByParams($paid = 0, $objection = 0, $status=0, $propertyUse)
+    {
+        return Billing::where('paid', $paid)
+            ->where('objection', $objection)
+            ->where('special', 1)
+            ->where('status', $status)
+            ->whereIn('property_use', $propertyUse)
             ->get();
 
     }
 
-    public static function getBillsByParams($paid = 0, $objection = 0, $status=0)
+    public static function getBillsByParams($paid = 0, $objection = 0, $status=0, $propertyUse)
     {
         return Billing::where('paid', $paid)
             ->where('objection', $objection)
             ->where('status', $status)
+            ->whereIn('property_use', $propertyUse)
             //->orWhere('returned', $returned)
             ->get();
 
@@ -176,34 +216,37 @@ class Billing extends Model
 
     }
 
-    public static function getAllPendingBillsByParamsByStatus($sectorIds)
+    public static function getAllPendingBillsByParamsByStatus($propertyUse)
     {
         return Billing::whereIn('status', [0,1,2])
-            ->where('class_id', $sectorIds)
+            ->whereIn('property_use', $propertyUse)
             ->get();
 
     }
 
-    public static function getSpecialInterestBillsByParamsByStatus($status = 0)
+    public static function getSpecialInterestBillsByParamsByStatus($status = 0, $propertyUse)
     {
         return Billing::where('status', $status)
             ->where('special', 1)
+            ->where('property_use', $propertyUse)
             ->get();
 
     }
 
-     public static function getAllReturnedBillsByParams()
+     public static function getAllReturnedBillsByParams($propertyUse)
         {
             return Billing::where('returned', 1)
                 ->where('special', 0)
+                ->whereIn('property_use', $propertyUse)
                 ->get();
 
         }
 
-     public static function getAllSpecialInterestReturnedBillsByParams()
+     public static function getAllSpecialInterestReturnedBillsByParams($propertyUse)
         {
             return Billing::where('returned', 1)
                 ->where('special', 1)
+                ->whereIn('property_use', $propertyUse)
                 ->get();
 
         }

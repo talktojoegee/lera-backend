@@ -43,4 +43,11 @@ class PropertyException extends Model
         'sync_word',
         'property_use',
     ];
+
+    public function getLGA(){
+        return $this->belongsTo(Lga::class, "lga_id");
+    }
+    public function getPropertyClassification(){
+        return $this->belongsTo(PropertyClassification::class, "class_id");
+    }
 }

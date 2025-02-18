@@ -77,18 +77,20 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('/billing/property-distribution/{year}', [\App\Http\Controllers\BillingController::class, 'showPropertyDistributionByZones']);
     Route::get('/property/distribution', [\App\Http\Controllers\BillingController::class, 'showPropertyDistributionByLGA']);
     Route::get('/dashboard/statistics/{year}', [\App\Http\Controllers\BillingController::class, 'showDashboardStatistics']);
-    Route::get('/billing/outstanding-bills/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showOutstandingBills']);
+    Route::get('/billing/outstanding-bills/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showOutstandingBills']);
 
     Route::get('/billing/bills/{user}/{limit}/{skip}/{status}', [\App\Http\Controllers\BillingController::class, 'showBills']);
 
-    Route::get('/billing/special-interest-bills/{limit}/{skip}/{status}', [\App\Http\Controllers\BillingController::class, 'showSpecialInterestBills']);
+    Route::get('/billing/special-interest-bills/{user}/{limit}/{skip}/{status}', [\App\Http\Controllers\BillingController::class, 'showSpecialInterestBills']);
+    Route::get('/billing/paid-special-interest/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showPaidSpecialInterestBills']);
     Route::get('/billing/all-pending-bills/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showAllPendingBills']);
 
-    Route::get('/billing/returned-bills/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showReturnedBills']);
-    Route::get('/billing/returned-special-interest-bills/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showSpecialInterestReturnedBills']);
+    Route::get('/billing/returned-bills/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showReturnedBills']);
+    Route::get('/billing/returned-special-interest-bills/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showSpecialInterestReturnedBills']);
     //Route::get('/billing/outstanding-bills', [\App\Http\Controllers\BillingController::class, 'showOutstandingBills']);
 
-    Route::get('/billing/paid/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showPaidBills']);
+    Route::get('/billing/paid/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showPaidBills']);
+
     Route::get('/billing/detail/{url}', [\App\Http\Controllers\BillingController::class, 'showBillDetails']);
     Route::post('billing/action-bill', [\App\Http\Controllers\BillingController::class, 'actionBill']);
     Route::post('billing/update-bill-changes', [\App\Http\Controllers\BillingController::class, 'updateBillChanges']);
@@ -99,6 +101,7 @@ Route::group(['middleware' => 'api'], function(){
 
 
     Route::get('/property-list/all/{limit}/{skip}', [\App\Http\Controllers\PropertyListController::class, 'getPropertyList']);
+    Route::get('/property-exception/all/{limit}/{skip}', [\App\Http\Controllers\PropertyListController::class, 'getPropertyExceptionList']);
     Route::get('/property/{id}', [\App\Http\Controllers\PropertyListController::class, 'showPropertyDetail']);
     //Route::get('/property-list/all', [\App\Http\Controllers\PropertyListController::class, 'showPropertyLists']);
 

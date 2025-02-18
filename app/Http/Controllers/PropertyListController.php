@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\PropertyDetailResource;
 use App\Http\Resources\PropertyListResource;
+use App\Models\PropertyException;
 use App\Models\PropertyList;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -42,6 +43,22 @@ class PropertyListController extends Controller
         return  response()->json([
             'list' => PropertyListResource::collection($records),
             'total' => PropertyList::count(),
+        ]);
+    }
+
+    public function getPropertyExceptionList(Request $request)
+    {
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
+        // Base query
+        $records = PropertyException::skip($skip)
+            ->take($limit)
+            ->orderBy('property_exceptions.created_at', 'desc')
+            ->get();
+
+        return  response()->json([
+            'list' => PropertyListResource::collection($records),
+            'total' => PropertyException::count(),
         ]);
     }
 

@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Billing;
 use App\Models\BillPaymentLog;
+use App\Models\Owner;
+use App\Models\PropertyList;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Yabacon\Paystack;
@@ -20,6 +22,7 @@ class PaymentController extends Controller
             'amount'=>'required',
             'billId'=>'required',
             'paidBy'=>'required',
+            'kgtin'=>'required',
         ],[
             'amount.required'=>"Enter an amount" ,
             'email.required'=>"Enter a valid email address" ,
@@ -27,6 +30,7 @@ class PaymentController extends Controller
             'paidBy.required'=>"" ,
             'email.email'=>"Enter a valid email address" ,
             'mobileNo.required'=>"Enter mobile number" ,
+            'kgtin.required'=>"KGTIN is required" ,
         ]);
         if($validator->fails() ){
             return response()->json([
@@ -40,7 +44,7 @@ class PaymentController extends Controller
             ], 404);
         }
 
-        $bill->paid_amount += $request->amount;
+        $bill->paid_amount = $request->amount;
         $bill->paid_by = $request->paidBy;
         $bill->date_paid = now();
         $bill->payment_ref = substr(sha1(time()),30,40);
@@ -57,6 +61,39 @@ class PaymentController extends Controller
             'trans_ref'=>$request->transRef,
             'reference'=>$request->reference,
         ]);
+        //update property
+        $property = PropertyList::where('building_code', $bill->building_code)->first();
+        if(!empty($property)){
+            $property->owner_email = $request->email;
+            $property->owner_name = $request->name;
+            $property->owner_gsm = $request->mobileNo;
+            $property->owner_kgtin = $request->kgtin ?? null;
+            $property->save();
+        }
+        //update owner
+        if(!empty($property) && !empty($bill)){
+            $owner = Owner::where('kgtin', $request->kgtin)->first();
+            if(empty($owner)){
+                Owner::create([
+                    "email"=>$request->email,
+                    "kgtin"=>$request->kgtin,
+                    "name"=>$request->name,
+                    "telephone"=>$request->mobileNo,
+                    "lga_id"=>$bill->lga_id,
+                    "added_by"=>$request->paidBy,
+                    "res_address"=>$property->address
+                ]);
+            }else{
+                $owner->email = $request->email;
+                $owner->kgtin = $request->kgtin;
+                $owner->name = $request->name;
+                $owner->telephone = $request->mobileNo;
+                $owner->lga_id = $bill->lga_id;
+                $owner->res_address = $property->address;
+                $owner->save();
+            }
+        }
+
         return response()->json(['data'=>"Payment recorded"], 201);
 
     }
