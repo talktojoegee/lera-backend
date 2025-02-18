@@ -9,6 +9,8 @@ class BillPaymentLog extends Model
     protected $fillable = [
         "bill_master",
         "paid_by",
-        "amount"
+        "amount",
+        "trans_ref",
+        "reference",
     ];
 }

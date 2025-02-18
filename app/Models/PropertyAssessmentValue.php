@@ -17,6 +17,7 @@ class PropertyAssessmentValue extends Model
       "ba",
       "rr",
       "br",
+      "sync_word",
     ];
 
     public function getClass(){

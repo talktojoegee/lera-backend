@@ -63,7 +63,7 @@ class UserController extends Controller
             'password'=>bcrypt("password123"),
             'id_no'=>$request->idNo,
             'mobile_no'=>$request->mobileNo,
-            'sector'=>$request->sector,
+            'sector'=>implode(',',$request->sector),
             'role'=>$request->role,
         ]);
 

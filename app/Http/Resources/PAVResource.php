@@ -27,6 +27,7 @@ class PAVResource extends JsonResource
             "pavCode"=>$this->pav_code,
             "zones"=>$this->zones,
             "className"=>$this->getClass->class_name ?? '',
+            "syncWord"=>$this->sync_word ?? '',
         ];
     }
 }

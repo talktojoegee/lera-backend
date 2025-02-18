@@ -40,7 +40,9 @@ class PropertyList extends Model
         'property_name',
         'occupier',
         'dep_id',
-        'property_address'
+        'property_address',
+        'sync_word',
+        'property_use',
     ];
 
 

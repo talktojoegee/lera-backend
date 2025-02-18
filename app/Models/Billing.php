@@ -85,10 +85,12 @@ class Billing extends Model
 
     public static function getBillsByStatus($limit = 0,
                                             $skip = 0,
-                                            $status = 0
+                                            $status = 0,
+    $propertyUse
     )
     {
         return Billing::where('status', $status)
+            ->whereIn('property_use', $propertyUse)
             ->skip($skip)
             ->take($limit)
             ->orderBy('id', 'DESC')
@@ -97,10 +99,12 @@ class Billing extends Model
 
 
     public static function getAllPendingBillsByStatus($limit = 0,
-                                            $skip = 0
+                                            $skip = 0,
+    $propertyUse
     )
     {
         return Billing::whereIn('status', [0,1,2])
+            ->whereIn('property_use', $propertyUse)
             ->skip($skip)
             ->take($limit)
             ->orderBy('id', 'DESC')
@@ -164,17 +168,18 @@ class Billing extends Model
             ->get();
 
     }
-    public static function getBillsByParamsByStatus($status = 0)
+    public static function getBillsByParamsByStatus($status = 0, $propertyUse)
     {
         return Billing::where('status', $status)
-            //->orWhere('returned', $returned)
+            ->whereIn('property_use', $propertyUse)
             ->get();
 
     }
 
-    public static function getAllPendingBillsByParamsByStatus()
+    public static function getAllPendingBillsByParamsByStatus($sectorIds)
     {
         return Billing::whereIn('status', [0,1,2])
+            ->where('class_id', $sectorIds)
             ->get();
 
     }

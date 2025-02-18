@@ -54,6 +54,7 @@ Route::group(['middleware' => 'api'], function(){
     Route::post('/property-assessment-value/new', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'storePAV']);
     Route::get('/property-assessment-value/all/{limit}/{skip}', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'showAllPAVs']);
     Route::post('/property-assessment-value/update', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'updatePAV']);
+    Route::get('/sectors/distinct', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'showDistinctSectors']);
 
     #Owners
     Route::post('/owners/new', [\App\Http\Controllers\OwnersController::class, 'storeOwner']);
@@ -77,9 +78,11 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('/property/distribution', [\App\Http\Controllers\BillingController::class, 'showPropertyDistributionByLGA']);
     Route::get('/dashboard/statistics/{year}', [\App\Http\Controllers\BillingController::class, 'showDashboardStatistics']);
     Route::get('/billing/outstanding-bills/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showOutstandingBills']);
-    Route::get('/billing/bills/{limit}/{skip}/{status}', [\App\Http\Controllers\BillingController::class, 'showBills']);
+
+    Route::get('/billing/bills/{user}/{limit}/{skip}/{status}', [\App\Http\Controllers\BillingController::class, 'showBills']);
+
     Route::get('/billing/special-interest-bills/{limit}/{skip}/{status}', [\App\Http\Controllers\BillingController::class, 'showSpecialInterestBills']);
-    Route::get('/billing/all-pending-bills/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showAllPendingBills']);
+    Route::get('/billing/all-pending-bills/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showAllPendingBills']);
 
     Route::get('/billing/returned-bills/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showReturnedBills']);
     Route::get('/billing/returned-special-interest-bills/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showSpecialInterestReturnedBills']);
@@ -136,6 +139,8 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('/access/roles/all', [\App\Http\Controllers\RolePermissionController::class, 'showAllRoles']);
 
     //Route::get('/access/all', [\App\Http\Controllers\LGAController::class, 'showAllLGAs']);
+
+
 
 
 });

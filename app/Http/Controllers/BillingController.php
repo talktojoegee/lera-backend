@@ -15,6 +15,7 @@ use App\Models\Depreciation;
 use App\Models\Lga;
 use App\Models\PropertyAssessmentValue;
 use App\Models\PropertyList;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -93,11 +94,9 @@ class BillingController extends Controller
 
 
         foreach ($propertyLists as $list) {
-            //echo "LGA ID:: ".$list->lga_id;
             $existingBill = Billing::getBillByYearBuildingCode($year, $list->building_code);
             if(empty($existingBill)){ //If there is no existing bill
             // echo "Existing Bill ID:: ".$existingBill->id;
-
             $pavOptional = PropertyAssessmentValue::where("pav_code", $list->pav_code)->first();
             /*
              * Tie Government = State government, religious = commercial, recreational = commercial
@@ -164,10 +163,9 @@ class BillingController extends Controller
                 $billing->pav_code = $pavOptional->pav_code;
                 $billing->zone_name = $list->sub_zone ?? '';
                 $billing->url = substr(sha1( (time()+rand(9,99999)) ), 29, 40);
-                //
                 //occupancy
                 $billing->class_id = $list->class_id;
-                $billing->property_use = $list->occupant;
+                $billing->property_use = $list->property_use ?? null; //  $list->occupant;
                 $billing->occupancy = $list->cr;
                 $billing->la = $la;
                 $billing->save();
@@ -233,17 +231,35 @@ class BillingController extends Controller
         $limit = $request->limit ?? 0;
         $skip = $request->skip ?? 0;
         $status = $request->status ?? 0;
+        $userId = $request->user ?? 0;
+        $user = User::find($userId);
+
+        if(empty($user)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong.'
+            ], 404);
+        }
+        $propertyUse = explode(',', $user->sector);
         return response()->json([
-            'data'=>OutstandingBillResource::collection(Billing::getBillsByStatus($limit, $skip, $status)),
-            'total'=>Billing::getBillsByParamsByStatus($status)->count(),
+            'data'=>OutstandingBillResource::collection(Billing::getBillsByStatus($limit, $skip, $status, $propertyUse)),
+            'total'=>Billing::getBillsByParamsByStatus($status, $propertyUse)->count(),
         ],200);
     }
     public function showAllPendingBills(Request $request){
         $limit = $request->limit ?? 0;
         $skip = $request->skip ?? 0;
+        $userId = $request->user;
+        $user = User::find($userId);
+        if(empty($user)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong.'
+            ], 404);
+        }
+        $userSectorIds = explode(',', $user->sector);
+
         return response()->json([
-            'data'=>OutstandingBillResource::collection(Billing::getAllPendingBillsByStatus($limit, $skip)),
-            'total'=>Billing::getAllPendingBillsByParamsByStatus()->count(),
+            'data'=>OutstandingBillResource::collection(Billing::getAllPendingBillsByStatus($limit, $skip, $userSectorIds)),
+            'total'=>Billing::getAllPendingBillsByParamsByStatus($userSectorIds)->count(),
         ],200);
     }
     public function showSpecialInterestBills(Request $request){

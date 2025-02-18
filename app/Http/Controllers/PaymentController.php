@@ -39,17 +39,23 @@ class PaymentController extends Controller
                 'message' => 'Whoops! No record found.'
             ], 404);
         }
-        $bill->paid = 1;
-        $bill->paid_amount = $request->amount;
+
+        $bill->paid_amount += $request->amount;
         $bill->paid_by = $request->paidBy;
         $bill->date_paid = now();
         $bill->payment_ref = substr(sha1(time()),30,40);
         $bill->save();
+        if($bill->bill_amount >= $bill->paid_amount){
+            $bill->paid = 1;
+            $bill->save();
+        }
         //log it
         BillPaymentLog::create([
             'bill_master'=>$request->billId,
             'paid_by'=>$request->paidBy,
-            'amount'=>$request->amount
+            'amount'=>$request->amount,
+            'trans_ref'=>$request->transRef,
+            'reference'=>$request->reference,
         ]);
         return response()->json(['data'=>"Payment recorded"], 201);
 

@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\PAVResource;
 use App\Http\Resources\PropertyClassificationResource;
+use App\Http\Resources\SectorResource;
 use App\Models\PropertyAssessmentValue;
 use App\Models\PropertyClassification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class PropertyAssessmentValueController extends Controller
@@ -27,6 +29,7 @@ class PropertyAssessmentValueController extends Controller
             "rr"=>"required",
             "lr"=>"required",
             "description"=>"required",
+            "syncWord"=>"required",
         ],[
             "pav_code.required"=>"PAV Code is required",
             //"assessed_amount.required"=>"Enter Assessed Amount",
@@ -38,6 +41,7 @@ class PropertyAssessmentValueController extends Controller
             "br.required"=>"BR value is required",
             "rr.required"=>"RR value is required",
             "lr.required"=>"LR value is required",
+            "syncWord.required"=>"Sync word is required",
         ]);
         if($validator->fails() ){
             return response()->json([
@@ -55,6 +59,7 @@ class PropertyAssessmentValueController extends Controller
             "ba"=>$request->ba,
             "rr"=>$request->rr,
             "br"=>$request->br,
+            "sync_word"=>$request->syncWord ?? '',
         ]);
         return response()->json(['message' => 'Success! PAV added.'], 201);
     }
@@ -74,6 +79,7 @@ class PropertyAssessmentValueController extends Controller
             "lr"=>"required",
             "description"=>"required",
             "id"=>"required",
+            "syncWord"=>"required",
         ],[
             "pav_code.required"=>"PAV Code is required",
             //"assessed_amount.required"=>"Enter Assessed Amount",
@@ -86,6 +92,7 @@ class PropertyAssessmentValueController extends Controller
             "rr.required"=>"RR value is required",
             "lr.required"=>"LR value is required",
             "id.required"=>"",
+            "syncWord.required"=>"",
         ]);
         if($validator->fails() ){
             return response()->json([
@@ -105,6 +112,7 @@ class PropertyAssessmentValueController extends Controller
             "ba" => $request->ba,
             "rr" => $request->rr,
             "br" => $request->br,
+            "sync_word" => $request->syncWord ?? '',
         ]);
 
         return response()->json(['message' => 'Success! Changes saved'], 200);
@@ -121,5 +129,17 @@ class PropertyAssessmentValueController extends Controller
 
     private function getBillSetup($limit, $skip){
         return PropertyAssessmentValue::skip($skip)->take($limit)->orderBy('id', 'DESC')->get();
+    }
+
+
+    public function showDistinctSectors(){
+        $sectors = DB::table('property_assessment_values')
+            ->select('property_use')
+            ->distinct()
+            ->get();
+        return response()->json([
+            'data'=>SectorResource::collection( $sectors)
+        ]);
+        //skip($skip)->take($limit)->orderBy('id', 'DESC')->get();
     }
 }

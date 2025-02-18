@@ -51,6 +51,7 @@ class ImportBillingSetup extends Command
                         "ba"=>$row[6],
                         "rr"=>$row[7],
                         "br"=>$row[4],
+                        "sync_word"=>$row[7],
                     ]);
 
                     //return dd($class); //category
