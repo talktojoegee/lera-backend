@@ -28,7 +28,7 @@ class ImportBillingSetup extends Command
      */
     public function handle()
     {
-            $path =  storage_path('app/public/update-billing.csv');
+            $path =  storage_path('app/public/billing-setup-20-02-2025.csv');
             $reader =  Reader::createFromPath($path, 'r');
             $reader->setDelimiter(",");
             foreach ($reader->getRecords() as $key => $row) {
@@ -47,11 +47,11 @@ class ImportBillingSetup extends Command
                         "pav_code"=>$row[0],
                         "zones"=>$row[1],
                         "class_id"=>$class->id,
-                        "lr"=>$row[5],
+                        "lr"=>str_replace(',','',$row[5]),
                         "ba"=>$row[6],
                         "rr"=>$row[7],
-                        "br"=>$row[4],
-                        "sync_word"=>$row[7],
+                        "br"=>str_replace(',','',$row[4]),
+                        "sync_word"=>$row[8],
                     ]);
 
                     //return dd($class); //category

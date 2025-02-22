@@ -55,6 +55,7 @@ class OutstandingBillResource extends JsonResource
           'objection'=>$objectionCount ?? 0,
           'special'=>$this->special,
           'status'=>$this->status,
+            'propertyUse'=>$this->property_use ?? ''
         ];
     }
 }

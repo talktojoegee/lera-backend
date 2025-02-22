@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Resources\BillDetailResource;
 use App\Http\Resources\BillingRecordResource;
 use App\Http\Resources\DashboardStatisticsResource;
+use App\Http\Resources\LGAChairDashboardStatisticsResource;
 use App\Http\Resources\OutstandingBillResource;
 use App\Http\Resources\PaidBillResource;
 use App\Http\Resources\RetrieveBillResource;
@@ -229,11 +230,78 @@ class BillingController extends Controller
         $propertyUse = explode(',', $user->sector);
 
         return response()->json([
-            'data'=>OutstandingBillResource::collection(Billing::getBills($limit, $skip, 0, 0, 3, $propertyUse)),
-            'total'=>Billing::getBillsByParams(0,0,3, $propertyUse)->count(),
-            'grossBills'=>Billing::getBillsByParams(0,0,3, $propertyUse)->sum('bill_amount'),
-            'grossAmountPaid'=>Billing::getBillsByParams(0,0,3, $propertyUse)->sum('paid_amount'),
-            'balanceAmount'=>(Billing::getBillsByParams(0,0,3, $propertyUse)->sum('bill_amount') - Billing::getBillsByParams(0,0,3, $propertyUse)->sum('paid_amount')),
+            'data'=>OutstandingBillResource::collection(Billing::getBills($limit, $skip, 0, 0, 4, $propertyUse, [0])),
+            'total'=>Billing::getBillsByParams(0,0,4, $propertyUse, [0])->count(),
+            'grossBills'=>Billing::getBillsByParams(0,0,4, $propertyUse, [0])->sum('bill_amount'),
+            'grossAmountPaid'=>Billing::getBillsByParams(0,0,4, $propertyUse, [0])->sum('paid_amount'),
+            'balanceAmount'=>(Billing::getBillsByParams(0,0,4, $propertyUse, [0])->sum('bill_amount') - Billing::getBillsByParams(0,0,3, $propertyUse, [0])->sum('paid_amount')),
+        ],200);
+    }
+
+
+    public function showLGAChairOutstandingBills(Request $request){
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
+        $userId = $request->user ?? 0;
+        $user = User::find($userId);
+
+        if(empty($user)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong.'
+            ], 404);
+        }
+
+        return response()->json([
+            'data'=>OutstandingBillResource::collection(Billing::getLGAChairBills($limit, $skip, 0, 0,  $user->lga)),
+            'total'=>Billing::getLGAChairBillsByParams(0,0,$user->lga)->count(),
+            'grossBills'=>Billing::getLGAChairBillsByParams(0,0,$user->lga)->sum('bill_amount'),
+            'grossAmountPaid'=>Billing::getLGAChairBillsByParams(0,0,$user->lga)->sum('paid_amount'),
+            'balanceAmount'=>(Billing::getLGAChairBillsByParams(0,0,$user->lga)->sum('bill_amount') - Billing::getLGAChairBillsByParams(0,0,$user->lga)->sum('paid_amount')),
+        ],200);
+    }
+
+
+    public function showAllOutstandingBills(Request $request){
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
+        $userId = $request->user ?? 0;
+        $user = User::find($userId);
+
+        if(empty($user)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong.'
+            ], 404);
+        }
+        $propertyUse = explode(',', $user->sector);
+
+        return response()->json([
+            'data'=>OutstandingBillResource::collection(Billing::getBills($limit, $skip, 0, 0, 4, $propertyUse, [0,1])),
+            'total'=>Billing::getBillsByParams(0,0,4, $propertyUse, [0,1])->count(),
+            'grossBills'=>Billing::getBillsByParams(0,0,4, $propertyUse, [0,1])->sum('bill_amount'),
+            'grossAmountPaid'=>Billing::getBillsByParams(0,0,4, $propertyUse, [0,1])->sum('paid_amount'),
+            'balanceAmount'=>(Billing::getBillsByParams(0,0,4, $propertyUse, [0,1])->sum('bill_amount') - Billing::getBillsByParams(0,0,4, $propertyUse, [0,1])->sum('paid_amount')),
+        ],200);
+    }
+
+    public function showOutstandingSpecialInterestBills(Request $request){
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
+        $userId = $request->user ?? 0;
+        $user = User::find($userId);
+
+        if(empty($user)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong.'
+            ], 404);
+        }
+        $propertyUse = explode(',', $user->sector);
+
+        return response()->json([
+            'data'=>OutstandingBillResource::collection(Billing::getBills($limit, $skip, 0, 0, 4, $propertyUse, [1])),
+            'total'=>Billing::getBillsByParams(0,0,4, $propertyUse, [1])->count(),
+            'grossBills'=>Billing::getBillsByParams(0,0,4, $propertyUse, [1])->sum('bill_amount'),
+            'grossAmountPaid'=>Billing::getBillsByParams(0,0,4, $propertyUse, [1])->sum('paid_amount'),
+            'balanceAmount'=>(Billing::getBillsByParams(0,0,4, $propertyUse, [1])->sum('bill_amount') - Billing::getBillsByParams(0,0,4, $propertyUse, [1])->sum('paid_amount')),
         ],200);
     }
 
@@ -343,11 +411,11 @@ class BillingController extends Controller
         }
         $propertyUse = explode(',', $user->sector);
         return response()->json([
-            'data'=>PaidBillResource::collection(Billing::getAllPaidBills($limit, $skip, 1, 0, 3, $propertyUse)),
-            'total'=>Billing::getAllBillsByParams(1,0,3, $propertyUse)->count(),
-            'grossBills'=>Billing::getAllBillsByParams(1,0,3, $propertyUse)->sum('bill_amount'),
-            'grossAmountPaid'=>Billing::getAllBillsByParams(1,0,3, $propertyUse)->sum('paid_amount'),
-            'balanceAmount'=>(Billing::getAllBillsByParams(1,0,3, $propertyUse)->sum('bill_amount') - Billing::getAllBillsByParams(1,0,3, $propertyUse)->sum('paid_amount')),
+            'data'=>PaidBillResource::collection(Billing::getAllPaidBills($limit, $skip, 1, 0, 4, $propertyUse)),
+            'total'=>Billing::getAllBillsByParams(1,0,4, $propertyUse)->count(),
+            'grossBills'=>Billing::getAllBillsByParams(1,0,4, $propertyUse)->sum('bill_amount'),
+            'grossAmountPaid'=>Billing::getAllBillsByParams(1,0,4, $propertyUse)->sum('paid_amount'),
+            'balanceAmount'=>(Billing::getAllBillsByParams(1,0,4, $propertyUse)->sum('bill_amount') - Billing::getAllBillsByParams(1,0,4, $propertyUse)->sum('paid_amount')),
         ]);
     }
 
@@ -364,11 +432,11 @@ class BillingController extends Controller
         }
         $propertyUse = explode(',', $user->sector);
         return response()->json([
-            'data'=>PaidBillResource::collection(Billing::getAllPaidSpecialInterestBills($limit, $skip, 1, 0, 3, $propertyUse)),
-            'total'=>Billing::getAllSpecialInterestBillsByParams(1,0,3, $propertyUse)->count(),
-            'grossBills'=>Billing::getAllSpecialInterestBillsByParams(1,0,3, $propertyUse)->sum('bill_amount'),
-            'grossAmountPaid'=>Billing::getAllSpecialInterestBillsByParams(1,0,3, $propertyUse)->sum('paid_amount'),
-            'balanceAmount'=>(Billing::getAllSpecialInterestBillsByParams(1,0,3, $propertyUse)->sum('bill_amount') - Billing::getAllSpecialInterestBillsByParams(1,0,3, $propertyUse)->sum('paid_amount')),
+            'data'=>PaidBillResource::collection(Billing::getAllPaidSpecialInterestBills($limit, $skip, 1, 0, 4, $propertyUse)),
+            'total'=>Billing::getAllSpecialInterestBillsByParams(1,0,4, $propertyUse)->count(),
+            'grossBills'=>Billing::getAllSpecialInterestBillsByParams(1,0,4, $propertyUse)->sum('bill_amount'),
+            'grossAmountPaid'=>Billing::getAllSpecialInterestBillsByParams(1,0,4, $propertyUse)->sum('paid_amount'),
+            'balanceAmount'=>(Billing::getAllSpecialInterestBillsByParams(1,0,4, $propertyUse)->sum('bill_amount') - Billing::getAllSpecialInterestBillsByParams(1,0,4, $propertyUse)->sum('paid_amount')),
         ]);
     }
 
@@ -452,6 +520,31 @@ class BillingController extends Controller
         $billsData = DB::table('billings')
             ->selectRaw('MONTH(created_at) AS month, SUM(paid_amount) AS totalBillAmount')
             ->whereYear('entry_date', '=', $year)
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get();
+        $chartData = ['labels' => [
+            'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            'datasets' => [
+                [
+                    'data' => array_fill(0, 12, 0),
+                ]
+            ]
+        ];
+
+        foreach ($billsData as $bill) {
+            $chartData['datasets'][0]['data'][$bill->month - 1] = $bill->totalBillAmount;
+        }
+        return $chartData;
+    }
+
+
+    private function getLGAChairMonthlyBillPaymentByYear($year, $lgaId){
+        $billsData = DB::table('billings')
+            ->selectRaw('MONTH(created_at) AS month, SUM(paid_amount) AS totalBillAmount')
+            ->whereYear('entry_date', '=', $year)
+            ->where('lga_id', $lgaId)
             ->groupBy('month')
             ->orderBy('month')
             ->get();
@@ -604,6 +697,34 @@ class BillingController extends Controller
             ->get();
 
     }
+
+    private function getLGAChairPropertyDistributionByZones($year, $lgaId){
+
+        return DB::table('property_lists')
+            ->join('zones', 'property_lists.sub_zone', '=', 'zones.sub_zone')
+            ->selectRaw('zones.sub_zone AS zoneName, COUNT(property_lists.id) AS totalProperties')
+            ->whereYear('property_lists.created_at', '=', $year )
+            ->where('property_lists.lga_id', $lgaId)
+            ->groupBy('zoneName')
+            //->orderBy('month')
+            ->orderBy('zoneName')
+            ->get();
+
+    }
+
+    private function getLGAChairPropertyDistributionByLGA($year, $lgaId){
+
+        return DB::table('property_lists')
+            ->join('lgas', 'property_lists.lga_id', '=', 'lgas.id')
+            ->selectRaw('lgas.lga_name AS lgaName, COUNT(property_lists.id) AS totalProperties')
+            ->whereYear('property_lists.created_at', '=', $year )
+            ->where('property_lists.lga_id', $lgaId)
+            ->groupBy('lgaName')
+            //->orderBy('month')
+            ->orderBy('lgaName')
+            ->get();
+
+    }
     /*
 
     private function getPropertyDistributionByZones($year){
@@ -721,7 +842,14 @@ class BillingController extends Controller
                 'message' => 'Whoops! No record found.'
             ], 404);
         }
-        if($request->action == 1 || $request->action == 2){
+        if($request->action == 1){ //review
+            $record->status = $request->action;
+            $record->reviewed_by = $request->actionedBy;
+            $record->date_reviewed = now();
+            $record->save();
+        }
+
+        if( $request->action == 2){ //verify
             $record->status = $request->action;
             $record->actioned_by = $request->actionedBy;
             $record->date_actioned = now();
@@ -809,6 +937,7 @@ class BillingController extends Controller
                 "ids"=>"required|array",
                 "ids.*"=>"required",
                 "action"=>"required",
+                'actionedBy'=>"required"
             ],
             [
                 "ids.required"=>"Missing info",
@@ -828,21 +957,35 @@ class BillingController extends Controller
             ], 404);
         }
         switch ($request->action){
-            case 'verify':
+            case 'review':
                 foreach($records as $record){
                     $record->status = 1;
+                    $record->reviewed_by = $request->actionedBy;
+                    $record->date_reviewed = now();
+                    $record->save();
+                }
+                break;
+            case 'verify':
+                foreach($records as $record){
+                    $record->status = 2;
+                    $record->actioned_by = $request->actionedBy;
+                    $record->date_actioned = now();
                     $record->save();
                 }
             break;
             case 'authorize':
                 foreach($records as $record){
-                    $record->status = 2;
+                    $record->status = 3;
+                    $record->authorized_by = $request->actionedBy;
+                    $record->date_authorized = now();
                     $record->save();
                 }
                 break;
             case 'approve':
                 foreach($records as $record){
-                    $record->status = 3;
+                    $record->status = 4;
+                    $record->approved_by = $request->actionedBy;
+                    $record->date_approved = now();
                     $record->save();
                 }
                 break;
@@ -852,5 +995,55 @@ class BillingController extends Controller
         return response()->json(['message' => 'Success! Action successful.'], 201);
     }
 
+
+
+
+    public function showLGAChairDashboardStatistics(Request $request){
+        return new LGAChairDashboardStatisticsResource($request);
+    }
+
+
+    public function showLGAChairPropertyDistributionByZones(Request $request){
+
+        $user = User::find($request->user);
+        if(empty($user)){
+            return response()->json([
+                "errors"=>"No record found."
+            ],404);
+        }
+        return response()->json(
+            [
+                'zone'=>$this->getLGAChairPropertyDistributionByZones($request->year, $user->lga),
+                'lga'=>$this->getLGAChairPropertyDistributionByLGA($request->year, $user->lga)
+            ]
+        );
+    }
+
+    public function showLGAChairBillDataOnDashboard(Request $request){
+        $user = User::find($request->user);
+        if(empty($user)){
+            return response()->json([
+                "errors"=>"No record found."
+            ],404);
+        }
+        return response()->json($this->getLGAChairMonthlyBillPaymentByYear($request->year, $user->lga));
+    }
+
+
+    public function LGAChairChartTest(Request $request){
+        $user = User::find($request->user);
+        if(empty($user)){
+            return response()->json([
+                "errors"=>"No record found."
+            ],404);
+        }
+        return response()->json([
+            'billAmount'=>Billing::getLGAChairCurrentYearMonthlyBillAmount($request->year, $user->lga),
+            'amountPaid'=>Billing::getLGAChairCurrentYearMonthlyAmountPaid($request->year, $user->lga),
+            'byZones'=>Billing::getLGAChairCurrentYearBillsByZone($request->year, $user->lga),
+            'byLGA'=>Billing::getLGAChairCurrentYearBillsByLGA($request->year, $user->lga),
+            'paymentByLGA'=>Billing::getLGAChairCurrentYearPaymentByLGA($request->year, $user->lga),
+        ]);
+    }
 
 }

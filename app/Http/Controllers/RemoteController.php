@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\SyncResource;
+use App\Jobs\SyncDataJob;
 use App\Models\ChargeRate;
 use App\Models\Depreciation;
 use App\Models\Lga;
@@ -14,6 +15,8 @@ use App\Models\SynchronizationLog;
 use App\Models\Zone;
 use App\Traits\UtilityTrait;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -25,7 +28,7 @@ class RemoteController extends Controller
 
     }
 
-
+/*
     public function showBuildingsByLGAId($lgaId){
         $lga = Lga::find($lgaId);
         if(empty($lga) && $lgaId != 0){
@@ -33,7 +36,6 @@ class RemoteController extends Controller
         }
         $addedCount = 0;
         $rejectedCount = 0;
-        //$data = [];
         if($lgaId == 0){
             $data = $this->_fetchAllBuildings();
         }else{
@@ -42,28 +44,12 @@ class RemoteController extends Controller
         if(count($data['data']) <= 0){
             return response()->json(['data'=>"Whoops! Nothing to synchronize"],401);
         }
-        $test = null;
         foreach($data['data'] as  $record){
              $lgaOne = Lga::where('lga_name',$record['lga'])->first();
-             //$lgaOne = Lga::where('lga_name',$record['LGA'])->first();
              $propertyList = PropertyList::where("building_code", $record["prop_id"])->first();
-             //$propertyList = PropertyList::where("building_code", $record["Bld_ID"])->first();
-            //$propertyClassification = $this->_getClass($record["Bld_Cat"]);
-            $propertyClassification = PropertyClassification::find($record['landuse']);// $this->_getClass($record["Bld_Cat"]);
+            $propertyClassification = PropertyClassification::find($record['landuse']);
             $zoneOne = Zone::where("sub_zone", $record["zone"])->first();
-            //$zoneOne = Zone::where("sub_zone", $record["Zone"])->first();
-
-              if (!empty($lgaOne) /*&& !empty($propertyClassification)*/ && !empty($zoneOne)) {
-                  //$medianAge = $this->median(); [in the property table, save media age, actual age,]
-                  //add charge rate ID to the property table
-                  //2. Charge rate will be based on occupancy
-                  //carry occupancy details from property table(from GIS) and match it with occupancy on charge rate table
-                  //then it will assign a charge rate ID to the property
-
-
-                  //When Processing Bill
-                  //if you don't have billing code, median age or charge rate ID - bill cannot be calculated
-                  //
+              if (!empty($lgaOne)  && !empty($zoneOne)) {
                   if (empty($propertyList)) {
                       $syncWord = null;
 
@@ -96,11 +82,7 @@ class RemoteController extends Controller
                      $zoneChar = $this->_getZoneCharacter($record['zone']) ?? 'Z';
                      $chargeRate = $this->_getChargeRate($record['occupier_s']);
                      $dep = Depreciation::where('range', $record['property_age'])->first();
-                    //pav
-                      //When synchronizing properties, First Match Zones, Class & Occupancy – this you have done already
                       $pavRecord = $this->_getPavCode($record['landuse'], $record["zone"], $syncWord);
-                      //$pavRecord = $this->_getPavCode($propertyClassification->id, $record["Occupant"], $record["Zone"]);
-                      //if(!empty($pavRecord)){
                       $areaVal = $this->convertToSqm($record["property_area"]);
 
 
@@ -150,6 +132,7 @@ class RemoteController extends Controller
                     ]);
                     $addedCount++;
                 }else{
+
                     PropertyException::create([
                         'address'=>$record["street_nam"],
                         'area'=>str_replace("_sqm", "", $areaVal),
@@ -164,17 +147,14 @@ class RemoteController extends Controller
                         'title'=>$record["land_status"],
                         'pav_code'=>  null,
                         'power'=>$record["power"] == 'Yes' ? 1 : 0,
-                        //'refuse'=>$record["Street"],
-                        //'size'=>$record["Street"],
-                        'storey'=> '',//is_int($record["Bld_Storey"]) ? $record["Bld_Storey"] : 0,
-                        //'title'=>$record["Street"],
+                        'storey'=> '',
                         'water'=>$record["water"] == 'Yes' ? 1 : 0,
                         'zone_name'=>$zoneChar,
                         'sub_zone'=>$record["zone"], //'A1','B2'
-                        'class_name'=> $propertyClassification->class_name ?? '' ,//$record["Bld_Cat"],
+                        'class_name'=> $propertyClassification->class_name ?? '' ,
                         'occupant'=>$record["prop_owner"],
                         'building_age'=>$record["property_age"],
-                        'pay_status'=>null,//$record["Pay_Status"],
+                        'pay_status'=>null,
                         'lga_id'=>$lgaOne->id ?? null,
                         //'special'=>rand(0,1),
                         'class_id'=>$record['landuse'],
@@ -194,23 +174,12 @@ class RemoteController extends Controller
                     $rejectedCount++;
                 }
 
-
-                     // }
-
-                  }/*else{
-                      $zoneChar = $this->_getZoneCharacter($record['zone']) ?? 'Z';
-                      $chargeRate = $this->_getChargeRate($record['occupier_s']);
-                      $dep = Depreciation::where('range', $record['property_age'])->first();
-                      $pavRecord = $this->_getPavCode($record['landuse'], $record["zone"], $syncWord);
-                      $areaVal = $this->convertToSqm($record["property_area"]);
-
-                  }*/
+                  }
               }
         }
-        //Log report
         SynchronizationLog::logSyncReport(($addedCount + $rejectedCount), $addedCount, now(), $lgaId);
         return response()->json(["data"=>"{$addedCount} records synchronized! {$rejectedCount} records skipped."], 200);
-    }
+    }*/
 
     private function _fetchBuildingsByLGAName($lgaName)
     {
@@ -234,7 +203,7 @@ class RemoteController extends Controller
     }
     private function _fetchAllBuildings()
     {
-        $url = "http://127.0.0.1:8000/api/lga-list";
+        $url = "http://127.0.0.1:8002/api/lga-list";
         //$url = "http://laravel.kofooni.ca/api/lga-list";
 
         $response = Http::withHeaders([
@@ -356,6 +325,16 @@ class RemoteController extends Controller
 
         }
     }
+
+
+
+
+    public function showBuildingsByLGAId(Request $request){
+       SyncDataJob::dispatch($request->lga);
+        return response()->json(["data"=>"Data synchronization is happening in the background. We'll notify you when it is done."],200);
+    }
+
+
 
 
 }

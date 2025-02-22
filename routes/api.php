@@ -56,6 +56,10 @@ Route::group(['middleware' => 'api'], function(){
     Route::post('/property-assessment-value/update', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'updatePAV']);
     Route::get('/sectors/distinct', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'showDistinctSectors']);
 
+
+    Route::get('/luc/record', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'getLUC']);
+    Route::post('/luc/record', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'storeLUC']);
+
     #Owners
     Route::post('/owners/new', [\App\Http\Controllers\OwnersController::class, 'storeOwner']);
     Route::get('/owners/all', [\App\Http\Controllers\OwnersController::class, 'showAllOwners']);
@@ -73,11 +77,16 @@ Route::group(['middleware' => 'api'], function(){
 
     Route::post('/billing/make-payment', [\App\Http\Controllers\PaymentController::class, 'handlePaymentRequest']);
 
-    Route::get('/billing/chart-summary/{year}', [\App\Http\Controllers\BillingController::class, 'showBillDataOnDashboard']);
-    Route::get('/billing/property-distribution/{year}', [\App\Http\Controllers\BillingController::class, 'showPropertyDistributionByZones']);
+
     Route::get('/property/distribution', [\App\Http\Controllers\BillingController::class, 'showPropertyDistributionByLGA']);
-    Route::get('/dashboard/statistics/{year}', [\App\Http\Controllers\BillingController::class, 'showDashboardStatistics']);
+
+
     Route::get('/billing/outstanding-bills/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showOutstandingBills']);
+
+    Route::get('/billing/objection-requests/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showAllOutstandingBills']);
+
+
+    Route::get('/billing/outstanding-special-interest-bills/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showOutstandingSpecialInterestBills']);
 
     Route::get('/billing/bills/{user}/{limit}/{skip}/{status}', [\App\Http\Controllers\BillingController::class, 'showBills']);
 
@@ -107,7 +116,7 @@ Route::group(['middleware' => 'api'], function(){
 
 
 
-    Route::get('/chart-record/{year}', [\App\Http\Controllers\BillingController::class, 'chartTest']);
+
 
     Route::get('download/attachment/{slug}', [App\Http\Controllers\ObjectionController::class, 'downloadAttachment'] );
 
@@ -121,7 +130,8 @@ Route::group(['middleware' => 'api'], function(){
 
 
     #Export operations
-    Route::get('/export-bills', [\App\Http\Controllers\ExportController::class, 'exportExcel']);
+    Route::get('/export-bills/{user}/{type}', [\App\Http\Controllers\ExportController::class, 'exportExcel']);
+    //Route::get('/export-bills', [\App\Http\Controllers\ExportController::class, 'exportExcel']);
 
 
     #Users
@@ -142,6 +152,25 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('/access/roles/all', [\App\Http\Controllers\RolePermissionController::class, 'showAllRoles']);
 
     //Route::get('/access/all', [\App\Http\Controllers\LGAController::class, 'showAllLGAs']);
+
+
+    #General dashboard
+    Route::get('/dashboard/statistics/{year}', [\App\Http\Controllers\BillingController::class, 'showDashboardStatistics']);
+    Route::get('/billing/property-distribution/{year}', [\App\Http\Controllers\BillingController::class, 'showPropertyDistributionByZones']);
+    Route::get('/billing/chart-summary/{year}', [\App\Http\Controllers\BillingController::class, 'showBillDataOnDashboard']);
+    Route::get('/chart-record/{year}', [\App\Http\Controllers\BillingController::class, 'chartTest']);
+
+
+    #LGA Chair dashboard
+    Route::get('/dashboard/statistics/{user}/{year}', [\App\Http\Controllers\BillingController::class, 'showLGAChairDashboardStatistics']);
+    Route::get('/billing/property-distribution/{user}/{year}', [\App\Http\Controllers\BillingController::class, 'showLGAChairPropertyDistributionByZones']);
+    Route::get('/billing/chart-summary/{user}/{year}', [\App\Http\Controllers\BillingController::class, 'showLGAChairBillDataOnDashboard']);
+    Route::get('/chart-record/{user}/{year}', [\App\Http\Controllers\BillingController::class, 'LGAChairChartTest']);
+
+    Route::get('/billing/lga-outstanding-bills/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showLGAChairOutstandingBills']);
+
+
+    //Route::get('/sync-test/{lga}', [\App\Http\Controllers\RemoteController::class, 'syncTest']);
 
 
 

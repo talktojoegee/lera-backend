@@ -11,6 +11,34 @@ class Billing extends Model
     //
   public $currentYear;
 
+
+
+  public function getBilledBy(){
+      return $this->belongsTo(User::class, 'billed_by');
+  }
+
+
+  public function getReturnedBy(){
+      return $this->belongsTo(User::class, 'returned_by');
+  }
+
+
+  public function getApprovedBy(){
+      return $this->belongsTo(User::class, 'approved_by');
+  }
+
+  public function getAuthorizedBy(){
+      return $this->belongsTo(User::class, 'authorized_by');
+  }
+
+  public function getVerifiedBy(){
+      return $this->belongsTo(User::class, 'actioned_by');
+  }
+
+  public function getReviewedBy(){
+      return $this->belongsTo(User::class, 'reviewed_by');
+  }
+
   public function __construct(array $attributes = [])
   {
       $this->currentYear = Carbon::now()->year;
@@ -55,11 +83,13 @@ class Billing extends Model
                                     $objection = 0,
                                     $status = 0,
                                     $propertyUse,
+    $special = [0]
     )
     {
         return Billing::where('paid', $paid)
             ->where('objection', $objection)
             ->where('status', $status)
+            ->whereIn('special', $special)
             ->whereIn('property_use', $propertyUse)
             //->orWhere('returned', $returned)
             ->skip($skip)
@@ -67,6 +97,26 @@ class Billing extends Model
             ->orderBy('id', 'DESC')
             ->get();
     }
+
+    public static function getLGAChairBills($limit = 0,
+                                    $skip = 0,
+                                    $paid = 0,
+                                    $status = 0,
+                                    $lgaId
+    )
+    {
+        return Billing::where('paid', $paid)
+            //->where('objection', $objection)
+            ->where('status', $status)
+            //->whereIn('special', $special)
+            ->where('lga_id', $lgaId)
+            //->orWhere('returned', $returned)
+            ->skip($skip)
+            ->take($limit)
+            ->orderBy('id', 'DESC')
+            ->get();
+    }
+
 
     public static function getAllPaidBills($limit = 0,
                                     $skip = 0,
@@ -198,16 +248,27 @@ class Billing extends Model
 
     }
 
-    public static function getBillsByParams($paid = 0, $objection = 0, $status=0, $propertyUse)
+    public static function getBillsByParams($paid = 0, $objection = 0, $status=0, $propertyUse, $special = [0])
     {
         return Billing::where('paid', $paid)
             ->where('objection', $objection)
             ->where('status', $status)
+            ->whereIn('special', $special)
             ->whereIn('property_use', $propertyUse)
             //->orWhere('returned', $returned)
             ->get();
 
     }
+
+    public static function getLGAChairBillsByParams($paid = 0, $status=0, $lgaId)
+    {
+        return Billing::where('paid', $paid)
+            ->where('status', $status)
+            ->where('lga_id', $lgaId)
+            ->get();
+
+    }
+
     public static function getBillsByParamsByStatus($status = 0, $propertyUse)
     {
         return Billing::where('status', $status)
@@ -266,12 +327,30 @@ class Billing extends Model
 
     public static function getCurrentYearMonthlyBillAmount($year){
 
+        $monthlyBills = Billing::select(
+            DB::raw('MONTH(entry_date) as month'),
+            DB::raw('SUM(bill_amount) as total_bill_amount')
+        )
+            ->whereYear('entry_date', $year)
+            ->groupBy(DB::raw('MONTH(entry_date)'))
+            ->orderBy(DB::raw('MONTH(entry_date)'))
+            ->get();
+        $billAmountsByMonth = array_fill(0, 12, 0);
+        foreach ($monthlyBills as $bill) {
+            $monthIndex = $bill->month - 1;
+            $billAmountsByMonth[$monthIndex] = $bill->total_bill_amount;
+        }
+        return  $billAmountsByMonth;
+
+    }
+    public static function getLGAChairCurrentYearMonthlyBillAmount($year, $lgaId){
 
         $monthlyBills = Billing::select(
             DB::raw('MONTH(entry_date) as month'),
             DB::raw('SUM(bill_amount) as total_bill_amount')
         )
             ->whereYear('entry_date', $year)
+            ->where('lga_id', $lgaId)
             ->groupBy(DB::raw('MONTH(entry_date)'))
             ->orderBy(DB::raw('MONTH(entry_date)'))
             ->get();
@@ -301,11 +380,40 @@ class Billing extends Model
         return  $billAmountsByMonth;
 
     }
+    public static function getLGAChairCurrentYearMonthlyAmountPaid($year, $lgaId){
+        $monthlyBills = Billing::select(
+            DB::raw('MONTH(entry_date) as month'),
+            DB::raw('SUM(paid_amount) as total_bill_amount')
+        )
+            ->whereYear('entry_date', $year)
+            ->where('lga_id', $lgaId)
+            ->groupBy(DB::raw('MONTH(entry_date)'))
+            ->orderBy(DB::raw('MONTH(entry_date)'))
+            ->get();
+        $billAmountsByMonth = array_fill(0, 12, 0);
+        foreach ($monthlyBills as $bill) {
+            $monthIndex = $bill->month - 1;
+            $billAmountsByMonth[$monthIndex] = $bill->total_bill_amount;
+        }
+        return  $billAmountsByMonth;
+
+    }
     public static function getCurrentYearBillsByZone($year){
         return DB::table('billings')
             ->join('zones', 'billings.zone_name', '=', 'zones.sub_zone')
             ->select('zones.sub_zone', DB::raw('SUM(billings.bill_amount) as total_bills'))
             ->whereYear('billings.entry_date', $year)
+            ->groupBy('zones.sub_zone')
+            ->orderBy('zones.sub_zone', 'ASC')
+            ->get();
+
+    }
+    public static function getLGAChairCurrentYearBillsByZone($year, $lgaId){
+        return DB::table('billings')
+            ->join('zones', 'billings.zone_name', '=', 'zones.sub_zone')
+            ->select('zones.sub_zone', DB::raw('SUM(billings.bill_amount) as total_bills'))
+            ->whereYear('billings.entry_date', $year)
+            ->where('billings.lga_id', $lgaId)
             ->groupBy('zones.sub_zone')
             ->orderBy('zones.sub_zone', 'ASC')
             ->get();
@@ -325,12 +433,39 @@ class Billing extends Model
 
     }
 
+    public static function getLGAChairCurrentYearBillsByLGA($year, $lgaId){
+
+        return DB::table('billings')
+            ->join('lgas', 'billings.lga_id', '=', 'lgas.id')
+            ->select('lgas.lga_name', DB::raw('SUM(billings.bill_amount) as total_bills'))
+            ->whereYear('billings.entry_date', $year)
+            ->where('billings.lga_id', $lgaId)
+            ->groupBy('lgas.lga_name')
+            ->orderBy('lgas.lga_name', 'ASC')
+            ->get();
+
+
+    }
     public static function getCurrentYearPaymentByLGA($year){
 
         return DB::table('billings')
             ->join('lgas', 'billings.lga_id', '=', 'lgas.id')
             ->select('lgas.lga_name', DB::raw('SUM(billings.paid_amount) as amount'))
             ->whereYear('billings.entry_date', $year)
+            ->groupBy('lgas.lga_name')
+            ->orderBy('lgas.lga_name', 'ASC')
+            ->get();
+
+
+    }
+
+    public static function getLGAChairCurrentYearPaymentByLGA($year, $lgaId){
+
+        return DB::table('billings')
+            ->join('lgas', 'billings.lga_id', '=', 'lgas.id')
+            ->select('lgas.lga_name', DB::raw('SUM(billings.paid_amount) as amount'))
+            ->whereYear('billings.entry_date', $year)
+            ->where('billings.lga_id', $lgaId)
             ->groupBy('lgas.lga_name')
             ->orderBy('lgas.lga_name', 'ASC')
             ->get();

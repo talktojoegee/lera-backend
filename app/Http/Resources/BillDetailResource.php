@@ -44,10 +44,9 @@ class BillDetailResource extends JsonResource
             'billAmount'=>$this->bill_amount ?? 0,
             'paidAmount'=>$this->paid_amount ?? 0,
             'url'=>$this->url,
-            //'propertyAddress'=>$this->property_address ?? '',
+            'propertyUse'=>$this->property_use ?? '',
             'reason'=>$this->return_reason,
             'special'=>$this->special,
-            'billedBy'=>$this->getBilledBy->name ?? '',
             'balance'=>number_format($this->bill_amount  - $this->paid_amount,2),
             'la'=>$this->la,
             'ba'=>$this->ba,
@@ -56,7 +55,26 @@ class BillDetailResource extends JsonResource
             'lr'=>$this->lr,
             'br'=>$this->br,
             'cr'=>$this->cr,
-            'bbf'=>$bbf
+            'bbf'=>$bbf,
+            'billedBy'=>$this->getBilledBy->name ?? '',
+            'dateBilled'=>date('d M, Y h:ia', strtotime($this->created_at)),
+
+            'approvedBy'=>$this->getApprovedBy->name ?? '',
+            'dateApproved'=>date('d M, Y h:ia', strtotime($this->date_approved)),
+
+            'authorizedBy'=>$this->getAuthorizedBy->name ?? '',
+            'dateAuthorized'=>date('d M, Y h:ia', strtotime($this->date_authorized)),
+
+            'verifiedBy'=>$this->getVerifiedBy->name ?? '',
+            'dateVerified'=>date('d M, Y h:ia', strtotime($this->date_actioned)),
+
+            'reviewedBy'=>$this->getReviewedBy->name ?? '',
+            'dateReviewed'=>date('d M, Y h:ia', strtotime($this->date_reviewed)),
+
+            'returnedBy'=>$this->getReturnedBy->name ?? '',
+            'dateReturned'=>date('d M, Y h:ia', strtotime($this->date_returned)),
+
+
         ];
     }
 }

@@ -8,8 +8,11 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ExportController extends Controller
 {
-    public function exportExcel()
+    public function exportExcel(Request $request)
     {
-        return Excel::download(new BillingExport, 'billings.xlsx');
+        $type = $request->type ;
+        $userId = $request->user ;
+        return Excel::download(new BillingExport($userId,$type), 'billings.xlsx');
     }
+
 }

@@ -28,7 +28,7 @@ class PropertyListResource extends JsonResource
           "zoneName"=>$this->sub_zone ?? '',
           "occupancy"=>$this->occupant ?? '',
           "class"=>$this->getPropertyClassification->class_name ?? '',
-          "propertyUse"=>$this->property_use ?? ''
+          "propertyUse"=>$this->sync_word ?? ''
         ];
     }
 }

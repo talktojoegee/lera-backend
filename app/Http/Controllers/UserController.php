@@ -65,6 +65,7 @@ class UserController extends Controller
             'mobile_no'=>$request->mobileNo,
             'sector'=>implode(',',$request->sector),
             'role'=>$request->role,
+            'lga'=>$request->lga
         ]);
 
         return response()->json(['message' => 'Success! Action successful.'], 201);

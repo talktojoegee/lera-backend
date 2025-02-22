@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Resources\PAVResource;
 use App\Http\Resources\PropertyClassificationResource;
 use App\Http\Resources\SectorResource;
+use App\Models\MinimumLuc;
 use App\Models\PropertyAssessmentValue;
 use App\Models\PropertyClassification;
 use Illuminate\Http\Request;
@@ -141,5 +142,34 @@ class PropertyAssessmentValueController extends Controller
             'data'=>SectorResource::collection( $sectors)
         ]);
         //skip($skip)->take($limit)->orderBy('id', 'DESC')->get();
+    }
+
+    public function storeLUC(Request $request){
+        $validator = Validator::make($request->all(),[
+            "amount"=>"required",
+        ],[
+            "amount.required"=>"Amount is required",
+        ]);
+        if($validator->fails() ){
+            return response()->json([
+                "errors"=>$validator->messages()
+            ],422);
+        }
+        $record = MinimumLuc::first();
+        if(!empty($record)){
+            $record->amount = $request->amount ?? 0;
+            $record->save();
+            return response()->json(['message' => 'Action successful!'], 200);
+        }
+        MinimumLuc::create([
+            'amount'=>$request->amount
+        ]);
+        return response()->json(['data'=>"Action successful!"], 200);
+    }
+
+
+    public function getLUC(){
+        $record = MinimumLuc::first();
+        return response()->json(['data'=>$record], 200);
     }
 }
