@@ -35,9 +35,8 @@ class BillingExport implements  FromCollection, WithHeadings
     {
         return ['Assessment No', 'Building Code', 'Year', 'Billing Code',
             'Zone', 'Category', 'Occupancy', 'Charge Rate',
-            'Assessed Mkt. Value(₦)', 'LUC(₦)'];
+            'Assessed Mkt. Value(₦)', 'LUC(₦)', 'BA', 'RR', 'DR', 'LR', 'LA', 'CR', 'BR'];
     }
-
     public function getBills($status, $special){
         $user = User::find($this->userId);
 

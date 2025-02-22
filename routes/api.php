@@ -168,6 +168,7 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('/chart-record/{user}/{year}', [\App\Http\Controllers\BillingController::class, 'LGAChairChartTest']);
 
     Route::get('/billing/lga-outstanding-bills/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showLGAChairOutstandingBills']);
+    Route::get('/billing/lga-bill-payment/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showLGAChairBillPayment']);
 
 
     //Route::get('/sync-test/{lga}', [\App\Http\Controllers\RemoteController::class, 'syncTest']);

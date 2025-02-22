@@ -330,7 +330,7 @@ class Billing extends Model
         $monthlyBills = Billing::select(
             DB::raw('MONTH(entry_date) as month'),
             DB::raw('SUM(bill_amount) as total_bill_amount')
-        )
+        )->where('status', 4)
             ->whereYear('entry_date', $year)
             ->groupBy(DB::raw('MONTH(entry_date)'))
             ->orderBy(DB::raw('MONTH(entry_date)'))
@@ -351,6 +351,7 @@ class Billing extends Model
         )
             ->whereYear('entry_date', $year)
             ->where('lga_id', $lgaId)
+            ->where('status', 4)//approved
             ->groupBy(DB::raw('MONTH(entry_date)'))
             ->orderBy(DB::raw('MONTH(entry_date)'))
             ->get();
@@ -367,7 +368,7 @@ class Billing extends Model
         $monthlyBills = Billing::select(
             DB::raw('MONTH(entry_date) as month'),
             DB::raw('SUM(paid_amount) as total_bill_amount')
-        )
+        )->where('status', 4)
             ->whereYear('entry_date', $year)
             ->groupBy(DB::raw('MONTH(entry_date)'))
             ->orderBy(DB::raw('MONTH(entry_date)'))
@@ -387,6 +388,7 @@ class Billing extends Model
         )
             ->whereYear('entry_date', $year)
             ->where('lga_id', $lgaId)
+            ->where('status', 4)//approved
             ->groupBy(DB::raw('MONTH(entry_date)'))
             ->orderBy(DB::raw('MONTH(entry_date)'))
             ->get();
@@ -403,6 +405,7 @@ class Billing extends Model
             ->join('zones', 'billings.zone_name', '=', 'zones.sub_zone')
             ->select('zones.sub_zone', DB::raw('SUM(billings.bill_amount) as total_bills'))
             ->whereYear('billings.entry_date', $year)
+            ->where('billings.status', 4)
             ->groupBy('zones.sub_zone')
             ->orderBy('zones.sub_zone', 'ASC')
             ->get();
@@ -414,6 +417,7 @@ class Billing extends Model
             ->select('zones.sub_zone', DB::raw('SUM(billings.bill_amount) as total_bills'))
             ->whereYear('billings.entry_date', $year)
             ->where('billings.lga_id', $lgaId)
+            ->where('billings.status', 4)//approved
             ->groupBy('zones.sub_zone')
             ->orderBy('zones.sub_zone', 'ASC')
             ->get();
@@ -426,6 +430,7 @@ class Billing extends Model
             ->join('lgas', 'billings.lga_id', '=', 'lgas.id')
             ->select('lgas.lga_name', DB::raw('SUM(billings.bill_amount) as total_bills'))
             ->whereYear('billings.entry_date', $year)
+            ->where('billings.status', 4)
             ->groupBy('lgas.lga_name')
             ->orderBy('lgas.lga_name', 'ASC')
             ->get();
@@ -440,6 +445,7 @@ class Billing extends Model
             ->select('lgas.lga_name', DB::raw('SUM(billings.bill_amount) as total_bills'))
             ->whereYear('billings.entry_date', $year)
             ->where('billings.lga_id', $lgaId)
+            ->where('billings.status', 4)//approved
             ->groupBy('lgas.lga_name')
             ->orderBy('lgas.lga_name', 'ASC')
             ->get();
@@ -452,6 +458,7 @@ class Billing extends Model
             ->join('lgas', 'billings.lga_id', '=', 'lgas.id')
             ->select('lgas.lga_name', DB::raw('SUM(billings.paid_amount) as amount'))
             ->whereYear('billings.entry_date', $year)
+            ->where('billings.status', 4)
             ->groupBy('lgas.lga_name')
             ->orderBy('lgas.lga_name', 'ASC')
             ->get();
@@ -466,6 +473,7 @@ class Billing extends Model
             ->select('lgas.lga_name', DB::raw('SUM(billings.paid_amount) as amount'))
             ->whereYear('billings.entry_date', $year)
             ->where('billings.lga_id', $lgaId)
+            ->where('billings.status', 4)//approved
             ->groupBy('lgas.lga_name')
             ->orderBy('lgas.lga_name', 'ASC')
             ->get();

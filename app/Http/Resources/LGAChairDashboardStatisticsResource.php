@@ -22,11 +22,11 @@ class LGAChairDashboardStatisticsResource extends JsonResource
         $user = User::find($request->user);
         $lga = Lga::find($user->lga);
 
-        $propertyCount = PropertyList::whereYear('created_at', $request->year)->where('lga_id', $user->lga_id)->count();
-        $billCount = Billing::whereYear('entry_date', $request->year)->where('lga_id', $user->lga_id)->count();
-        $objectionCount = Billing::whereYear('entry_date', $request->year)->where('lga_id', $user->lga_id)->where("objection", 1)->count();
-        $billAmount = Billing::whereYear('entry_date', $request->year)->where('lga_id', $user->lga_id)->sum("bill_amount");
-        $paidAmount = Billing::whereYear('entry_date', $request->year)->where('lga_id', $user->lga_id)->sum("paid_amount");
+        $propertyCount = PropertyList::whereYear('created_at', $request->year)->where('lga_id', $user->lga)->count();
+        $billCount = Billing::whereYear('entry_date', $request->year)->where('status', 4)->where('lga_id', $user->lga)->count();
+        $objectionCount = Billing::whereYear('entry_date', $request->year)->where('status', 4)->where('lga_id', $user->lga)->where("objection", 1)->count();
+        $billAmount = Billing::whereYear('entry_date', $request->year)->where('status', 4)->where('lga_id', $user->lga)->sum("bill_amount");
+        $paidAmount = Billing::whereYear('entry_date', $request->year)->where('status', 4)->where('lga_id', $user->lga)->sum("paid_amount");
 
         return [
             'noOfProperties'=>$propertyCount ?? 0,

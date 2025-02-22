@@ -252,11 +252,31 @@ class BillingController extends Controller
         }
 
         return response()->json([
-            'data'=>OutstandingBillResource::collection(Billing::getLGAChairBills($limit, $skip, 0, 0,  $user->lga)),
-            'total'=>Billing::getLGAChairBillsByParams(0,0,$user->lga)->count(),
-            'grossBills'=>Billing::getLGAChairBillsByParams(0,0,$user->lga)->sum('bill_amount'),
-            'grossAmountPaid'=>Billing::getLGAChairBillsByParams(0,0,$user->lga)->sum('paid_amount'),
-            'balanceAmount'=>(Billing::getLGAChairBillsByParams(0,0,$user->lga)->sum('bill_amount') - Billing::getLGAChairBillsByParams(0,0,$user->lga)->sum('paid_amount')),
+            'data'=>OutstandingBillResource::collection(Billing::getLGAChairBills($limit, $skip, 0, 4,  $user->lga)),
+            'total'=>Billing::getLGAChairBillsByParams(0,4,$user->lga)->count(),
+            'grossBills'=>Billing::getLGAChairBillsByParams(0,4,$user->lga)->sum('bill_amount'),
+            'grossAmountPaid'=>Billing::getLGAChairBillsByParams(0,4,$user->lga)->sum('paid_amount'),
+            'balanceAmount'=>(Billing::getLGAChairBillsByParams(0,4,$user->lga)->sum('bill_amount') - Billing::getLGAChairBillsByParams(0,4,$user->lga)->sum('paid_amount')),
+        ],200);
+    }
+    public function showLGAChairBillPayment(Request $request){
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
+        $userId = $request->user ?? 0;
+        $user = User::find($userId);
+
+        if(empty($user)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong.'
+            ], 404);
+        }
+
+        return response()->json([
+            'data'=>OutstandingBillResource::collection(Billing::getLGAChairBills($limit, $skip, 1, 4,  $user->lga)),
+            'total'=>Billing::getLGAChairBillsByParams(1,4,$user->lga)->count(),
+            'grossBills'=>Billing::getLGAChairBillsByParams(1,4,$user->lga)->sum('bill_amount'),
+            'grossAmountPaid'=>Billing::getLGAChairBillsByParams(1,4,$user->lga)->sum('paid_amount'),
+            'balanceAmount'=>(Billing::getLGAChairBillsByParams(1,4,$user->lga)->sum('bill_amount') - Billing::getLGAChairBillsByParams(1,4,$user->lga)->sum('paid_amount')),
         ],200);
     }
 
@@ -519,6 +539,7 @@ class BillingController extends Controller
     private function getMonthlyBillPaymentByYear($year){
         $billsData = DB::table('billings')
             ->selectRaw('MONTH(created_at) AS month, SUM(paid_amount) AS totalBillAmount')
+            ->where('status', 4)
             ->whereYear('entry_date', '=', $year)
             ->groupBy('month')
             ->orderBy('month')
@@ -545,6 +566,7 @@ class BillingController extends Controller
             ->selectRaw('MONTH(created_at) AS month, SUM(paid_amount) AS totalBillAmount')
             ->whereYear('entry_date', '=', $year)
             ->where('lga_id', $lgaId)
+            ->where('status', 4)//approved
             ->groupBy('month')
             ->orderBy('month')
             ->get();
