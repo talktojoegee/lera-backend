@@ -87,4 +87,39 @@ class RolePermissionController extends Controller
     }
 
 
+    public function updatePermissionToRole(Request $request){
+        $validator = Validator::make($request->all(),[
+            "role"=>"required",
+            "permissions"=>"required",
+        ],[
+            "role.required"=>"Role name is required",
+            "permissions.required"=>"Permissions are required"
+        ]);
+        if($validator->fails() ){
+            return response()->json([
+                "errors"=>$validator->messages()
+            ],422);
+        }
+        $chosenPermissions = Permission::whereIn('permission', $request->permissions)->get();
+        //$chosenPermissionIds = Permission::whereIn('permission', $request->permissions)->pluck('id')->toArray();
+        $rolePermissions = RolePermission::where('role_id', $request->role)->get();
+        foreach($rolePermissions as $rp) {
+            $rp->delete();
+        }
+        foreach($chosenPermissions as $chosenPermission){
+            RolePermission::create([
+                'role_id'=>$request->role,
+                'permission_id'=>$chosenPermission->id
+            ]);
+        }
+
+        /*foreach($rolePermissions as $rp){
+            if(!in_array($rp->permission_id, $chosenPermissionIds) ){
+                $rp->delete();
+            }
+        }*/
+        return response()->json(['message' => 'Action successful!'], 201);
+    }
+
+
 }

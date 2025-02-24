@@ -60,6 +60,7 @@ class SyncDataJob implements ShouldQueue
                 ->when($this->lgaId > 0, function($query) use ($lga){
                     return $query->where('lga_id', $this->lgaId);
                 })
+                ->where('completeness_status', 'Complete')
                 ->orderBy('id')
                 ->chunkById(1000, function ($records) use (&$counter)  {
                     foreach ($records as $record) {

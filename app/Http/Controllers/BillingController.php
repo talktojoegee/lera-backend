@@ -14,6 +14,7 @@ use App\Models\Billing;
 use App\Models\ChargeRate;
 use App\Models\Depreciation;
 use App\Models\Lga;
+use App\Models\MinimumLuc;
 use App\Models\PropertyAssessmentValue;
 use App\Models\PropertyList;
 use App\Models\User;
@@ -60,11 +61,11 @@ class BillingController extends Controller
         $validator = Validator::make($request->all(), [
             "lgaId" => "required",
             "year" => "required",
-            //"billedBy"=>"required",
+            "billedBy"=>"required",
         ], [
             "lgaId.required" => "LGA value is required",
             "year.required" => "Year field is required",
-            //"billedBy.required"=>"",
+            "billedBy.required"=>"",
         ]);
         if ($validator->fails()) {
             return ApiResponse::error($validator->messages(), 422);
@@ -134,17 +135,25 @@ class BillingController extends Controller
                 $luc = (($la * $lr) + ($ba * $br * $dr)) * ($rr * $cr);
                 $billAmount = $luc; // ($pavOptional->value_rate / 100) * $pavOptional->assessed_amount;
 
+                $minimumLUC = MinimumLuc::first();
+                if(empty($minimumLUC)){
+                    return response()->json([
+                        "errors"=>"Something went wrong."
+                    ],404);
+                }
                 $billing = new Billing();
                 $billing->building_code = $list->building_code ?? null;
                 $billing->assessment_no = $uniqueNumber;
                 $billing->assessed_value = (($la * $lr) + ($ba * $br * $dr)) * ($rr);// $pavOptional->assessed_amount ?? 0;
-                $billing->bill_amount = number_format($billAmount,2, '.', '') ?? 0;
+                $billing->bill_amount =  $billAmount > $minimumLUC->amount ? number_format($billAmount,2, '.', '') : $minimumLUC->amount;
+                $billing->minimum_luc =  $billAmount < $minimumLUC->amount ? number_format($billAmount,2, '.', '') : 0;
+
                 $billing->year = $year;
 
                 $dateTime = new \DateTime('now');
                 $dateTime->setDate($year, $dateTime->format('m'), $dateTime->format('d'));
                 $billing->entry_date = $dateTime->format('Y-m-d H:i:s'); //now();
-                $billing->billed_by = 1;
+                $billing->billed_by = $request->billedBy ?? 1;
 
                 $billing->rr = $pavOptional->rr ?? 0;
                 $billing->lr = $pavOptional->lr ?? 0;

@@ -145,6 +145,7 @@ Route::group(['middleware' => 'api'], function(){
     #Role-permission assignment
     Route::post('/access/roles-permission/new', [\App\Http\Controllers\RolePermissionController::class, 'assignPermissionToRole']);
     Route::get('/access/roles-permission/all', [\App\Http\Controllers\RolePermissionController::class, 'showAllRolePermissions']);
+    Route::post('/access/update-roles-permission', [\App\Http\Controllers\RolePermissionController::class, 'updatePermissionToRole']);
 
 
     #Permission
