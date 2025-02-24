@@ -66,7 +66,7 @@ class SyncDataJob implements ShouldQueue
                     foreach ($records as $record) {
                         $lgaName = trim($record->lga);
                         $lgaOne = Lga::where('lga_name', 'LIKE', "%{$lgaName}%")->first();
-                        Log::info('Searching LGA Name:', ['lga' => $record->lga]);
+                        //Log::info('Searching LGA Name:', ['lga' => $record->lga]);
                         //$lgaOne = Lga::where('lga_name',$record->lga)->first();
                         $propertyList = PropertyList::where("building_code", $record->prop_id)->first();
                         $propertyClassification = PropertyClassification::find($record->landuse);
