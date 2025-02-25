@@ -30,8 +30,35 @@ class RolePermissionController extends Controller
                 "errors"=>$validator->messages()
             ],422);
         }
-        Role::create(['name'=>$request->name]);
+        Role::create(['name'=>strtoupper($request->name)]);
         return response()->json(['message' => 'Success! Role added.'], 201);
+    }
+
+    public function updateRole(Request $request){
+        $validator = Validator::make($request->all(),[
+            "role"=>"required",
+            "id"=>"required"
+        ],[
+            "role.required"=>"Role name is required",
+            "id.required"=>""
+        ]);
+        if($validator->fails() ){
+            return response()->json([
+                "errors"=>$validator->messages()
+            ],422);
+        }
+        $role = Role::find($request->id);
+        if(empty($role)){
+            return response()->json([
+                "data"=>"No record found"
+            ],404);
+        }
+        $role->name = strtoupper($request->role) ?? '';
+        if($role->id != 6){
+            $role->save();
+        }
+
+        return response()->json(['message' => 'Success! Changes saved!'], 200);
     }
 
     public function showAllRoles(){

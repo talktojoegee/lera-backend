@@ -137,6 +137,7 @@ Route::group(['middleware' => 'api'], function(){
     #Users
     Route::get('/users/all/{type}/{limit}/{skip}', [\App\Http\Controllers\UserController::class, 'showAllUsers']);
     Route::post('add-new-user', [\App\Http\Controllers\UserController::class, 'storeUser']);
+    Route::post('update-user-account', [\App\Http\Controllers\UserController::class, 'updateUser']);
 
     #Roles
     Route::post('/access/permissions/new', [\App\Http\Controllers\RolePermissionController::class, 'createPermission']);
@@ -150,6 +151,7 @@ Route::group(['middleware' => 'api'], function(){
 
     #Permission
     Route::post('/access/roles/new', [\App\Http\Controllers\RolePermissionController::class, 'createRole']);
+    Route::post('/access/roles/update', [\App\Http\Controllers\RolePermissionController::class, 'updateRole']);
     Route::get('/access/roles/all', [\App\Http\Controllers\RolePermissionController::class, 'showAllRoles']);
 
     //Route::get('/access/all', [\App\Http\Controllers\LGAController::class, 'showAllLGAs']);

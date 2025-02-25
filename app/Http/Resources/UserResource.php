@@ -22,6 +22,7 @@ class UserResource extends JsonResource
         $role = Role::find($this->role);
 
         return [
+          "id"=>$this->id,
           "name"=>$this->name,
           "email"=>$this->email,
           "mobileNo"=>$this->mobile_no,
@@ -29,6 +30,7 @@ class UserResource extends JsonResource
           "username"=>$this->username,
           "sector"=>$this->sector,
         'role' => $role->name ?? '',
+        'roleId'=>$role->id,
         'permissions'=>$permissions ?? [],
         ];
     }

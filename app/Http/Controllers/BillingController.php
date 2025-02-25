@@ -55,6 +55,8 @@ class BillingController extends Controller
 
     public function processBill(Request $request)
     {
+        set_time_limit(1800);
+
         $year = $request->year;
         $lgaId = $request->lgaId;
 
