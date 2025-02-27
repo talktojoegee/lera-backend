@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\MyProfileResource;
 use App\Http\Resources\UserResource;
 use App\Models\Objection;
 use App\Models\ObjectionAttachment;
+use App\Models\Owner;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -122,4 +124,7 @@ class UserController extends Controller
 
         return response()->json(['message' => 'Success! Action successful.'], 200);
     }
+
+
+
 }

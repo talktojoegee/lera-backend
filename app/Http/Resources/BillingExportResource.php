@@ -41,6 +41,7 @@ class BillingExportResource extends JsonResource
             'cr'=>$this->cr ?? 0,
             'br'=>$this->br ?? 0,
             'propertyUse'=>$this->property_use ?? '',
+            'propertyName'=>$this->getPropertyList->property_name ?? '',
 
             /*'requestId'=> !empty($objection) ? $objection->request_id : '',
             'owner'=>$this->getPropertyList->owner_name ?? '',

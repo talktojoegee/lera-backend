@@ -72,6 +72,30 @@ class AuthenticationController extends Controller
 
     }
 
+
+    public function loginUser(Request $request){
+        $request->validate([
+            "username"=>"required",
+            "password"=>"required",
+            "type"=>"required",
+        ],[
+            "username.required"=>"Enter your registered password",
+            "password.required"=>"Enter your password for this account",
+            "type.required"=>"",
+        ]);
+        $username = $request->input('username');
+        $password = $request->input('password');
+        $type = $request->input('type');
+        $user = User::where('username', $username)->where('type', $type)->first();
+        if (!$user || !Hash::check($password, $user->password)) {
+            return ApiResponse::error("Invalid login credentials.", 401);
+        }
+        $token = JWTAuth::fromUser($user);
+        $user->token = $token;
+        return new  AuthUserResource($user);
+
+    }
+
     public function logout(Request $request)
     {
         auth('api')->logout();

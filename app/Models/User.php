@@ -73,6 +73,11 @@ class User extends Authenticatable implements JWTSubject
     }
 
 
+    public function getLga(){
+        return $this->belongsTo(Lga::class, 'lga_id');
+    }
+
+
 
 
     public static function fetchAllAdminUsers($type, $limit, $skip){

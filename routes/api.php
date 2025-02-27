@@ -11,6 +11,7 @@ Route::options('{any}', function () {
 
 Route::post('/register',[\App\Http\Controllers\AuthenticationController::class, 'register']);
 Route::post('/authenticate',[\App\Http\Controllers\AuthenticationController::class, 'authenticate']);
+Route::post('/user-login',[\App\Http\Controllers\AuthenticationController::class, 'loginUser']);
 Route::post('/logout', [\App\Http\Controllers\AuthenticationController::class, 'logout']);
 
 
@@ -178,6 +179,16 @@ Route::group(['middleware' => 'api'], function(){
 
 
 
+
+
+
+
+    /*
+     * Frontend Endpoints
+     *
+     */
+    Route::get('/get-bill-by/assessment-no/{assessmentNo}', [\App\Http\Controllers\Frontend\BillingController::class, 'handleBillPaymentRequest']);
+    Route::get('/my-profile/{uuid}', [\App\Http\Controllers\Frontend\UserController::class, 'myProfile']);
 
 });
 Route::middleware([\App\Http\Middleware\JsonApiMiddleware::class])->group( function(){

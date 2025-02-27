@@ -22,7 +22,9 @@ return [
 
     'allowed_origins' => ['https://kslas.kofooni.ca',
         'https://www.kofooni.ca',
-        'http://localhost:4200'],
+        'http://localhost:4200',
+        'http://localhost:53878',
+    ],
 
     'allowed_origins_patterns' => [],
 

@@ -20,6 +20,7 @@ use App\Models\PropertyList;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class BillingController extends Controller
@@ -124,9 +125,11 @@ class BillingController extends Controller
                     RR% = from Billing Setup * 0.01
                  */
                 //LUC = {(LA * LR) + (BA% x BR x DR)} * RR% * CR
-                $la = $list->area ?? 1; //la
+                $la = (int) $list->area ?? 1; //la
                 $lr = $pavOptional->lr ?? 1;
-                $ba = ($pavOptional->ba * 0.01) * $la;
+                //Log::info('BA Value', ['data' => $pavOptional->ba]);
+                //Log::info('Building ID', ['data' => $list->building_code]);
+                $ba = ( $pavOptional->ba * 0.01) * $la;
                 $br = $pavOptional->br;
                 $dr = $depreciation->value * 0.01; //carry to billing table
                 $rr = $pavOptional->rr * 0.01;
