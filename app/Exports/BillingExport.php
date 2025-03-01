@@ -29,7 +29,7 @@ class BillingExport implements  FromCollection, WithHeadings
             case 'special-outstanding':
                 return BillingExportResource::collection($this->getBills(4,1))->collection;
             case 'all-pending':
-                return BillingExportResource::collection($this->getBills(0,0)->take(1000))->collection;
+                return BillingExportResource::collection($this->getAllPendingBills(0)->take(2000))->collection;
             case 'returned-normal':
                 return BillingExportResource::collection($this->getReturnedBills(0,1))->collection;
             case 'returned-special':
@@ -59,6 +59,20 @@ class BillingExport implements  FromCollection, WithHeadings
         return Billing::where('status', $status)
             ->whereIn('property_use', $propertyUse)
             ->where('special', $special)
+            ->orderBy('id', 'DESC')
+            ->get();
+    }
+    public function getAllPendingBills($status){
+        $user = User::find($this->userId);
+
+        if(empty($user)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong.'
+            ], 404);
+        }
+        $propertyUse = explode(',', $user->sector);
+        return Billing::where('status', $status)
+            ->whereIn('property_use', $propertyUse)
             ->orderBy('id', 'DESC')
             ->get();
     }

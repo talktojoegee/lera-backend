@@ -12,5 +12,14 @@ class BillPaymentLog extends Model
         "amount",
         "trans_ref",
         "reference",
+        "receipt_no",
+        "payment_code",
+        "assessment_no",
+        "bank_name",
+        "branch_name",
+        "pay_mode",
+        "customer_name",
+        "email",
+        "kgtin",
     ];
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\PaymentValidationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 //use Tymon\JWTAuth\Http\Middleware\Check as JWTMiddleware;
@@ -189,6 +190,11 @@ Route::group(['middleware' => 'api'], function(){
      */
     Route::get('/get-bill-by/assessment-no/{assessmentNo}', [\App\Http\Controllers\Frontend\BillingController::class, 'handleBillPaymentRequest']);
     Route::get('/my-profile/{uuid}', [\App\Http\Controllers\Frontend\UserController::class, 'myProfile']);
+
+
+    Route::get('/etz/validation', [PaymentValidationController::class, 'validatePayment']);
+    Route::get('/etz/notification', [PaymentValidationController::class, 'notifyETranzact']);
+
 
 });
 Route::middleware([\App\Http\Middleware\JsonApiMiddleware::class])->group( function(){
