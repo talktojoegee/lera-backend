@@ -89,7 +89,7 @@ class SyncDataJob implements ShouldQueue
                             }
 
                             $zoneChar = $this->_getZoneCharacter($record->zone) ?? 'Z';
-                            $chargeRate = $this->_getChargeRate($record->occupier_s);
+                            $chargeRate = $this->_getChargeRate($record->occupier_s, $record->landuse);
                             $dep = Depreciation::where('range', $record->property_age)->first();
                             $pavRecord = $this->_getPavCode($record->landuse, $record->zone, $syncWord);
                             $areaVal = $this->convertToSqm($record->property_area);
@@ -327,21 +327,42 @@ class SyncDataJob implements ShouldQueue
         }
     }
 
-    public function _getChargeRate($occupier){
+    public function _getChargeRate($occupier, $landUse){
         $normalizedClassName = trim($occupier);
-        if ($normalizedClassName == 'Owner_3rd_Party') {
-            return ChargeRate::whereRaw("occupancy LIKE ?", ['%Residential Property (Owner and 3rd Party)%'])->first();
+        switch($landUse){
+            case 1:
+            if ($normalizedClassName == 'Owner_3rd_Party') {
+                return ChargeRate::whereRaw("occupancy LIKE ?", ['%Residential Property (Owner and 3rd Party)%'])->first();
+            }elseif ($normalizedClassName == 'Third_party') {
+                return  ChargeRate::whereRaw("occupancy LIKE ?", ['%Residential Property (without Owner in residence)%'])->first();
 
-        }elseif ($normalizedClassName == 'Third_party') {
-            return  ChargeRate::whereRaw("occupancy LIKE ?", ['%Residential Property (without Owner in residence)%'])->first();
+            } elseif ($normalizedClassName == 'Owner_occupier') {
+                return  ChargeRate::whereRaw("occupancy LIKE ?", ['%Owner-occupied Residential Property%'])->first();
 
-        } elseif ($normalizedClassName == 'Owner_occupier') {
-            return  ChargeRate::whereRaw("occupancy LIKE ?", ['%Owner-occupied Residential Property%'])->first();
+            } elseif ($normalizedClassName == 'Not_Known') {
+                return ChargeRate::whereRaw("occupancy LIKE ?", ['%Owner-occupied Residential Property%'])->first();
 
-        } elseif ($normalizedClassName == 'Not_Known') {
-            return ChargeRate::whereRaw("occupancy LIKE ?", ['%Owner-occupied Residential Property%'])->first();
+            }
+            break;
+            case 2:
+            case 5:
+            case 6:
+                return ChargeRate::find(7);
+            case 3:
+                return ChargeRate::find(4);
+            case 4:
+            case 7:
+            case 8:
+            case 9:
+                return ChargeRate::find(3);
+            case 10:
 
+            case 11:
+                return ChargeRate::find(9);
+            case 12:
+                return ChargeRate::find(8);
         }
+
     }
 
 
