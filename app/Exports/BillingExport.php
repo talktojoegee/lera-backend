@@ -29,7 +29,7 @@ class BillingExport implements  FromCollection, WithHeadings
             case 'special-outstanding':
                 return BillingExportResource::collection($this->getBills(4,1))->collection;
             case 'all-pending':
-                return BillingExportResource::collection($this->getAllPendingBills(0)->take(2000))->collection;
+                return BillingExportResource::collection($this->getAllPendingBills(0))->collection;
             case 'returned-normal':
                 return BillingExportResource::collection($this->getReturnedBills(0,1))->collection;
             case 'returned-special':
