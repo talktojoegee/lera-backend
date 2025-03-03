@@ -34,23 +34,20 @@ class ProcessBillingJob implements ShouldQueue
      */
     public function handle(): void
     {
+        try{
+
         if ($this->lgaId == 0) { //All locations/LGAs
             $propertyLists = PropertyList::orderBy('id', 'DESC')->get();
         } else {
             $propertyLists = PropertyList::where('lga_id', $this->lgaId)/*->take(10)*/ ->get();
         }
         foreach ($propertyLists as $list) {
-            $existingBill = Billing::getBillByYearBuildingCode($this->year, $list->building_code);
-            if(empty($existingBill)){ //If there is no existing bill
-                // echo "Existing Bill ID:: ".$existingBill->id;
+            $existingBill = Billing::where('year', $this->year)
+                ->where('building_code', $list->building_code)
+                ->exists();
+            //Billing::getBillByYearBuildingCode($this->year, $list->building_code);
+            if(!$existingBill){
                 $pavOptional = PropertyAssessmentValue::where("pav_code", $list->pav_code)->first();
-                /*
-                 * Tie Government = State government, religious = commercial, recreational = commercial
-                 * Religious =
-                 * Residential =
-                 * Commercial =
-                 * Tie Owner to = Owner occupied; tenant to = 3rd Party Only
-                 */
                 $lga = Lga::find($list->lga_id);
                 $depreciation = Depreciation::find($list->dep_id);
                 $chargeRate = ChargeRate::find($list->cr);
@@ -66,17 +63,15 @@ class ProcessBillingJob implements ShouldQueue
                         RR% = from Billing Setup * 0.01
                      */
                     //LUC = {(LA * LR) + (BA% x BR x DR)} * RR% * CR
-                    $la = (int) $list->area ?? 1; //la
+                    $la = (int) $list->area ?? 1;
                     $lr = $pavOptional->lr ?? 1;
-                    //Log::info('BA Value', ['data' => $pavOptional->ba]);
-                    //Log::info('Building ID', ['data' => $list->building_code]);
                     $ba = ( $pavOptional->ba * 0.01) * $la;
                     $br = $pavOptional->br;
-                    $dr = $depreciation->value * 0.01; //carry to billing table
+                    $dr = $depreciation->value * 0.01;
                     $rr = $pavOptional->rr * 0.01;
 
 
-                    $cr = ($chargeRate->rate * 0.01);// ($pavOptional->value_rate * 0.01) * ($la * $lr);
+                    $cr = ($chargeRate->rate * 0.01);
 
                     $luc = (($la * $lr) + ($ba * $br * $dr)) * ($rr * $cr);
                     $billAmount = $luc;
@@ -127,5 +122,12 @@ class ProcessBillingJob implements ShouldQueue
             }
 
         }
+        } catch (\Illuminate\Database\QueryException $e) {
+                // Ignore duplicate entry error
+                if ($e->getCode() == 23000) { //
+                } else {
+                    throw $e;
+                }
+       }
     }
 }

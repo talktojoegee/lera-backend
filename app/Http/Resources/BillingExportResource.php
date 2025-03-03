@@ -15,14 +15,7 @@ class BillingExportResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        /*
-         * 'Assessment No', 'Building Code', 'Year', 'Billing Code',
-            'Zone', 'Category', 'Occupancy', 'Charge Rate',
-            'Assessed Mkt. Value(₦)', 'LUC(₦)'
-         */
         return [
-            //'approvedDate'=> !empty($objection) ? date('d M, Y', strtotime($objection->date_approved)) : '',
-            //'billId'=>$this->id ?? '',
             'assessmentNo'=>$this->assessment_no ?? '',
             'buildingCode'=>$this->building_code ?? '',
             'year'=>$this->year ?? '',
@@ -30,9 +23,9 @@ class BillingExportResource extends JsonResource
             'zoneName'=>$this->zone_name ?? '',
             'categoryName'=>$this->getPropertyClassification->class_name ?? '',
             'occupancy'=>$this->getChargeRate->occupancy ?? '',
-            'rate'=>$this->cr ?? '',
-            'assessValue'=>$this->assessed_value ?? '',
-            'billAmount'=>$this->bill_amount ?? '',
+            'rate'=>$this->cr ?? 0,
+            'assessValue'=>$this->assessed_value ?? 0,
+            'billAmount'=>$this->bill_amount ?? 0,
             'ba'=>$this->ba ?? 0,
             'rr'=>$this->rr ?? 0,
             'dr'=>$this->dr ?? 0,
@@ -42,15 +35,6 @@ class BillingExportResource extends JsonResource
             'br'=>$this->br ?? 0,
             'propertyUse'=>$this->property_use ?? '',
             'propertyName'=>$this->getPropertyList->property_name ?? '',
-
-            /*'requestId'=> !empty($objection) ? $objection->request_id : '',
-            'owner'=>$this->getPropertyList->owner_name ?? '',
-            'balance'=>$this->bill_amount ?? 0 - $this->paid_amount,
-            'lgaName'=>$this->getLGA->lga_name ?? 'N/A',
-            'url'=>$this->url ?? '',
-            'objection'=>$objectionCount ?? 0,
-            'special'=>$this->special,
-            'status'=>$this->status,*/
         ];
     }
 }

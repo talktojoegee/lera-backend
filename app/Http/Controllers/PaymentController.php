@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Billing;
 use App\Models\BillPaymentLog;
+use App\Models\KogiRemsNotification;
 use App\Models\Owner;
 use App\Models\PropertyList;
 use Illuminate\Http\Request;
@@ -93,6 +94,19 @@ class PaymentController extends Controller
                 $owner->save();
             }
         }
+        //Kogi rems notification register
+        KogiRemsNotification::create([
+            "assessmentno"=>$bill->assessment_no,
+            "buildingcode"=>$bill->building_code,
+            "kgtin"=>$request->kgtin ?? null,
+            "name"=>$request->name,
+            "amount"=>$request->amount,
+            "phone"=>$request->mobileNo,
+            "email"=>$request->email,
+            "transdate"=>$request->transdate ?? now(),
+            "transRef"=>$request->reference,
+            "paymode"=>$request->paymode ?? "POS",
+        ]);
 
         return response()->json(['data'=>"Payment recorded"], 201);
 

@@ -20,8 +20,10 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['https://kslas.kofooni.ca',
+    'allowed_origins' => [
+        'https://kslas.kofooni.ca',
         'https://www.kofooni.ca',
+        'https://kgirs-billing.kslas.ng',
         'http://localhost:4200',
         'http://localhost:53878',
     ],
