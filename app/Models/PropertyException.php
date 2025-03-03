@@ -42,6 +42,8 @@ class PropertyException extends Model
         'property_address',
         'sync_word',
         'property_use',
+        'reason',
+        'status',
     ];
 
     public function getLGA(){

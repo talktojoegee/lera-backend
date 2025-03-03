@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\NotifyKogiRemsJob;
 use App\Models\Billing;
 use App\Models\BillPaymentLog;
 use App\Models\KogiRemsNotification;
@@ -107,6 +108,8 @@ class PaymentController extends Controller
             "transRef"=>$request->reference,
             "paymode"=>$request->paymode ?? "POS",
         ]);
+
+        NotifyKogiRemsJob::dispatch();
 
         return response()->json(['data'=>"Payment recorded"], 201);
 

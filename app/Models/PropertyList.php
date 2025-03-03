@@ -29,6 +29,7 @@ class PropertyList extends Model
         'class_id',
         'class_name',
         'sub_zone',
+        'ward',
         'occupant',
         'building_age',
         'pay_status',

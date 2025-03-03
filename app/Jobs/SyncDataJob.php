@@ -44,7 +44,7 @@ class SyncDataJob implements ShouldQueue
             }
             $addedCount = 0;
             $rejectedCount = 0;
-            $counter = 0;
+            $existFlag = 0;
 
             DB::connection('pgsql')
                 ->table('Land_Admin_New_Form')
@@ -53,13 +53,14 @@ class SyncDataJob implements ShouldQueue
                 })
                 ->where('completeness_status', 'Complete')
                 ->orderBy('id')
-                ->chunkById(1000, function ($records) use (&$counter)  {
+                ->chunkById(1000, function ($records) use (&$existFlag)  {
                     foreach ($records as $record) {
                         $lgaName = trim($record->lga);
                         $lgaOne = Lga::where('lga_name', 'LIKE', "%{$lgaName}%")->first();
                         $propertyList = PropertyList::where("building_code", $record->prop_id)->first();
                         $propertyClassification = PropertyClassification::find($record->landuse);
                         $zoneOne = Zone::where("sub_zone", $record->zone)->first();
+                        $reason = '';
                         if (empty($propertyList)) {
                             $syncWord = null;
                             if(!is_null($record->residentia)){
@@ -102,6 +103,7 @@ class SyncDataJob implements ShouldQueue
                             $classID = in_array($record->landuse, $classIds) ? $record->landuse : 1;
                             $lgaExist = Lga::find($lgaOne->id);
                             if (empty($lgaOne)  || empty($zoneOne) || empty($propertyClassification) || empty($propertyUse)) {
+                                $reason = "Inaccurate/missing info: LGA: {$lgaName} or Zone: {$record->zone} or Landuse: {$record->landuse} or Sync Word: {$syncWord}";
                                 PropertyException::create([
                                     'address'=>$record->street_nam,
                                     'area'=>str_replace("_sqm", "", $areaVal),
@@ -142,56 +144,53 @@ class SyncDataJob implements ShouldQueue
                                     'sync_word'=>$syncWord,
                                     'property_use'=>$propertyUse->property_use ?? null,
                                     'dep_id'=> !empty($dep) ? $dep->id : Depreciation::orderBy('id', 'ASC')->first()->id, //depreciation
+                                    'reason'=>$reason
                                 ]);
                             }else{
                                 if(!empty($pavRecord)){
-                                    /*$listFilePath = 'logs/property_list.txt';
-                                    $message = $record->prop_id . "\t".$record->zone."\t".$record->lga;
-                                    Storage::append($listFilePath, $message);*/
-
-                                    //echo "List LGA:: ".$record->lga." \n";
                                     PropertyList::create([
-                                        'address'=>$record->street_nam,
-                                        'area'=>str_replace("_sqm", "", $areaVal),
-                                        //'area'=>$record["Bld_area,
-                                        'borehole'=>$record->water == 'Yes' ? 1 : 0,
-                                        'building_code'=>$record->prop_id,
-                                        'image'=>$record->photo_link,
-                                        'owner_email'=>$record->owner_emai,
-                                        'owner_gsm'=>$record->owner_phon,
-                                        'owner_kgtin'=>$record->kgtin,
-                                        'owner_name'=>$record->prop_owner,
-                                        'title'=>$record->land_status,
-                                        'pav_code'=> $pavRecord->pav_code ?? null,
-                                        'power'=>$record->power == 'Yes' ? 1 : 0,
-                                        //'refuse'=>$record["Street"],
-                                        //'size'=>$record["Street"],
-                                        'storey'=> '',//is_int($record["Bld_Storey"]) ? $record["Bld_Storey"] : 0,
-                                        //'title'=>$record["Street"],
-                                        'water'=>$record->water == 'Yes' ? 1 : 0,
-                                        'zone_name'=>$zoneChar ?? 'A',
-                                        'sub_zone'=>$record->zone ?? 'A1', //'A1','B2'
-                                        'occupant'=>$record->prop_owner,
-                                        'building_age'=>$record->property_age,
-                                        'pay_status'=>null,//$record["Pay_Status"],
-                                        'lga_id'=>!empty($lgaOne) && isset($lgaOne->id) ? $lgaOne->id : 1,//$lgaOne->id ?? 1,
-                                        //'special'=>rand(0,1),
-                                        'class_name'=> $propertyClassification->class_name ?? '' ,//$record["Bld_Cat"],
-                                        'class_id'=>$classID,//$record->landuse ?? 1,
-                                        //'class_id'=>$propertyClassification->id ?? null,
-                                        'sync_word'=>$syncWord,
-                                        'property_use'=>$propertyUse->property_use ?? null,
-                                        'cr'=>$chargeRate->id ?? 1,
-                                        'actual_age'=>$record->property_age,
-                                        'longitude'=>$record->longitude,
-                                        'latitude'=>$record->latitude,
-                                        'property_name'=>$record->prop_name,
-                                        'occupier'=>$record->occupier_s,
-                                        'property_address'=>$record->prop_addre,
-                                        'dep_id'=> !empty($dep) ? $dep->id : Depreciation::orderBy('id', 'ASC')->first()->id, //depreciation
-                                    ]);
-                                    //$counter++;
+                                            'address'=>$record->street_nam,
+                                            'area'=>str_replace("_sqm", "", $areaVal),
+                                            //'area'=>$record["Bld_area,
+                                            'borehole'=>$record->water == 'Yes' ? 1 : 0,
+                                            'building_code'=>$record->prop_id,
+                                            'image'=>$record->photo_link,
+                                            'owner_email'=>$record->owner_emai,
+                                            'owner_gsm'=>$record->owner_phon,
+                                            'owner_kgtin'=>$record->kgtin,
+                                            'owner_name'=>$record->prop_owner,
+                                            'title'=>$record->land_status,
+                                            'pav_code'=> $pavRecord->pav_code ?? null,
+                                            'power'=>$record->power == 'Yes' ? 1 : 0,
+                                            //'refuse'=>$record["Street"],
+                                            //'size'=>$record["Street"],
+                                            'storey'=> '',//is_int($record["Bld_Storey"]) ? $record["Bld_Storey"] : 0,
+                                            //'title'=>$record["Street"],
+                                            'water'=>$record->water == 'Yes' ? 1 : 0,
+                                            'zone_name'=>$zoneChar ?? 'A',
+                                            'sub_zone'=>$record->zone ?? 'A1', //'A1','B2'
+                                            'ward'=>$record->ward ?? 'A1', //'A1','B2'
+                                            'occupant'=>$record->prop_owner,
+                                            'building_age'=>$record->property_age,
+                                            'pay_status'=>null,//$record["Pay_Status"],
+                                            'lga_id'=>!empty($lgaOne) && isset($lgaOne->id) ? $lgaOne->id : 1,//$lgaOne->id ?? 1,
+                                            //'special'=>rand(0,1),
+                                            'class_name'=> $propertyClassification->class_name ?? '' ,//$record["Bld_Cat"],
+                                            'class_id'=>$classID,//$record->landuse ?? 1,
+                                            //'class_id'=>$propertyClassification->id ?? null,
+                                            'sync_word'=>$syncWord,
+                                            'property_use'=>$propertyUse->property_use ?? null,
+                                            'cr'=>$chargeRate->id ?? 1,
+                                            'actual_age'=>$record->property_age,
+                                            'longitude'=>$record->longitude,
+                                            'latitude'=>$record->latitude,
+                                            'property_name'=>$record->prop_name,
+                                            'occupier'=>$record->occupier_s,
+                                            'property_address'=>$record->prop_addre,
+                                            'dep_id'=> !empty($dep) ? $dep->id : Depreciation::orderBy('id', 'ASC')->first()->id, //depreciation
+                                        ]);
                                 }else{
+                                    $reason = "Property:: {$record->prop_id}. Zone: {$record->zone}. Sync Word: {$syncWord}";
                                     PropertyException::create([
                                         'address'=>$record->street_nam,
                                         'area'=>str_replace("_sqm", "", $areaVal),
@@ -232,6 +231,7 @@ class SyncDataJob implements ShouldQueue
                                         'sync_word'=>$syncWord,
                                         'property_use'=>$propertyUse->property_use ?? null,
                                         'dep_id'=> !empty($dep) ? $dep->id : Depreciation::orderBy('id', 'ASC')->first()->id, //depreciation
+                                        'reason'=>$reason,
                                     ]);
                                     $noneFilePath = 'logs/property_none.txt';
                                     $message = $record->prop_id . "\t".$record->zone."\t".$record->lga;
@@ -239,6 +239,7 @@ class SyncDataJob implements ShouldQueue
                                 }
                             }
                         }else{
+                            $existFlag = 1;
                             PropertyException::create([
                                 'address'=>$record->street_nam,
                                 'area'=>str_replace("_sqm", "", $areaVal),
@@ -279,11 +280,14 @@ class SyncDataJob implements ShouldQueue
                                 'sync_word'=>$syncWord,
                                 'property_use'=>$propertyUse->property_use ?? null,
                                 'dep_id'=> !empty($dep) ? $dep->id : Depreciation::orderBy('id', 'ASC')->first()->id, //depreciation
+                                'reason'=>"Property already synchronized",
+                                'status'=>1
                             ]);
-                            $listFilePath = 'logs/duplicates.txt';
+                           /* $listFilePath = 'logs/duplicates.txt';
                            $message = $record->prop_id . "\t".$record->zone."\t".$record->lga;
-                           Storage::append($listFilePath, $message);
+                           Storage::append($listFilePath, $message);*/
                         }
+                        $existFlag = 0;
                     }
                 });
 
