@@ -33,5 +33,5 @@ class PropertyListResource extends JsonResource
           "reason"=>$this->reason ?? '',
           "status"=>$this->status ?? '',
         ];
-    }
+    } //extension_dir => /usr/lib/php/20230831 => /usr/lib/php/20230831
 }
