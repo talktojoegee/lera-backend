@@ -14,6 +14,7 @@ use App\Jobs\ProcessBillingJob;
 use App\Models\Billing;
 use App\Models\ChargeRate;
 use App\Models\Depreciation;
+use App\Models\EditBillLog;
 use App\Models\Lga;
 use App\Models\MinimumLuc;
 use App\Models\PropertyAssessmentValue;
@@ -57,7 +58,6 @@ class BillingController extends Controller
 
     public function processBill(Request $request)
     {
-        set_time_limit(1800);
 
         $year = $request->year;
         $lgaId = $request->lgaId;
@@ -431,7 +431,7 @@ class BillingController extends Controller
         $code = $record->pav_code;
         $record->assessed_value = $request->assessedValue;
         $record->bill_amount = $request->lucAmount;
-        $record->bill_rate = $request->chargeRate;
+        //$record->bill_rate = $request->chargeRate;
         $record->returned = 2; //processed
         $record->status = 0; //take it back to pending for it to re-enter the workflow process
         $record->la = $request->la ?? 0;
@@ -441,6 +441,30 @@ class BillingController extends Controller
         $record->br = $request->br ?? 0;
         $record->lr = $request->lr ?? 0;
         $record->pav_code = str_replace("B", "CS", $code);
+                    //log edit bill changes
+                    $log = new EditBillLog();
+                    $log->bill_id = $record->id ?? '';
+                    $log->edited_by = $request->actionedBy ?? '';
+                    $log->building_code = $record->building_code ?? '';
+                    $log->prev_la = $record->la ?? 0;
+                    $log->prev_ba = $record->ba ?? 0;
+                    $log->prev_rr = $record->rr ?? 0;
+                    $log->prev_dr = $record->dr ?? 0;
+                    $log->prev_br = $record->br ?? 0;
+                    $log->prev_lr = $record->lr ?? 0;
+                    $log->prev_luc = $record->bill_amount ?? 0;
+                    $log->prev_assess_value = $record->assessed_value;
+
+                    $log->cur_la = $request->la;
+                    $log->cur_ba = $request->ba;
+                    $log->cur_rr = $request->rr;
+                    $log->cur_dr = $request->dr;
+                    $log->cur_br = $request->br;
+                    $log->cur_lr = $request->lr;
+                    $log->cur_luc = $request->lucAmount;
+                    $log->cur_assess_value = $request->assessedValue;
+                    $log->save();
+
         $record->save();
 
         //$this->sendEmailHandler($record, $bill, $request->action);

@@ -90,7 +90,7 @@ class ProcessBillingJob implements ShouldQueue
                     $dateTime = new \DateTime('now');
                     $dateTime->setDate($this->year, $dateTime->format('m'), $dateTime->format('d'));
                     $billing->entry_date = $dateTime->format('Y-m-d H:i:s'); //now();
-                    $billing->billed_by = $request->billedBy ?? 1;
+                    $billing->billed_by = $this->billedBy ?? 1;
 
                     $billing->rr = $pavOptional->rr ?? 0;
                     $billing->lr = $pavOptional->lr ?? 0;
@@ -123,7 +123,6 @@ class ProcessBillingJob implements ShouldQueue
 
         }
         } catch (\Illuminate\Database\QueryException $e) {
-                // Ignore duplicate entry error
                 if ($e->getCode() == 23000) { //
                 } else {
                     throw $e;
