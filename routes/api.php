@@ -120,7 +120,7 @@ Route::group(['middleware' => 'api'], function(){
 
 
 
-    Route::get('download/attachment/{slug}', [App\Http\Controllers\ObjectionController::class, 'downloadAttachment'] );
+    Route::get('/download/attachment/{slug}', [App\Http\Controllers\ObjectionController::class, 'downloadAttachment'] );
 
     Route::post('/objection/new', [\App\Http\Controllers\ObjectionController::class, 'handleNewObjection']);
     Route::get('/objection/detail/{requestId}', [\App\Http\Controllers\ObjectionController::class, 'showObjectionDetail']);

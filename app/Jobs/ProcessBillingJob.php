@@ -9,12 +9,15 @@ use App\Models\Lga;
 use App\Models\MinimumLuc;
 use App\Models\PropertyAssessmentValue;
 use App\Models\PropertyList;
+use App\Models\User;
+use App\Traits\EmailTrait;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
 class ProcessBillingJob implements ShouldQueue
 {
     use Queueable;
+    use EmailTrait;
     public $lgaId;
     public $year;
     public $billedBy;
@@ -90,7 +93,7 @@ class ProcessBillingJob implements ShouldQueue
                     $dateTime = new \DateTime('now');
                     $dateTime->setDate($this->year, $dateTime->format('m'), $dateTime->format('d'));
                     $billing->entry_date = $dateTime->format('Y-m-d H:i:s'); //now();
-                    $billing->billed_by = $this->billedBy ?? 1;
+                    $billing->billed_by = $this->billedBy ?? 5;
 
                     $billing->rr = $pavOptional->rr ?? 0;
                     $billing->lr = $pavOptional->lr ?? 0;
@@ -122,6 +125,12 @@ class ProcessBillingJob implements ShouldQueue
             }
 
         }
+            $user = User::find($this->billedBy);
+            $data = [
+                "name"=>$user->name,
+            ];
+            $this->sendEmail($user->email, 'Process Bill', 'emails.process-bill-notification', $data);
+
         } catch (\Illuminate\Database\QueryException $e) {
                 if ($e->getCode() == 23000) { //
                 } else {

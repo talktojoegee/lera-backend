@@ -39,12 +39,75 @@ class PaymentController extends Controller
                 "errors"=>$validator->messages()
             ],422);
         }
-        $bill = Billing::find($request->billId);
-        if(empty($bill)){
+        $bill = Billing::where("paid", 0)->where("id", $request->billId)->first();
+        /*if(empty($bill)){
             return response()->json([
                 'message' => 'Whoops! No record found.'
             ], 404);
         }
+
+
+
+        $bill = Billing::where('assessment_no', $assessmentNo)
+            ->where('paid', 0)
+            ->first();*/
+        if (empty($bill)) {
+            return response()->json([
+                'message' => 'Whoops! No record found.'
+            ], 404);
+        }else{
+            $billList = Billing::where('building_code', $bill->building_code)
+                ->where('year','<=', $bill->year)
+                ->where('paid', 0)
+                ->orderBy('id', 'ASC')
+                ->get();
+            if(!empty($billList)){
+                $transAmount = $request->amount;
+                foreach ($billList as $item){
+                    $paymentCode = substr(sha1(time()),31,40);
+                    $receiptNo = substr(sha1(time()),20,32);
+                    $balance = $item->bill_amount - $item->paid_amount;
+                    $transBalance = $transAmount - $balance;
+                    if($balance > 0){
+                        if($transAmount > $balance){
+                            $item->paid_amount += $balance;
+                            $item->payment_ref = $request->transRef;
+                            $item->paid = 1;
+                            $item->date_paid = now();
+                            $item->paid_by = $request->paidBy;
+                            $item->save();
+                        }
+                        else{
+                            if($transAmount > 0){
+                                $item->paid_amount += $transAmount;
+                                $item->payment_ref = $request->transRef;
+                                $item->save();
+                                if($item->paid_amount == $item->bill_amount){
+                                    $item->paid = 1;
+                                    $item->date_paid = now();
+                                    $item->paid_by = $request->paidBy;
+                                    $item->save();
+                                }
+                            }
+                        }
+                    }
+                    $transAmount = $transBalance;
+                }
+            }
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+/*
 
         $bill->paid_amount = $request->amount;
         $bill->paid_by = $request->paidBy;
@@ -54,7 +117,7 @@ class PaymentController extends Controller
         if($bill->bill_amount >= $bill->paid_amount){
             $bill->paid = 1;
             $bill->save();
-        }
+        }*/
         //log it
         BillPaymentLog::create([
             'bill_master'=>$request->billId,
@@ -106,7 +169,7 @@ class PaymentController extends Controller
             "email"=>$request->email,
             "transdate"=>$request->transdate ?? now(),
             "transRef"=>$request->reference,
-            "paymode"=>$request->paymode ?? "POS",
+            "paymode"=>$request->paymode ?? "Credo",
         ]);
 
         NotifyKogiRemsJob::dispatch();

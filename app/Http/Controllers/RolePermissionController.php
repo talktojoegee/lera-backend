@@ -127,7 +127,9 @@ class RolePermissionController extends Controller
                 "errors"=>$validator->messages()
             ],422);
         }
-        $chosenPermissions = Permission::whereIn('permission', $request->permissions)->get();
+        $trimmedItems = array_map('trim', $request->permissions);
+        $chosenPermissions = Permission::whereIn('permission', $trimmedItems)->get();
+        //return response()->json(['data'=>$chosenPermissions],200);
         //$chosenPermissionIds = Permission::whereIn('permission', $request->permissions)->pluck('id')->toArray();
         $rolePermissions = RolePermission::where('role_id', $request->role)->get();
         foreach($rolePermissions as $rp) {

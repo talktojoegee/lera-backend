@@ -225,7 +225,8 @@ class ObjectionController extends Controller
 
     public function downloadAttachment(Request $request){
         try{
-            $attachment = ObjectionAttachment::where('filename', $request->slug)->first();
+            $filename = trim($request->slug);
+            $attachment = ObjectionAttachment::where('attachment', $filename)->first();
             if (empty($attachment)) {
                 return response()->json([
                     'message' => 'Whoops! No record found'
@@ -235,7 +236,7 @@ class ObjectionController extends Controller
                 if(file_exists($file_path)){
                     return response()->download($file_path, $attachment->attachment);
                 }else{
-                    return 0; //file not found.
+                    return 0;
                 }
             }
 

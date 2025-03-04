@@ -80,7 +80,7 @@ use EmailTrait;
             "roleName"=>!empty($role) ? $role->name : '',
         ];
         $this->sendEmail($user->email, 'Account Creation', 'emails.new-user', $data);
-
+       // $x = "{""Recipients"":[{""Email"":""" & trim(x_Email) & """}],""Content"":{""Body"":[{""ContentType"":""HTML"",""Content"":""" & trim(x_Body) & """}],""From"":""KGIRS <info@aoctms.com.ng>"",""Subject"":""" & trim(x_Subject) & """}}";
         return response()->json(['message' => 'Success! Action successful.'], 201);
     }
 

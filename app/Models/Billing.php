@@ -489,11 +489,13 @@ class Billing extends Model
         return Billing::where('building_code', $code)->where('year', $year)->first();
     }
 
-    public function balanceBroughtForward($year){
-        return Billing::whereYear('year', '<', $year)
+    public function balanceBroughtForward($year,$buildingCode){
+        return Billing::whereYear('year', '<', $year)->where('building_code', $buildingCode)
             ->where('paid', 0)
-            ->sum('bill_amount');
-            //->get();
+            ->sum('bill_amount') - Billing::whereYear('year', '<', $year)->where('building_code', $buildingCode)
+                ->where('paid', 0)
+                ->sum('paid_amount');
+
     }
 
 }

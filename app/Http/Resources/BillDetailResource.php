@@ -14,7 +14,7 @@ class BillDetailResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $bbf = $this->balanceBroughtForward($this->year);
+        $bbf = $this->balanceBroughtForward($this->year, $this->building_code);
         return [
             'billId'=>$this->id,
             'paid'=>$this->paid,
@@ -47,7 +47,7 @@ class BillDetailResource extends JsonResource
             'propertyUse'=>$this->property_use ?? '',
             'reason'=>$this->return_reason,
             'special'=>$this->special,
-            'balance'=>number_format($this->bill_amount  - $this->paid_amount,2),
+            'balance'=>(($this->bill_amount + $bbf)  - $this->paid_amount),
             'la'=>$this->la,
             'ba'=>$this->ba,
             'rr'=>$this->rr,
