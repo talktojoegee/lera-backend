@@ -77,11 +77,11 @@ class Billing extends Model
             ->groupBy('lga_id')
             ->get();
     }
-    public static function getBills($limit = 0,
-                                    $skip = 0,
-                                    $paid = 0,
-                                    $objection = 0,
-                                    $status = 0,
+    public static function getBills($limit ,
+                                    $skip ,
+                                    $paid ,
+                                    $objection ,
+                                    $status ,
                                     $propertyUse,
     $special = [0]
     )
@@ -98,10 +98,10 @@ class Billing extends Model
             ->get();
     }
 
-    public static function getLGAChairBills($limit = 0,
-                                    $skip = 0,
-                                    $paid = 0,
-                                    $status = 0,
+    public static function getLGAChairBills($limit ,
+                                    $skip ,
+                                    $paid ,
+                                    $status ,
                                     $lgaId
     )
     {
@@ -118,11 +118,11 @@ class Billing extends Model
     }
 
 
-    public static function getAllPaidBills($limit = 0,
-                                    $skip = 0,
-                                    $paid = 0,
-                                    $objection = 0,
-                                    $status = 0,
+    public static function getAllPaidBills($limit ,
+                                    $skip ,
+                                    $paid ,
+                                    $objection ,
+                                    $status ,
     $propertyUse
     )
     {
@@ -135,11 +135,11 @@ class Billing extends Model
             ->orderBy('id', 'DESC')
             ->get();
     }
-    public static function getAllPaidSpecialInterestBills($limit = 0,
-                                    $skip = 0,
-                                    $paid = 0,
-                                    $objection = 0,
-                                    $status = 0,
+    public static function getAllPaidSpecialInterestBills($limit ,
+                                    $skip ,
+                                    $paid ,
+                                    $objection ,
+                                    $status ,
     $propertyUse
     )
     {
@@ -154,9 +154,9 @@ class Billing extends Model
             ->get();
     }
 
-    public static function getBillsByStatus($limit = 0,
-                                            $skip = 0,
-                                            $status = 0,
+    public static function getBillsByStatus($limit ,
+                                            $skip ,
+                                            $status ,
     $propertyUse
     )
     {
@@ -170,12 +170,12 @@ class Billing extends Model
     }
 
 
-    public static function getAllPendingBillsByStatus($limit = 0,
-                                            $skip = 0,
+    public static function getAllPendingBillsByStatus($limit ,
+                                            $skip ,
     $propertyUse
     )
     {
-        return Billing::whereIn('status', [0,1,2])
+        return Billing::whereIn('status', [0,1,2,3,5])
             ->whereIn('property_use', $propertyUse)
             ->skip($skip)
             ->take($limit)
@@ -184,9 +184,9 @@ class Billing extends Model
     }
 
 
-    public static function getSpecialInterestBillsByStatus($limit = 0,
-                                            $skip = 0,
-                                            $status = 0,
+    public static function getSpecialInterestBillsByStatus($limit ,
+                                            $skip ,
+                                            $status ,
     $propertyUse
     )
     {
@@ -200,8 +200,8 @@ class Billing extends Model
     }
 
 
-    public static function getAllReturnedBills($limit = 0,
-                                            $skip = 0,
+    public static function getAllReturnedBills($limit ,
+                                            $skip ,
     $propertyUse
     )
     {
@@ -214,8 +214,8 @@ class Billing extends Model
             ->get();
     }
 
-    public static function getAllSpecialInterestReturnedBills($limit = 0,
-                                            $skip = 0,
+    public static function getAllSpecialInterestReturnedBills($limit ,
+                                            $skip ,
     $propertyUse
     )
     {
@@ -228,7 +228,7 @@ class Billing extends Model
             ->get();
     }
 
-    public static function getAllBillsByParams($paid = 0, $objection = 0, $status=0, $propertyUse)
+    public static function getAllBillsByParams($paid , $objection , $status, $propertyUse)
     {
         return Billing::where('paid', $paid)
             ->where('objection', $objection)
@@ -237,7 +237,7 @@ class Billing extends Model
             ->get();
 
     }
-    public static function getAllSpecialInterestBillsByParams($paid = 0, $objection = 0, $status=0, $propertyUse)
+    public static function getAllSpecialInterestBillsByParams($paid , $objection , $status, $propertyUse)
     {
         return Billing::where('paid', $paid)
             ->where('objection', $objection)
@@ -248,7 +248,7 @@ class Billing extends Model
 
     }
 
-    public static function getBillsByParams($paid = 0, $objection = 0, $status=0, $propertyUse, $special = [0])
+    public static function getBillsByParams($paid , $objection , $status, $propertyUse, $special = [0])
     {
         return Billing::where('paid', $paid)
             ->where('objection', $objection)
@@ -260,7 +260,7 @@ class Billing extends Model
 
     }
 
-    public static function getLGAChairBillsByParams($paid = 0, $status=0, $lgaId)
+    public static function getLGAChairBillsByParams($paid , $status, $lgaId)
     {
         return Billing::where('paid', $paid)
             ->where('status', $status)
@@ -269,7 +269,7 @@ class Billing extends Model
 
     }
 
-    public static function getBillsByParamsByStatus($status = 0, $propertyUse)
+    public static function getBillsByParamsByStatus($status , $propertyUse)
     {
         return Billing::where('status', $status)
             ->whereIn('property_use', $propertyUse)
@@ -279,13 +279,13 @@ class Billing extends Model
 
     public static function getAllPendingBillsByParamsByStatus($propertyUse)
     {
-        return Billing::whereIn('status', [0,1,2])
+        return Billing::whereIn('status', [0,1,2,3,5])
             ->whereIn('property_use', $propertyUse)
             ->get();
 
     }
 
-    public static function getSpecialInterestBillsByParamsByStatus($status = 0, $propertyUse)
+    public static function getSpecialInterestBillsByParamsByStatus($status, $propertyUse)
     {
         return Billing::where('status', $status)
             ->where('special', 1)
@@ -496,6 +496,41 @@ class Billing extends Model
                 ->where('paid', 0)
                 ->sum('paid_amount');
 
+    }
+
+    public static function searchBills($keyword, $propertyUse, $status, $special){
+        return DB::table('billings')
+            ->leftJoin('property_lists', 'billings.property_id', '=', 'property_lists.id')
+            ->select('billings.id as billId', 'billings.building_code as buildingCode', 'billings.*', 'property_lists.property_name', 'property_lists.building_code')
+            ->where(function ($query) use ($keyword, $propertyUse, $status, $special) {
+                $query->where('billings.assessment_no', 'LIKE', "%{$keyword}%")
+                    ->where('billings.status', $status)
+                    ->where('billings.special', $special)
+                    ->whereIn('billings.property_use', $propertyUse)
+                    ->orWhere('billings.building_code', 'LIKE', "%{$keyword}%")
+                    ->orWhere('property_lists.property_name', 'LIKE', "%{$keyword}%")
+                    ->orWhere('property_lists.building_code', 'LIKE', "%{$keyword}%");
+            })
+            ->distinct()
+            ->get();
+    }
+    public static function searchOutstandingBills($keyword, $propertyUse, $status, $special,$objection, $paid){
+        return DB::table('billings')
+            ->leftJoin('property_lists', 'billings.property_id', '=', 'property_lists.id')
+            ->select('billings.id as billId', 'billings.building_code as buildingCode', 'billings.*', 'property_lists.property_name', 'property_lists.building_code')
+            ->where(function ($query) use ($keyword, $propertyUse, $status, $special, $objection, $paid) {
+                $query->where('billings.assessment_no', 'LIKE', "%{$keyword}%")
+                    ->where('billings.status', $status)
+                    ->where('billings.special', $special)
+                    ->where('billings.objection', $objection)
+                    ->where('billings.paid', $paid)
+                    ->whereIn('billings.property_use', $propertyUse)
+                    ->orWhere('billings.building_code', 'LIKE', "%{$keyword}%")
+                    ->orWhere('property_lists.property_name', 'LIKE', "%{$keyword}%")
+                    ->orWhere('property_lists.building_code', 'LIKE', "%{$keyword}%");
+            })
+            ->distinct()
+            ->get();
     }
 
 }

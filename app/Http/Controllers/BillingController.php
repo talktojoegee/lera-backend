@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\BillDetailResource;
 use App\Http\Resources\BillingRecordResource;
+use App\Http\Resources\BillSearchResource;
 use App\Http\Resources\DashboardStatisticsResource;
 use App\Http\Resources\LGAChairDashboardStatisticsResource;
 use App\Http\Resources\OutstandingBillResource;
@@ -382,6 +383,7 @@ class BillingController extends Controller
 
     public function showBillDetails($url){
         $billDetail = Billing::where('url',$url)->first();
+        //$billDetail = Billing::where('url',$url)->first();
 
         if (!$billDetail) {
             return response()->json([
@@ -1007,6 +1009,37 @@ class BillingController extends Controller
             'byLGA'=>Billing::getLGAChairCurrentYearBillsByLGA($request->year, $user->lga),
             'paymentByLGA'=>Billing::getLGAChairCurrentYearPaymentByLGA($request->year, $user->lga),
         ]);
+    }
+
+
+    public function billSearch(Request $request){
+        $keyword = $request->keyword;
+        $user = User::find($request->actionedBy);
+        $status = $request->status ?? 0;
+        $special = $request->special ?? 0;
+        if(!$keyword){
+            return response()->json([
+                "errors"=>"No search term submitted"
+            ],404);
+        }
+        $propertyUse = explode(',', $user->sector);
+        return response()->json(['data'=>BillSearchResource::collection(Billing::searchBills($keyword, $propertyUse, $status, $special)) ]);
+    }
+
+    public function searchOutstandingBills(Request $request){
+        $keyword = $request->keyword;
+        $user = User::find($request->actionedBy);
+        $status = $request->status ?? 0;
+        $objection = $request->objection ?? 0;
+        $paid = $request->paid ?? 0;
+        $special = $request->special ?? 0;
+        if(!$keyword){
+            return response()->json([
+                "errors"=>"No search term submitted"
+            ],404);
+        }
+        $propertyUse = explode(',', $user->sector);
+        return response()->json(['data'=>BillSearchResource::collection(Billing::searchOutstandingBills($keyword, $propertyUse, $status, $special, $objection, $paid)) ]);
     }
 
 }

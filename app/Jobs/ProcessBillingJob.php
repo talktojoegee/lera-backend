@@ -9,15 +9,12 @@ use App\Models\Lga;
 use App\Models\MinimumLuc;
 use App\Models\PropertyAssessmentValue;
 use App\Models\PropertyList;
-use App\Models\User;
-use App\Traits\EmailTrait;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
 class ProcessBillingJob implements ShouldQueue
 {
     use Queueable;
-    use EmailTrait;
     public $lgaId;
     public $year;
     public $billedBy;
@@ -37,7 +34,7 @@ class ProcessBillingJob implements ShouldQueue
      */
     public function handle(): void
     {
-        try{
+        //try{
 
         if ($this->lgaId == 0) { //All locations/LGAs
             $propertyLists = PropertyList::orderBy('id', 'DESC')->get();
@@ -57,6 +54,7 @@ class ProcessBillingJob implements ShouldQueue
                 if (!empty($pavOptional) && !empty($lga) && !empty($depreciation) && !empty($chargeRate)) {
 
                     $uniqueNumber = uniqid();
+                    $generatedUrl = uniqid() . mt_rand(1000, 9999);
                     /*
                      * LA = from Property(Area of Land)
                         LR = from Billing Setup
@@ -93,7 +91,7 @@ class ProcessBillingJob implements ShouldQueue
                     $dateTime = new \DateTime('now');
                     $dateTime->setDate($this->year, $dateTime->format('m'), $dateTime->format('d'));
                     $billing->entry_date = $dateTime->format('Y-m-d H:i:s'); //now();
-                    $billing->billed_by = $this->billedBy ?? 5;
+                    $billing->billed_by = 5; //$this->billedBy ?? 5;
 
                     $billing->rr = $pavOptional->rr ?? 0;
                     $billing->lr = $pavOptional->lr ?? 0;
@@ -112,12 +110,13 @@ class ProcessBillingJob implements ShouldQueue
                     $billing->bill_rate = $pavOptional->value_rate ?? 0;
                     $billing->pav_code = $pavOptional->pav_code;
                     $billing->zone_name = $list->sub_zone ?? '';
-                    $billing->url = substr(sha1( (time()+rand(9,99999)) ), 29, 40);
+                    $billing->url = $generatedUrl;
                     //occupancy
                     $billing->class_id = $list->class_id;
                     $billing->property_use = $list->property_use ?? null;
                     $billing->occupancy = $list->cr;
                     $billing->la = $la;
+                    $billing->ward = $list->ward ?? '';
                     $billing->save();
                 }
 
@@ -125,17 +124,12 @@ class ProcessBillingJob implements ShouldQueue
             }
 
         }
-            $user = User::find($this->billedBy);
-            $data = [
-                "name"=>$user->name,
-            ];
-            $this->sendEmail($user->email, 'Process Bill', 'emails.process-bill-notification', $data);
+        /*  } catch (\Illuminate\Database\QueryException $e) {
 
-        } catch (\Illuminate\Database\QueryException $e) {
-                if ($e->getCode() == 23000) { //
-                } else {
-                    throw $e;
-                }
-       }
+                  if ($e->getCode() == 23000) { //
+                  } else {
+                      throw $e;
+                  }
+         }*/
     }
 }

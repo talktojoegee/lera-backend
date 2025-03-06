@@ -29,7 +29,8 @@ class AuthUserResource extends JsonResource
             'role' => $role->name ?? '',
             'permissions'=>$permissions ?? [],
             'token' => $this->token,
-            'type'=>$this->type
+            'type'=>$this->type,
+            'defaultPassword'=>$this->defaulted_password
         ];
     }
 }

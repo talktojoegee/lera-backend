@@ -96,28 +96,6 @@ class PaymentController extends Controller
             }
         }
 
-
-
-
-
-
-
-
-
-
-
-
-/*
-
-        $bill->paid_amount = $request->amount;
-        $bill->paid_by = $request->paidBy;
-        $bill->date_paid = now();
-        $bill->payment_ref = substr(sha1(time()),30,40);
-        $bill->save();
-        if($bill->bill_amount >= $bill->paid_amount){
-            $bill->paid = 1;
-            $bill->save();
-        }*/
         //log it
         BillPaymentLog::create([
             'bill_master'=>$request->billId,
@@ -125,6 +103,15 @@ class PaymentController extends Controller
             'amount'=>$request->amount,
             'trans_ref'=>$request->transRef,
             'reference'=>$request->reference,
+            'receipt_no'=>$receiptNo,
+            'payment_code'=>$paymentCode ?? '',
+            'assessment_no'=>$item->assessment_no,
+            'bank_name'=>"Credo",
+            'branch_name'=>"Credo",
+            'pay_mode'=>"Webpay Credo",
+            'customer_name'=>$request->name,
+            'email'=>$request->email,
+            'kgtin'=>$request->kgtin,
         ]);
         //update property
         $property = PropertyList::where('building_code', $bill->building_code)->first();
@@ -225,6 +212,6 @@ class PaymentController extends Controller
 
             }
 
-        }
+        } //67C8755BD2579
     }
 }

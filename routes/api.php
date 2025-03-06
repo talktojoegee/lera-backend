@@ -109,6 +109,9 @@ Route::group(['middleware' => 'api'], function(){
     Route::post('billing/toggle-bill-type', [\App\Http\Controllers\BillingController::class, 'toggleBillType']);
     Route::post('billing/bills/bulk-action', [\App\Http\Controllers\BillingController::class, 'handleBillBulkAction']);
 
+    Route::post('billing/bill-search', [\App\Http\Controllers\BillingController::class, 'billSearch']);
+    Route::post('billing/search-outstanding', [\App\Http\Controllers\BillingController::class, 'searchOutstandingBills']);
+
 
 
     Route::get('/property-list/all/{limit}/{skip}', [\App\Http\Controllers\PropertyListController::class, 'getPropertyList']);
@@ -140,6 +143,8 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('/users/all/{type}/{limit}/{skip}', [\App\Http\Controllers\UserController::class, 'showAllUsers']);
     Route::post('add-new-user', [\App\Http\Controllers\UserController::class, 'storeUser']);
     Route::post('update-user-account', [\App\Http\Controllers\UserController::class, 'updateUser']);
+    Route::post('change-password', [\App\Http\Controllers\UserController::class, 'changePassword']);
+    Route::post('reset-password-default', [\App\Http\Controllers\UserController::class, 'resetPassword']);
 
     #Roles
     Route::post('/access/permissions/new', [\App\Http\Controllers\RolePermissionController::class, 'createPermission']);
@@ -202,4 +207,5 @@ Route::middleware([\App\Http\Middleware\JsonApiMiddleware::class])->group( funct
 
 });
 
-//
+//$2y$12$6lQC0.n2/jCfF3/8UTkmoePWBAvIxrlHESDLZyV76V0cuBMbFR1Ay
+//$2y$12$zWH60bThyvAkQHSuhkrdx.xSk9kMdJ5QEChoFPmfAVrrIMPVNOEum

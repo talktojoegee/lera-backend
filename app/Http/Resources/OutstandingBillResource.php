@@ -18,21 +18,6 @@ class OutstandingBillResource extends JsonResource
         //return parent::toArray($request);
         $objection = Objection::where('bill_id', $this->id)->first();
         $objectionCount = !empty($objection) ? $objection->count() : 0;
-        /*$status =  'Pending';
-        switch ($this->status){
-            case 0:
-                $status = 'Pending';
-                break;
-            case 1:
-                $status = 'AV';
-                break;
-            case 2:
-                $status = 'AT';
-                break;
-            case 3:
-                $status = 'AA';
-                break;
-        }*/
         return [
           'approvedDate'=> !empty($objection) ? date('d M, Y', strtotime($objection->date_approved)) : '',
           'billId'=>$this->id ?? '',
@@ -45,7 +30,7 @@ class OutstandingBillResource extends JsonResource
           'categoryName'=>$this->getPropertyClassification->class_name ?? '',
           'owner'=>$this->getPropertyList->owner_name ?? '',
           'billAmount'=>$this->bill_amount ?? '',
-          'balance'=>$this->bill_amount ?? 0 - $this->paid_amount,
+          'balance'=>$this->bill_amount  - $this->paid_amount,
           'lgaName'=>$this->getLGA->lga_name ?? 'N/A',
           'url'=>$this->url ?? '',
           'assessValue'=>$this->assessed_value ?? '',
@@ -55,7 +40,8 @@ class OutstandingBillResource extends JsonResource
           'objection'=>$objectionCount ?? 0,
           'special'=>$this->special,
           'status'=>$this->status,
-            'propertyUse'=>$this->property_use ?? ''
+            'propertyUse'=>$this->property_use ?? '',
+            'propertyName'=>$this->getPropertyList->property_name ?? '',
         ];
     }
 }
