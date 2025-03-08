@@ -110,14 +110,29 @@ Route::group(['middleware' => 'api'], function(){
     Route::post('billing/bills/bulk-action', [\App\Http\Controllers\BillingController::class, 'handleBillBulkAction']);
 
     Route::post('billing/bill-search', [\App\Http\Controllers\BillingController::class, 'billSearch']);
+    Route::post('billing/search-all-pending-bill', [\App\Http\Controllers\BillingController::class, 'searchAllPendingBills']);
     Route::post('billing/search-outstanding', [\App\Http\Controllers\BillingController::class, 'searchOutstandingBills']);
+    Route::get('billing/print/{type}/{lga}', [\App\Http\Controllers\BillingController::class, 'showBillsForPrinting']);
+
+    Route::post('billing/delete-bill', [\App\Http\Controllers\BillingController::class, 'deleteBill']);
+    Route::post('billing/initiate-printing-request', [\App\Http\Controllers\BillingController::class, 'initiatePrintingRequest']);
+
+    Route::get('billing/print-by-batch/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'getPrintByBatch']);
+    Route::get('billing/print-by-bills/view/{batch}', [\App\Http\Controllers\BillingController::class, 'viewBatchPrinting']);
 
 
+
+    Route::post('/property-list/search-all-properties', [\App\Http\Controllers\PropertyListController::class, 'searchAllProperties']);
+    Route::post('/property-list/search-property-exception', [\App\Http\Controllers\PropertyListController::class, 'searchAllPropertyException']);
 
     Route::get('/property-list/all/{limit}/{skip}', [\App\Http\Controllers\PropertyListController::class, 'getPropertyList']);
     Route::get('/property-exception/all/{limit}/{skip}', [\App\Http\Controllers\PropertyListController::class, 'getPropertyExceptionList']);
     Route::get('/property/{id}', [\App\Http\Controllers\PropertyListController::class, 'showPropertyDetail']);
-    //Route::get('/property-list/all', [\App\Http\Controllers\PropertyListController::class, 'showPropertyLists']);
+    Route::post('/save-property-changes', [\App\Http\Controllers\PropertyListController::class, 'savePropertyChanges']);
+    Route::post('/force-synchronize-property', [\App\Http\Controllers\PropertyListController::class, 'forceSynchronizeProperty']);
+    Route::post('/bulk-force-synchronization', [\App\Http\Controllers\PropertyListController::class, 'bulkForceSynchronization']);
+
+    Route::post('property-list/delete-property', [\App\Http\Controllers\PropertyListController::class, 'deleteProperty']);
 
 
 

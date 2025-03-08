@@ -23,6 +23,7 @@ class PAVResource extends JsonResource
             "rr"=>$this->rr,
             "br"=>$this->br,
             "lr"=>$this->lr,
+            "propertyUse"=>$this->property_use,
             "occupancy"=>$this->property_use,
             "pavCode"=>$this->pav_code,
             "zones"=>$this->zones,

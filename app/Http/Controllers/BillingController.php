@@ -10,15 +10,20 @@ use App\Http\Resources\DashboardStatisticsResource;
 use App\Http\Resources\LGAChairDashboardStatisticsResource;
 use App\Http\Resources\OutstandingBillResource;
 use App\Http\Resources\PaidBillResource;
+use App\Http\Resources\PrintByBatchResource;
 use App\Http\Resources\RetrieveBillResource;
 use App\Jobs\ProcessBillingJob;
+use App\Models\ActivityLog;
 use App\Models\Billing;
+use App\Models\BillPaymentLog;
 use App\Models\ChargeRate;
 use App\Models\Depreciation;
 use App\Models\EditBillLog;
 use App\Models\Lga;
 use App\Models\MinimumLuc;
+use App\Models\PrintBillLog;
 use App\Models\PropertyAssessmentValue;
+use App\Models\PropertyClassification;
 use App\Models\PropertyList;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -93,9 +98,8 @@ class BillingController extends Controller
         if (empty($propertyLists)) {
             return ApiResponse::error("Whoops! There is nothing to process", 400);
         }
-        ProcessBillingJob::dispatch($lgaId, $year, $billedBy);
-        //return response()->json(['data'=>$counter],200);
-        return response()->json(['data'=>"Bill queued for processing!"], 201);  // BillingRecordResource::collection($this->_fetchProcessedBills($request->year, $request->lgaId));
+        ProcessBillingJob::dispatch($lgaId, $year, $billedBy)->onQueue('data_sync_queue');
+        return response()->json(['data'=>"Bill queued for processing!"], 201);
 
     }
 
@@ -430,6 +434,28 @@ class BillingController extends Controller
                 'message' => 'Whoops! No record found.'
             ], 404);
         }
+                        //log edit bill changes
+                        $log = new EditBillLog();
+                        $log->bill_id = $record->id ?? '';
+                        $log->edited_by = $request->actionedBy ?? '';
+                        $log->building_code = $record->building_code ?? '';
+                        $log->prev_la = $record->la ?? 0;
+                        $log->prev_ba = $record->ba ?? 0;
+                        $log->prev_rr = $record->rr ?? 0;
+                        $log->prev_dr = $record->dr ?? 0;
+                        $log->prev_br = $record->br ?? 0;
+                        $log->prev_lr = $record->lr ?? 0;
+                        $log->prev_luc = $record->bill_amount ?? 0;
+                        $log->prev_assess_value = $record->assessed_value;
+                        $log->cur_la = $request->la;
+                        $log->cur_ba = $request->ba;
+                        $log->cur_rr = $request->rr;
+                        $log->cur_dr = $request->dr;
+                        $log->cur_br = $request->br;
+                        $log->cur_lr = $request->lr;
+                        $log->cur_luc = $request->lucAmount;
+                        $log->cur_assess_value = $request->assessedValue;
+                        $log->save();
         $code = $record->pav_code;
         $record->assessed_value = $request->assessedValue;
         $record->bill_amount = $request->lucAmount;
@@ -443,29 +469,6 @@ class BillingController extends Controller
         $record->br = $request->br ?? 0;
         $record->lr = $request->lr ?? 0;
         $record->pav_code = str_replace("B", "CS", $code);
-                    //log edit bill changes
-                    $log = new EditBillLog();
-                    $log->bill_id = $record->id ?? '';
-                    $log->edited_by = $request->actionedBy ?? '';
-                    $log->building_code = $record->building_code ?? '';
-                    $log->prev_la = $record->la ?? 0;
-                    $log->prev_ba = $record->ba ?? 0;
-                    $log->prev_rr = $record->rr ?? 0;
-                    $log->prev_dr = $record->dr ?? 0;
-                    $log->prev_br = $record->br ?? 0;
-                    $log->prev_lr = $record->lr ?? 0;
-                    $log->prev_luc = $record->bill_amount ?? 0;
-                    $log->prev_assess_value = $record->assessed_value;
-
-                    $log->cur_la = $request->la;
-                    $log->cur_ba = $request->ba;
-                    $log->cur_rr = $request->rr;
-                    $log->cur_dr = $request->dr;
-                    $log->cur_br = $request->br;
-                    $log->cur_lr = $request->lr;
-                    $log->cur_luc = $request->lucAmount;
-                    $log->cur_assess_value = $request->assessedValue;
-                    $log->save();
 
         $record->save();
 
@@ -1026,6 +1029,20 @@ class BillingController extends Controller
         return response()->json(['data'=>BillSearchResource::collection(Billing::searchBills($keyword, $propertyUse, $status, $special)) ]);
     }
 
+    public function searchAllPendingBills(Request $request){
+        $keyword = $request->keyword;
+        $user = User::find($request->actionedBy);
+        $status = $request->status ?? 0;
+        $special = $request->special ?? 0;
+        if(!$keyword){
+            return response()->json([
+                "errors"=>"No search term submitted"
+            ],404);
+        }
+        $propertyUse = explode(',', $user->sector);
+        return response()->json(['data'=>BillSearchResource::collection(Billing::searchAllPendingBills($keyword, $propertyUse, $special)) ]);
+    }
+
     public function searchOutstandingBills(Request $request){
         $keyword = $request->keyword;
         $user = User::find($request->actionedBy);
@@ -1042,4 +1059,159 @@ class BillingController extends Controller
         return response()->json(['data'=>BillSearchResource::collection(Billing::searchOutstandingBills($keyword, $propertyUse, $status, $special, $objection, $paid)) ]);
     }
 
+
+    public function showBillsForPrinting(Request $request){
+        $lgaId = $request->lga;
+        $type = $request->type;
+        switch ($type){
+            case 'lga':
+                $bills =  Billing::when($lgaId > 0, function($query) use ($lgaId) {
+                    return $query->where('lga_id', $lgaId);
+                })
+                    ->where('status', 4)
+                    ->where('objection', 0)
+                    ->orderBy('id', 'ASC')
+                    ->get();
+                return response()->json(['data'=>OutstandingBillResource::collection($bills)],200);
+            case 'zone':
+            case 'ward':
+        }
+
+    }
+
+
+    public function deleteBill(Request $request){
+        $validator = Validator::make($request->all(),
+            [
+                "billId"=>"required",
+                'actionedBy'=>"required"
+            ],
+            [
+                "billId.required"=>"Missing info",
+                "actionedBy.required"=>"Who is calling the shots?",
+            ]
+        );
+        if($validator->fails() ){
+            return response()->json([
+                "errors"=>$validator->messages()
+            ],422);
+        }
+        $bill = Billing::find($request->billId);
+        if(empty($bill)){
+            return response()->json([
+                "errors"=>"No record found."
+            ],404);
+        }
+        if($bill->paid_amount > 0){
+            return response()->json([
+                "errors"=>"This bill has payment. It can't be deleted."
+            ],422);
+        }
+        $paymentLog = BillPaymentLog::where('bill_master', $request->billId)->get();
+        if(empty($paymentLog)){
+            return response()->json([
+                "errors"=>"This bill has payment. It can't be deleted."
+            ],422);
+        }
+        $bill->delete();
+        //log activity
+        $user = User::find($request->actionedBy);
+        if(!empty($user)){
+            $lga = Lga::find($bill->lga_id);
+            $class = PropertyClassification::find($bill->class_id);
+            $lgaName = !empty($lga) ? $lga->lga_name : '-';
+            $className = !empty($class) ? $class->class_name : '-';
+            $title = "Bill {$bill->assessment_no} deleted.";
+            $narration = "{$user->name} deleted bill with the assessment no: {$bill->assessment_no} and building code: {$bill->building_code}. Details are as shown below:
+            LUC: {$bill->bill_amount}, Assessment Value: {$bill->assessed_value}, Charge Rate: {$bill->cr}, BA: {$bill->ba}, RR: {$bill->rr},
+            DR: {$bill->dr}, LR: {$bill->lr}, LA: {$bill->la}, BR: {$bill->br}, Billing Code: {$bill->pav_code}, Year: {$bill->year},
+            LGA: {$lgaName}, Zone: {$bill->zone_name}, Ward: {$bill->ward}, Class: {$className}, Property Use: {$bill->property_use}";
+            ActivityLog::LogActivity($title, $narration, $user->id);
+        }
+        return response()->json(['data'=>"Action successful"],200);
+    }
+
+    public function initiatePrintingRequest(Request $request){
+        $validator = Validator::make($request->all(),
+            [
+                "bills"=>"required|array",
+                "bills.*"=>"required",
+                'actionedBy'=>"required",
+                'printedBy'=>"required",
+            ],
+            [
+                "bills.required"=>"Select bills to print",
+                "printedBy.required"=>"Something is missing",
+                "actionedBy.required"=>"Who is calling the shots?",
+            ]
+        );
+        if($validator->fails() ){
+            return response()->json([
+                "errors"=>$validator->messages()
+            ],422);
+        }
+        $batchCode = substr(sha1(time()),30,40);
+        foreach($request->bills as $bill){
+            $billDetail = Billing::find($bill->billId);
+            if(!empty($billDetail)){
+                $exist = PrintBillLog::where('bill_id', $bill->billId)->first();
+                if(empty($exist)){
+                    PrintBillLog::create([
+                        'bill_id'=>$bill->billId,
+                        'user_id'=>$request->actionedBy,
+                        'batch_code'=>$batchCode,
+                        'assessment_no'=>$billDetail->assessment_no ??'',
+                        'printed_by'=>$request->printedBy,
+                    ]);
+                }
+
+            }
+        }
+        return response()->json([
+            "data"=>"Billing printing done!"
+        ],200);
+    }
+
+    public function getPrintByBatch(Request $request){
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
+        $log = PrintBillLog::fetchPrintBillLogByBatchCode($limit, $skip);
+        if(empty($log)){
+            return response()->json([
+                "errors"=>"No record found."
+            ],404);
+        }
+        return response([
+            'data'=>PrintByBatchResource::collection($log),
+            'total'=>$log->count(),
+        ],200);
+
+    }
+    public function viewBatchPrinting(Request $request){
+        $batch = $request->batch;
+        if(empty($batch)){
+            return response()->json([
+                "errors"=>"Something went wrong. Try again later."
+            ],422);
+        }
+        $log = PrintBillLog::viewPrintBillLogByBatchCode($batch);
+
+        if(empty($log)){
+            return response()->json([
+                "errors"=>"No record found."
+            ],404);
+        }
+        $billIds = $log->pluck('bill_id')->toArray();
+        if(count($billIds) <= 0){
+            return response()->json([
+                "errors"=>"There's nothing to print."
+            ],404);
+        }
+        $bills = Billing::whereIn('id', $billIds)->get();
+        return response(['data'=>BillDetailResource::collection($bills)],200);
+
+    }
+
 }
+//Aero - Abj - PH (Monday)
+

@@ -15,6 +15,7 @@ class ChargeRateResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
+          "id"=>$this->id,
           "rate"=>$this->rate,
           "occupancy"=>$this->occupancy,
         ];

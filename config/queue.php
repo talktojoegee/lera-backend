@@ -42,6 +42,24 @@ return [
             'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
             'after_commit' => false,
         ],
+        'data_sync_queue' => [
+            'driver' => 'database',
+            'table' => 'jobs',
+            'queue' => env('QUEUE_DATA_SYNC', 'default'),
+            'retry_after' => 120,
+        ],
+        'print_queue' => [
+            'driver' => 'database',
+            'table' => 'jobs',
+            'queue' => env('QUEUE_PRINT', 'default'),
+            'retry_after' => 180,
+        ],
+        'mail_queue' => [
+            'driver' => 'database',
+            'table' => 'jobs',
+            'queue' => env('QUEUE_MAIL', 'default'),
+            'retry_after' => 150,
+        ],
 
         'beanstalkd' => [
             'driver' => 'beanstalkd',

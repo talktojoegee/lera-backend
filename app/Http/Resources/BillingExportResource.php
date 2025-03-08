@@ -35,6 +35,7 @@ class BillingExportResource extends JsonResource
             'br'=>$this->br ?? 0,
             'propertyUse'=>$this->property_use ?? '',
             'propertyName'=>$this->getPropertyList->property_name ?? '',
+            'reason'=>$this->return_reason ?? '',
         ];
     }
 }

@@ -172,7 +172,6 @@ class UserController extends Controller
          }
      }*/
     public function changePassword(Request $request){
-        // Laravel Validation
         $validator = Validator::make($request->all(), [
             "currentPassword" => "required",
             "newPassword" => "required",
@@ -188,7 +187,7 @@ class UserController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 "errors" => $validator->messages()
-            ], 422); // Validation Error
+            ], 422);
         }
 
         // Check if user exists

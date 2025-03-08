@@ -2,8 +2,10 @@
 
 namespace App\Http\Resources;
 
+use App\Models\EditBillLog;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\DB;
 
 class BillDetailResource extends JsonResource
 {
@@ -15,6 +17,12 @@ class BillDetailResource extends JsonResource
     public function toArray(Request $request): array
     {
         $bbf = $this->balanceBroughtForward($this->year, $this->building_code);
+        $logs = DB::table('edit_bill_logs')
+        ->join('users', 'users.id','=', 'edit_bill_logs.edited_by')
+        ->where('edit_bill_logs.bill_id', $this->id)
+        ->select('edit_bill_logs.*', 'users.name')
+        ->orderBy('edit_bill_logs.id', 'DESC')
+        ->get();
         return [
             'billId'=>$this->id,
             'paid'=>$this->paid,
@@ -32,7 +40,7 @@ class BillDetailResource extends JsonResource
             'assessValue'=>$this->assessed_value ?? 0,
             //'assessValue'=>$this->assessed_value ?? 0,
             'chargeRate'=>$this->cr ?? 0,
-            //'chargeRate'=>$this->bill_rate ?? 0,
+            'propertyName'=>$this->getPropertyList->property_name ?? '',
             'year'=>$this->year,
             'objection'=>$this->objection,
             'statusInt'=>$this->status,
@@ -47,6 +55,7 @@ class BillDetailResource extends JsonResource
             'age'=>$this->getPropertyList->building_age ?? '',
             'image'=>$this->getPropertyList->image ?? '',
             'propertyUse'=>$this->property_use ?? '',
+            '//street'=>$this->getPropertyList->address ?? '',
             'reason'=>$this->return_reason ?? '',
             'special'=>$this->special ?? 0,
             'balance'=>(($this->bill_amount + $bbf)  - $this->paid_amount),
@@ -58,6 +67,7 @@ class BillDetailResource extends JsonResource
             'br'=>$this->br,
             'cr'=>$this->cr,
             'bbf'=>$bbf,
+            'assessmentYear'=>date('Y', strtotime(now())),
             'billedBy'=>$this->getBilledBy->name ?? '',
             'dateBilled'=>date('d M, Y h:ia', strtotime($this->created_at)),
 
@@ -75,6 +85,7 @@ class BillDetailResource extends JsonResource
 
             'returnedBy'=>$this->getReturnedBy->name ?? '',
             'dateReturned'=>date('d M, Y h:ia', strtotime($this->date_returned)),
+            'log'=>$logs,
 
 
         ];
