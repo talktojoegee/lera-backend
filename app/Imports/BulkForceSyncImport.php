@@ -20,9 +20,14 @@ class BulkForceSyncImport implements ToModel, WithStartRow, WithMultipleSheets
 {
     use UtilityTrait;
     public $userId;
+    public $buildingCodeList ;
+    public $counter;
 
     public function __construct($userId){
         $this->userId = $userId;
+        $this->buildingCodeList = [];
+        $this->counter = 0;
+
     }
 
     public function model(array $row)
@@ -47,6 +52,7 @@ class BulkForceSyncImport implements ToModel, WithStartRow, WithMultipleSheets
 
 
     public function forceSynchronizeProperty($buildingCode){
+
 
 
         $propertyDetail = PropertyList::where('building_code', $buildingCode)->first();
@@ -137,19 +143,28 @@ class BulkForceSyncImport implements ToModel, WithStartRow, WithMultipleSheets
                             'property_address' => $property->prop_addre,
                             'dep_id' => !empty($dep) ? $dep->id : Depreciation::orderBy('id', 'ASC')->first()->id,
                         ]);
+                    array_push($this->buildingCodeList, $property->prop_id);
                     //log activity
-                    $user = User::find($this->userId);
-                    if(!empty($user)){
-                        $title = "Bulk Property Force Synchronization";
-                        $narration = "{$user->name} forcefully synchronized a property with the building code: {$propertyDetail->building_code}";
-                        ActivityLog::LogActivity($title, $narration , $user->id);
-                    }
+
 
                 }
             }
 
         }
+        if(count($this->buildingCodeList) > 0){
+            $this->_logActivity();
+        }
 
+    }
+
+    private function _logActivity(){
+        $user = User::find($this->userId);
+        if(!empty($user)){
+            $list = implode('","', $this->buildingCodeList);
+            $title = "Bulk Property Force Synchronization";
+            $narration = "{$user->name} forcefully synchronized the following list of properties:  {$list}";
+            ActivityLog::LogActivity($title, $narration , $user->id);
+        }
     }
 
     public function _getChargeRate($occupier, $landUse){

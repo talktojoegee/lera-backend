@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 Route::get('/migration', function(){
     \Illuminate\Support\Facades\Artisan::call('migrate');
@@ -11,6 +12,15 @@ Route::get('/', function () {
 });
 
 Route::get('/clear-cache', function() { \Illuminate\Support\Facades\Artisan::call('cache:clear'); });
+Route::get('/bill', function() {
+   $records =  DB::table('billings')
+        ->join('lgas', 'billings.lga_id', '=', 'lgas.id')
+        ->join('property_lists', 'property_lists.id', '=', 'billings.property_id')
+        ->join('property_classifications', 'property_classifications.id', '=', 'billings.class_id')
+        ->take(2)
+        ->get();
+    return view('pdf.table', ['records'=>$records]);
+});
 
 
 

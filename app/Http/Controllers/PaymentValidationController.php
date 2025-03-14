@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Billing;
 use App\Models\BillPaymentLog;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class PaymentValidationController extends Controller
@@ -45,7 +46,7 @@ class PaymentValidationController extends Controller
                 "FeeRequest" => [
                     "PayeeName" => $bill->getPropertyList->owner_name ?? 'Owner Name',
                     "PayeeID" => $bill->assessment_no,
-                    "Amount" => number_format($bill->bill_amount, 2),
+                    "Amount" => number_format($bill->bill_amount,2, '.',''),
                     "FeeStatus" => "Assessment Already Paid",
                     "Email" => $bill->email,
                     "PhoneNumber" => $bill->getPropertyList->owner_gsm ?? '234'
@@ -56,7 +57,7 @@ class PaymentValidationController extends Controller
             "FeeRequest" => [
                 "PayeeName" => $bill->getPropertyList->owner_name ?? 'Owner Name',
                 "PayeeID" => $bill->assessment_no,
-                "Amount" => number_format($bill->bill_amount, 2),
+                "Amount" => number_format($bill->bill_amount,2, '.',''),
                 "FeeStatus" => "Fee has not yet been paid",
                 "Email" => $bill->email,
                 "PhoneNumber" => $bill->getPropertyList->owner_gsm ?? '234'
@@ -159,6 +160,7 @@ class PaymentValidationController extends Controller
     private function _registerInPaymentLog($billMasterId, $paidBy = 1, $amount, $receiptNo, $paymentCode,
                                            $assessmentNo, $bankName, $branchName, $payMode, $customerName,
                                            $email, $kgTin){
+        $bill = Billing::find($billMasterId);
         BillPaymentLog::create([
             "bill_master"=>$billMasterId,
             "paid_by"=>$paidBy,
@@ -166,12 +168,18 @@ class PaymentValidationController extends Controller
             "receipt_no"=>$receiptNo,
             "payment_code"=>$paymentCode,
             "assessment_no"=>$assessmentNo,
+
+            "building_code"=>!empty($bill) ? $bill->building_code : '',
+            "lga_id"=>!empty($bill) ? $bill->lga_id : '',
+            "ward"=>!empty($bill) ? $bill->getPropertyList->ward : '',
+
             "bank_name"=>$bankName,
             "branch_name"=>$branchName,
             "pay_mode"=>$payMode,
             "customer_name"=>$customerName,
             "email"=>$email,
             "kgtin"=>$kgTin,
+            "entry_date"=>Carbon::parse(now())->format('Y-m-d')
         ]);
     }
 

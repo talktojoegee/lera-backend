@@ -70,7 +70,7 @@ Route::group(['middleware' => 'api'], function(){
 
 
 
-    Route::get('/sync-data/{lgaId}', [\App\Http\Controllers\RemoteController::class, 'showBuildingsByLGAId']);
+    Route::get('/sync-data/{lgaId}/{user}', [\App\Http\Controllers\RemoteController::class, 'showBuildingsByLGAId']);
     Route::get('/synchronization-report/{limit}/{skip}', [\App\Http\Controllers\RemoteController::class, 'showSyncReport']);
 
 
@@ -114,11 +114,17 @@ Route::group(['middleware' => 'api'], function(){
     Route::post('billing/search-outstanding', [\App\Http\Controllers\BillingController::class, 'searchOutstandingBills']);
     Route::get('billing/print/{type}/{lga}', [\App\Http\Controllers\BillingController::class, 'showBillsForPrinting']);
 
+
+
     Route::post('billing/delete-bill', [\App\Http\Controllers\BillingController::class, 'deleteBill']);
     Route::post('billing/initiate-printing-request', [\App\Http\Controllers\BillingController::class, 'initiatePrintingRequest']);
 
     Route::get('billing/print-by-batch/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'getPrintByBatch']);
     Route::get('billing/print-by-bills/view/{batch}', [\App\Http\Controllers\BillingController::class, 'viewBatchPrinting']);
+    Route::post('billing/search-bill-batch', [\App\Http\Controllers\BillingController::class, 'searchBillByAssessment']);
+
+    Route::get('billing/wards', [\App\Http\Controllers\BillingController::class, 'getWards']);
+    Route::get('billing/zones', [\App\Http\Controllers\BillingController::class, 'getZones']);
 
 
 
@@ -200,6 +206,16 @@ Route::group(['middleware' => 'api'], function(){
 
 
 
+    Route::group(['prefix'=>'reports'], function(){
+        Route::post('/customer-statement', [\App\Http\Controllers\ReportController::class, 'handleCustomerStatementReport']);
+        Route::post('/payment-report', [\App\Http\Controllers\ReportController::class, 'showPaymentReportPrint']);
+        //Route::post('/payment-report', [\App\Http\Controllers\ReportController::class, 'handlePaymentReportGeneration']);
+    });
+
+
+    Route::get('/generate-pdf/{batchCode}', [\App\Http\Controllers\PDFController::class, 'generateDomPdf']);
+    Route::get('/download-pdf/{assessmentNo}', [\App\Http\Controllers\PDFController::class, 'generatePDFByAssessmentNo']);
+   // Route::get('/generate-pdf', [\App\Http\Controllers\PDFController::class, 'generatePdf']);
 
 
 

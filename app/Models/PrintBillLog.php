@@ -25,6 +25,13 @@ class PrintBillLog extends Model
             ->take($limit)->orderBy('id', "DESC")->groupBy('batch_code')->get();
     }
 
+    public static function searchForBillLog($assessmentNo){
+        return PrintBillLog::where('assessment_no', $assessmentNo)
+            ->orderBy('id', 'DESC')
+            ->groupBy('batch_code')
+            ->get();
+    }
+
     public static function viewPrintBillLogByBatchCode($batchCode){
         return PrintBillLog::where('batch_code', $batchCode)->get();
     }

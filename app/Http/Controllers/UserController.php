@@ -186,7 +186,9 @@ class UserController extends Controller
 
         if ($validator->fails()) {
             return response()->json([
-                "errors" => $validator->messages()
+                "errors" => $validator->messages(),
+                "message"=>"Validation error",
+                "detail"=>"All fields are required."
             ], 422);
         }
 

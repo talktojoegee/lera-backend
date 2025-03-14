@@ -601,4 +601,9 @@ class Billing extends Model
             ->get();
     }
 
+
+    public static function getCustomerStatementByKgtinDate($buildingCode, $from, $to){
+        return Billing::where('building_code', $buildingCode)->whereBetween('entry_date',[$from, $to])->get();
+    }
+
 }

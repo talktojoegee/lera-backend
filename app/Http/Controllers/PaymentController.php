@@ -8,6 +8,7 @@ use App\Models\BillPaymentLog;
 use App\Models\KogiRemsNotification;
 use App\Models\Owner;
 use App\Models\PropertyList;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Yabacon\Paystack;
@@ -106,12 +107,18 @@ class PaymentController extends Controller
             'receipt_no'=>$receiptNo,
             'payment_code'=>$paymentCode ?? '',
             'assessment_no'=>$item->assessment_no,
+
+            'building_code'=>$bill->building_code,
+            'lga_id'=>$bill->lga_id ?? '',
+            'ward'=>$bill->getPropertyList->ward ?? '',
+
             'bank_name'=>"Credo",
             'branch_name'=>"Credo",
             'pay_mode'=>"Webpay Credo",
             'customer_name'=>$request->name,
             'email'=>$request->email,
             'kgtin'=>$request->kgtin,
+            "entry_date"=>Carbon::parse(now())->format('Y-m-d')
         ]);
         //update property
         $property = PropertyList::where('building_code', $bill->building_code)->first();

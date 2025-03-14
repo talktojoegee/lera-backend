@@ -178,8 +178,12 @@ class RemoteController extends Controller
 
 
     public function showBuildingsByLGAId(Request $request){
-       // dispatch(new SyncDataJob($request->lga))->onQueue('default')-
-        SyncDataJob::dispatch($request->lga);
+        $lgaId = $request->lgaId;
+        $userId = $request->user;
+        if (!isset($lgaId) || !isset($userId)) {
+            return response()->json(['error' => "Something went wrong"], 422);
+        }
+        SyncDataJob::dispatch($lgaId, $userId)->onQueue('data_sync_queue');
         return response()->json(["data"=>"Data synchronization is happening in the background. We'll notify you when it is done."],200);
     }
 

@@ -73,16 +73,18 @@ class ProcessBillingJob implements ShouldQueue
 
 
                     $cr = ($chargeRate->rate * 0.01);
+                    //((LA*LR)+(BA*BR*DR))*(RR/100) //AMV
+                    // ((LA*LR)+(BA*BR*DR))*(RR/100)  * (CR/100) //LUC
 
                     $luc = (($la * $lr) + ($ba * $br * $dr)) * ($rr * $cr);
-                    $billAmount = $luc;
+                    $billAmount = ceil($luc);
 
                     $minimumLUC = MinimumLuc::first();
 
                     $billing = new Billing();
                     $billing->building_code = $list->building_code ?? null;
                     $billing->assessment_no = $uniqueNumber;
-                    $billing->assessed_value = (($la * $lr) + ($ba * $br * $dr)) * ($rr);
+                    $billing->assessed_value = ( ($la * $lr) + ($ba * $br * $dr)) * ($rr);
                     $billing->bill_amount =  $billAmount > $minimumLUC->amount ? number_format($billAmount,2, '.', '') : $minimumLUC->amount;
                     $billing->minimum_luc =  $billAmount < $minimumLUC->amount ? number_format($billAmount,2, '.', '') : 0;
 
@@ -91,7 +93,7 @@ class ProcessBillingJob implements ShouldQueue
                     $dateTime = new \DateTime('now');
                     $dateTime->setDate($this->year, $dateTime->format('m'), $dateTime->format('d'));
                     $billing->entry_date = $dateTime->format('Y-m-d H:i:s'); //now();
-                    $billing->billed_by = 5; //$this->billedBy ?? 5;
+                    $billing->billed_by = $this->billedBy ?? 5;
 
                     $billing->rr = $pavOptional->rr ?? 0;
                     $billing->lr = $pavOptional->lr ?? 0;

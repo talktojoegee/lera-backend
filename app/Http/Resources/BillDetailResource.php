@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\EditBillLog;
+use App\Models\PropertyClassification;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,7 @@ class BillDetailResource extends JsonResource
     public function toArray(Request $request): array
     {
         $bbf = $this->balanceBroughtForward($this->year, $this->building_code);
+        $class = PropertyClassification::find($this->class_id);
         $logs = DB::table('edit_bill_logs')
         ->join('users', 'users.id','=', 'edit_bill_logs.edited_by')
         ->where('edit_bill_logs.bill_id', $this->id)
@@ -29,7 +31,8 @@ class BillDetailResource extends JsonResource
             'ownerName'=>$this->getPropertyList->owner_name ?? '',
             'buildingCode'=>$this->building_code ?? '',
             'contactAddress'=>$this->getPropertyList->address ?? '',
-            'propertyClassification'=>$this->getPropertyList->getClass->class_name ?? '',
+            'propertyClassification'=>$this->getPropertyList->getPropertyClassification->class_name ?? '',
+            'propertyClass'=>$this->getPropertyList->getPropertyClassification->class_name ?? '',
             'kgTin'=>$this->getPropertyList->owner_kgtin ?? '',
             'entryDate'=>date('d M, Y', strtotime($this->entry_date)),
             'assessmentNo'=>$this->assessment_no ?? '',
@@ -46,7 +49,7 @@ class BillDetailResource extends JsonResource
             'statusInt'=>$this->status,
             'returned'=>$this->returned,
             'pavCode'=>$this->pav_code,
-            'class'=>$this->getPropertyClassification->class_name,
+            'class'=> !empty($class) ? $class->class_name : '' , //$this->getPropertyList->getPropertyClassification->class_name,
             'occupancy'=>$this->property_use,
             'lgaName'=>$this->getLGA->lga_name ?? 'N/A',
             'billAmount'=>$this->bill_amount ?? 0,

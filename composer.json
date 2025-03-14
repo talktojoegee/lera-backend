@@ -10,12 +10,16 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "barryvdh/laravel-dompdf": "^3.1",
+        "docraptor/docraptor": "^4.2",
         "laravel/framework": "^11.31",
         "laravel/horizon": "^5.31",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.9",
         "league/csv": "^9.22.0",
         "maatwebsite/excel": "^3.1",
+        "spatie/browsershot": "^5.0",
+        "spatie/laravel-pdf": "^1.5",
         "tymon/jwt-auth": "^2.1",
         "yabacon/paystack-php": "^2.2"
     },
@@ -33,7 +37,10 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
-        }
+        },
+        "files": [
+            "app/Helpers/NumberHelper.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {

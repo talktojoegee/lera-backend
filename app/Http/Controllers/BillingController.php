@@ -387,7 +387,6 @@ class BillingController extends Controller
 
     public function showBillDetails($url){
         $billDetail = Billing::where('url',$url)->first();
-        //$billDetail = Billing::where('url',$url)->first();
 
         if (!$billDetail) {
             return response()->json([
@@ -445,20 +444,22 @@ class BillingController extends Controller
                         $log->prev_dr = $record->dr ?? 0;
                         $log->prev_br = $record->br ?? 0;
                         $log->prev_lr = $record->lr ?? 0;
-                        $log->prev_luc = $record->bill_amount ?? 0;
+                        $log->prev_luc = ceil($record->bill_amount) ?? 0;
                         $log->prev_assess_value = $record->assessed_value;
+
                         $log->cur_la = $request->la;
                         $log->cur_ba = $request->ba;
                         $log->cur_rr = $request->rr;
                         $log->cur_dr = $request->dr;
                         $log->cur_br = $request->br;
-                        $log->cur_lr = $request->lr;
-                        $log->cur_luc = $request->lucAmount;
+                        $log->cur_lr = $request->lr ?? 0;
+                        $log->cur_luc = ceil($request->lucAmount);
                         $log->cur_assess_value = $request->assessedValue;
                         $log->save();
+
         $code = $record->pav_code;
         $record->assessed_value = $request->assessedValue;
-        $record->bill_amount = $request->lucAmount;
+        $record->bill_amount = ceil($request->lucAmount);
         //$record->bill_rate = $request->chargeRate;
         $record->returned = 2; //processed
         $record->status = 0; //take it back to pending for it to re-enter the workflow process
@@ -469,7 +470,6 @@ class BillingController extends Controller
         $record->br = $request->br ?? 0;
         $record->lr = $request->lr ?? 0;
         $record->pav_code = str_replace("B", "CS", $code);
-
         $record->save();
 
         //$this->sendEmailHandler($record, $bill, $request->action);
@@ -1074,7 +1074,19 @@ class BillingController extends Controller
                     ->get();
                 return response()->json(['data'=>OutstandingBillResource::collection($bills)],200);
             case 'zone':
+                $bills =  Billing::where('zone_name',$lgaId) //zone_name : A1 || C2...
+                    ->where('status', 4)
+                    ->where('objection', 0)
+                    ->orderBy('id', 'ASC')
+                    ->get();
+                return response()->json(['data'=>OutstandingBillResource::collection($bills)],200);
             case 'ward':
+                $bills =  Billing::where('ward',$lgaId) //zone_name : Lokoja E ...
+                ->where('status', 4)
+                    ->where('objection', 0)
+                    ->orderBy('id', 'ASC')
+                    ->get();
+                return response()->json(['data'=>OutstandingBillResource::collection($bills)],200);
         }
 
     }
@@ -1212,6 +1224,33 @@ class BillingController extends Controller
 
     }
 
+    public function searchBillByAssessment(Request $request){
+        $keyword = $request->keyword;
+        if(empty($keyword)){
+            return response()->json([
+                "detail"=>"Whoops!",
+                "message"=>"Something went wrong. Try again later."
+            ],422);
+        }
+        $log = PrintBillLog::searchForBillLog($keyword);
+
+        if(empty($log)){
+            return response()->json([
+                "errors"=>"No record found."
+            ],404);
+        }
+        return response(['data'=>PrintByBatchResource::collection($log)],200);
+
+    }
+
+    public function getWards(){
+        $wards = Billing::select('ward')->distinct()->get();
+        return response()->json(['data'=>$wards], 200);
+    }
+    public function getZones(){
+        $zones = Billing::select('zone_name')->distinct()->get();
+        return response()->json(['data'=>$zones], 200);
+    }
+
 }
-//Aero - Abj - PH (Monday)
 
