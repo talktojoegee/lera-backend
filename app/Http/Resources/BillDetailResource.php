@@ -25,6 +25,12 @@ class BillDetailResource extends JsonResource
         ->select('edit_bill_logs.*', 'users.name')
         ->orderBy('edit_bill_logs.id', 'DESC')
         ->get();
+        $payments = DB::table('bill_payment_logs')
+            ->join('billings', 'billings.id','=', 'bill_payment_logs.bill_master')
+            ->where('bill_payment_logs.bill_master', $this->id)
+            ->select('bill_payment_logs.*')
+            ->orderBy('bill_payment_logs.id', 'DESC')
+            ->get();
         return [
             'billId'=>$this->id,
             'paid'=>$this->paid,
@@ -89,6 +95,7 @@ class BillDetailResource extends JsonResource
             'returnedBy'=>$this->getReturnedBy->name ?? '',
             'dateReturned'=>date('d M, Y h:ia', strtotime($this->date_returned)),
             'log'=>$logs,
+            'payments'=>$payments,
 
 
         ];

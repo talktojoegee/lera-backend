@@ -37,9 +37,9 @@ class ProcessBillingJob implements ShouldQueue
         //try{
 
         if ($this->lgaId == 0) { //All locations/LGAs
-            $propertyLists = PropertyList::orderBy('id', 'DESC')->get();
+            $propertyLists = PropertyList::orderBy('id', 'DESC')->take(10)->get();
         } else {
-            $propertyLists = PropertyList::where('lga_id', $this->lgaId)/*->take(10)*/ ->get();
+            $propertyLists = PropertyList::where('lga_id', $this->lgaId)->take(10) ->get();
         }
         foreach ($propertyLists as $list) {
             $existingBill = Billing::where('year', $this->year)
@@ -85,8 +85,10 @@ class ProcessBillingJob implements ShouldQueue
                     $billing->building_code = $list->building_code ?? null;
                     $billing->assessment_no = $uniqueNumber;
                     $billing->assessed_value = ( ($la * $lr) + ($ba * $br * $dr)) * ($rr);
-                    $billing->bill_amount =  $billAmount > $minimumLUC->amount ? number_format($billAmount,2, '.', '') : $minimumLUC->amount;
-                    $billing->minimum_luc =  $billAmount < $minimumLUC->amount ? number_format($billAmount,2, '.', '') : 0;
+                    /*$billing->bill_amount =  $billAmount > $minimumLUC->amount ? number_format($billAmount,2, '.', '') : $minimumLUC->amount;
+                    $billing->minimum_luc =  $billAmount < $minimumLUC->amount ? number_format($billAmount,2, '.', '') : 0;*/
+                     $billing->bill_amount =  $billAmount > $minimumLUC->amount ? $billAmount : $minimumLUC->amount;
+                     $billing->minimum_luc =  $billAmount < $minimumLUC->amount ? $billAmount : 0;
 
                     $billing->year = $this->year;
 
@@ -105,7 +107,7 @@ class ProcessBillingJob implements ShouldQueue
                     $billing->dr_value = $depreciation->depreciation_rate ?? 0; //rate actually
 
 
-                    $billing->paid_amount = 0.00;
+                    $billing->paid_amount = 0;
                     $billing->objection = 0;
                     $billing->lga_id = $list->lga_id;
                     $billing->property_id = $list->id;
@@ -119,6 +121,7 @@ class ProcessBillingJob implements ShouldQueue
                     $billing->occupancy = $list->cr;
                     $billing->la = $la;
                     $billing->ward = $list->ward ?? '';
+                    $billing->property_name = $list->property_name ?? '';
                     $billing->save();
                 }
 

@@ -23,6 +23,18 @@ Route::get('/bill', function() {
 });
 
 
+Route::get('receipt/{receipt}', [\App\Http\Controllers\PDFController::class, 'showReceipt']);
+
+Route::get('kg', function(){
+    $record =  DB::table('billings')
+        ->join('lgas', 'billings.lga_id', '=', 'lgas.id')
+        ->join('property_lists', 'property_lists.id', '=', 'billings.property_id')
+        ->join('property_classifications', 'property_classifications.id', '=', 'billings.class_id')
+        ->first();
+    return view('pdf.kogi-bill', ['bill'=>$record]);
+});
+
+
 
 //Areas of concern
 /*

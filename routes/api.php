@@ -215,8 +215,7 @@ Route::group(['middleware' => 'api'], function(){
 
     Route::get('/generate-pdf/{batchCode}', [\App\Http\Controllers\PDFController::class, 'generateDomPdf']);
     Route::get('/download-pdf/{assessmentNo}', [\App\Http\Controllers\PDFController::class, 'generatePDFByAssessmentNo']);
-   // Route::get('/generate-pdf', [\App\Http\Controllers\PDFController::class, 'generatePdf']);
-
+    Route::get('receipt/{receipt}', [\App\Http\Controllers\PDFController::class, 'downloadReceipt']);
 
 
 

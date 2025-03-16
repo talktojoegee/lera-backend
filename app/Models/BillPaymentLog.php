@@ -23,6 +23,10 @@ class BillPaymentLog extends Model
         "kgtin",
     ];
 
+    public function getBill(){
+        return $this->belongsTo(Billing::class, 'bill_master');
+    }
+
 
     public static function getCustomerStatementByKgtinDate($buildingCode, $from, $to){
         return BillPaymentLog::where('building_code', $buildingCode)
