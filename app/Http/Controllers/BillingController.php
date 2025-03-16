@@ -1063,11 +1063,13 @@ class BillingController extends Controller
     public function showBillsForPrinting(Request $request){
         $lgaId = $request->lga;
         $type = $request->type;
+        $billIds = PrintBillLog::pluck('bill_id')->toArray();
         switch ($type){
             case 'lga':
                 $bills =  Billing::when($lgaId > 0, function($query) use ($lgaId) {
                     return $query->where('lga_id', $lgaId);
                 })
+                    ->whereNotIn('id', $billIds)
                     ->where('status', 4)
                     ->where('objection', 0)
                     ->orderBy('id', 'ASC')
@@ -1075,6 +1077,7 @@ class BillingController extends Controller
                 return response()->json(['data'=>OutstandingBillResource::collection($bills)],200);
             case 'zone':
                 $bills =  Billing::where('zone_name',$lgaId) //zone_name : A1 || C2...
+                    ->whereNotIn('id', $billIds)
                     ->where('status', 4)
                     ->where('objection', 0)
                     ->orderBy('id', 'ASC')
@@ -1082,6 +1085,7 @@ class BillingController extends Controller
                 return response()->json(['data'=>OutstandingBillResource::collection($bills)],200);
             case 'ward':
                 $bills =  Billing::where('ward',$lgaId) //zone_name : Lokoja E ...
+                ->whereNotIn('id', $billIds)
                 ->where('status', 4)
                     ->where('objection', 0)
                     ->orderBy('id', 'ASC')

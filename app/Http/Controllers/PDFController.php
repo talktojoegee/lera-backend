@@ -107,7 +107,7 @@ class PDFController extends Controller
         }
         $receipt = BillPaymentLog::where('receipt_no', $receiptNo)->first();
         if(empty($receipt)){
-            return dd("Invalid Receipt No.");
+            return "Invalid Receipt No.";
         }
         $pdf = $this->getPdf($receiptNo, $receipt);
         return $pdf->stream($receipt->receipt_no.'.pdf');

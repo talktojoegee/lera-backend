@@ -21,6 +21,8 @@ class BillPaymentLog extends Model
         "customer_name",
         "email",
         "kgtin",
+        "ward",
+        "zone"
     ];
 
     public function getBill(){
@@ -43,6 +45,12 @@ class BillPaymentLog extends Model
     }
     public static function getPaymentReportByWardDateRange($ward, $from, $to){
         return BillPaymentLog::where('ward', $ward)->whereBetween('entry_date',[$from, $to] )
+            ->orderBy('id', 'ASC')
+            ->get();
+    }
+
+    public static function getPaymentReportByZoneDateRange($zone, $from, $to){
+        return BillPaymentLog::where('zone', $zone)->whereBetween('entry_date',[$from, $to] )
             ->orderBy('id', 'ASC')
             ->get();
     }

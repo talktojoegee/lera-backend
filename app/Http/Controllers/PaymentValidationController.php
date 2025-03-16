@@ -171,7 +171,8 @@ class PaymentValidationController extends Controller
 
             "building_code"=>!empty($bill) ? $bill->building_code : '',
             "lga_id"=>!empty($bill) ? $bill->lga_id : '',
-            "ward"=>!empty($bill) ? $bill->getPropertyList->ward : '',
+            "ward"=> $bill->ward ?? '',
+            "zone"=> $bill->zone ?? '',
 
             "bank_name"=>$bankName,
             "branch_name"=>$branchName,

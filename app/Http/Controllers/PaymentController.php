@@ -110,7 +110,8 @@ class PaymentController extends Controller
 
             'building_code'=>$bill->building_code,
             'lga_id'=>$bill->lga_id ?? '',
-            'ward'=>$bill->getPropertyList->ward ?? '',
+            'ward'=>$bill->ward ?? '',
+            'zone'=>$bill->zone ?? '',
 
             'bank_name'=>"Credo",
             'branch_name'=>"Credo",

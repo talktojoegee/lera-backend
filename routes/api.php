@@ -231,6 +231,11 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('/etz/notification', [PaymentValidationController::class, 'notifyETranzact']);
 
 
+    Route::get('/settlement-setup', [\App\Http\Controllers\SettlementController::class, 'getSettings']);
+    Route::post('/settlement-setup', [\App\Http\Controllers\SettlementController::class, 'storeSettlementSetup']);
+    Route::post('/settlement-report', [\App\Http\Controllers\SettlementController::class, 'generateSettlementReport']);
+
+
 });
 Route::middleware([\App\Http\Middleware\JsonApiMiddleware::class])->group( function(){
 
