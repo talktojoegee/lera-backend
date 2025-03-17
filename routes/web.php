@@ -24,6 +24,7 @@ Route::get('/bill', function() {
 
 
 Route::get('receipt/{receipt}', [\App\Http\Controllers\PDFController::class, 'showReceipt']);
+Route::get('customer-report', [\App\Http\Controllers\PDFController::class, 'showCustomerStatementReportPDF']);
 
 Route::get('kg', function(){
     $record =  DB::table('billings')

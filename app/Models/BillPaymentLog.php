@@ -22,8 +22,16 @@ class BillPaymentLog extends Model
         "email",
         "kgtin",
         "ward",
-        "zone"
+        "zone",
+        "building_code",
+        "lga_id"
     ];
+
+
+    public function lga()
+    {
+        return $this->belongsTo(Lga::class, 'lga_id');
+    }
 
     public function getBill(){
         return $this->belongsTo(Billing::class, 'bill_master');

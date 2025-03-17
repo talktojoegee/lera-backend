@@ -28,8 +28,8 @@ class SyncDataJob implements ShouldQueue
     use UtilityTrait;
     public $lgaId;
     public $userId;
-    public $tries = 5;
-    public $timeout = 120;
+    public $tries = 10;
+    public $timeout = 3600;
     public $synCounter;
     public $exceptionCounter;
     public $counter = 0;
@@ -56,13 +56,17 @@ class SyncDataJob implements ShouldQueue
 
 
         try {
-            //$lga = Lga::find($this->lgaId);
-
+            $lgaName = '';
+            if($this->lgaId > 0){
+                $rec = Lga::find($this->lgaId);
+                $lgaName = $rec->lga_name;
+            }
 
             DB::connection('pgsql')
                 ->table('Land_Admin_New_Form')
-                ->when($this->lgaId > 0, function($query) {
-                    return $query->where('lga_id', $this->lgaId);
+                ->when($this->lgaId > 0, function($query) use ($lgaName) {
+                    return $query->where('lga', 'LIKE', "%{$lgaName}%");
+                    //return $query->where('lga_id', $this->lgaId);
                 })
                 ->where('completeness_status', 'Complete')
                 ->where('bill_sync', 0)

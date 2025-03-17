@@ -6,6 +6,7 @@ use App\Http\Resources\BillDetailResource;
 use App\Models\Billing;
 use App\Models\BillPaymentLog;
 use App\Models\PrintBillLog;
+use App\Models\PropertyList;
 use App\Traits\UtilityTrait;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Dompdf\Dompdf;
@@ -174,6 +175,72 @@ class PDFController extends Controller
                 'defaultFont' => 'Arial'
             ]);
         return $pdf;
+    }
+
+
+    public function showCustomerStatementReportPDF(){
+        return view('pdf.customer-report');
+    }
+
+
+    public function generateCustomerStatementReportPDF(Request $request)
+    {
+        $validator = Validator::make($request->all(),[
+            'buildingCode'=>'required',
+            'from'=>'required',
+            'to'=>'required'
+        ],[
+            'buildingCode.required'=>"Building code is required" ,
+            'from.required'=>"Set a start date" ,
+            'to.required'=>"Set an end date"
+        ]);
+        if($validator->fails() ){
+            return response()->json([
+                "errors"=>$validator->messages()
+            ],422);
+        }
+
+        $buildingCode = $request->buildingCode ;
+        $from = $request->from ;
+        $to = $request->to ;
+        $bills =  BillPaymentLog::getCustomerStatementByKgtinDate($buildingCode, $from, $to);
+        $records = [];
+
+        foreach ($bills as $index => $billing) {
+            $bill = Billing::find($billing->bill_master);
+            $narration = "N/A";
+            if(!empty($bill)){
+                $pDate = date('d M, Y', strtotime($billing->entry_date));
+                $narration = "LUC: {$bill->bill_amount}, Payment Date: {$pDate}, BUEAREU OF LANDS, Mode of Payment: {$billing->pay_mode},
+            Assessment No.: {$bill->assessment_no}, Transaction Reference: {$bill->trans_ref}, Year: {$bill->year}";
+            }
+            $records[] = [
+                'serial' => $index + 1,
+                'date' => date('d/M/Y', strtotime($billing->entry_date)),
+                'amount' => number_format($billing->amount, 2),
+                'channel' => $billing->pay_mode,
+                'receipt' => $billing->receipt_no,
+                'narration' => $narration,
+            ];
+        }
+        $property = PropertyList::where('building_code', $buildingCode)->first();
+        $headerInfo['buildingCode'] = $buildingCode;
+        $headerInfo['from'] = date('d/m/Y', strtotime($from));
+        $headerInfo['to'] = date('d/m/Y', strtotime($to));
+        $headerInfo['payerId'] = !empty($property) ? $property->owner_kgtin : '';
+        $headerInfo['address'] = !empty($property) ? $property->property_address : '';
+        $pdf = Pdf::loadView('pdf.customer-report',compact('records', 'headerInfo'))
+            ->setPaper('A4', 'portrait')
+            ->setOptions([
+                'isHtml5ParserEnabled' => true,
+                'isRemoteEnabled' => true,
+                'defaultFont' => 'Arial'
+            ]);
+
+        return response($pdf->output(), Response::HTTP_OK, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="document.pdf"',
+        ]);
     }
 
 

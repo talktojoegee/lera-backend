@@ -78,6 +78,7 @@ Route::group(['middleware' => 'api'], function(){
     Route::post('/billing/process', [\App\Http\Controllers\BillingController::class, 'processBill']);
 
     Route::post('/billing/make-payment', [\App\Http\Controllers\PaymentController::class, 'handlePaymentRequest']);
+    Route::post('/process-payment', [\App\Http\Controllers\PaymentController::class, 'handlePaymentRequestByAssessmentNo']);
 
 
     Route::get('/property/distribution', [\App\Http\Controllers\BillingController::class, 'showPropertyDistributionByLGA']);
@@ -157,6 +158,8 @@ Route::group(['middleware' => 'api'], function(){
 
     #Export operations
     Route::get('/export-bills/{user}/{type}', [\App\Http\Controllers\ExportController::class, 'exportExcel']);
+    Route::post('/export-customer-report', [\App\Http\Controllers\ExportController::class, 'exportCustomerReport']);
+    Route::post('/export-payment-report', [\App\Http\Controllers\ExportController::class, 'exportPaymentReport']);
     //Route::get('/export-bills', [\App\Http\Controllers\ExportController::class, 'exportExcel']);
 
 
@@ -216,6 +219,7 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('/generate-pdf/{batchCode}', [\App\Http\Controllers\PDFController::class, 'generateDomPdf']);
     Route::get('/download-pdf/{assessmentNo}', [\App\Http\Controllers\PDFController::class, 'generatePDFByAssessmentNo']);
     Route::get('receipt/{receipt}', [\App\Http\Controllers\PDFController::class, 'downloadReceipt']);
+    Route::post('/generate-customer-statement-report', [\App\Http\Controllers\PDFController::class, 'generateCustomerStatementReportPDF']);
 
 
 
