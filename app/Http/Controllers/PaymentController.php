@@ -18,6 +18,7 @@ class PaymentController extends Controller
 
     public $appToken = "b4234351ec7218cadf89300d2402e82b";
     public $selfServiceToken = "55f5ae74fdaeb019f432216cc89f4029";
+    public $eTranzactToken = "ytw6h351ec7897wef89300d240u87n";
 
 
 

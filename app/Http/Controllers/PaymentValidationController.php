@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 
 class PaymentValidationController extends Controller
 {
+    public $eTranzactToken = "ytw6h351ec7897wef89300d240u87n";
     public function validatePayment(Request $request)
     {
         $payeeId = $request->query('PAYEE_ID');
@@ -81,6 +82,9 @@ class PaymentValidationController extends Controller
         $paymentCode = $request->query('PAYMENT_CODE');
         $transAmount = $request->query('TRANS_AMOUNT');
         $assessmentNo = $request->query('CUSTOMER_ID');
+        $token = $request->query('TOKEN');
+        $transRef = $request->query('TRANS_REF') ?? 'TEST';
+        //return response()->json(['token'=>$request->query('TOKEN')],200);
         if (empty($receiptNo)  || empty($transAmount) || empty($assessmentNo)) {
             return  response("false 2");
         }
@@ -93,6 +97,14 @@ class PaymentValidationController extends Controller
         $kgTin = "";
         if(!is_numeric($transAmount)){
             return  response("false 4");
+        }
+        if(!isset($token)){
+            return response("Provide token");
+        }
+        if(isset($token)){
+            if($token != $this->eTranzactToken){
+                return response("Invalid token");
+            }
         }
         $payment = BillPaymentLog::where('receipt_no', $receiptNo)->first();
         if(!empty($payment)){
@@ -152,7 +164,34 @@ class PaymentValidationController extends Controller
                 }
             }
         }
+        //log it
+        $rec = Billing::where('assessment_no',$request->billId)->first();
+        if(!empty($rec)){
+            BillPaymentLog::create([
+                'bill_master'=>$bill->id,
+                'paid_by'=>5,//$request->paidBy,
+                'amount'=>$transAmount,
+                'trans_ref'=>$transRef,
+                'reference'=>$transRef,
+                'receipt_no'=>$receiptNo,
+                'payment_code'=>$paymentCode ?? '',
+                'assessment_no'=>$assessmentNo,
 
+                'building_code'=>$rec->building_code,
+                'lga_id'=>$rec->lga_id ?? '',
+                'ward'=>$rec->ward ?? '',
+                'zone'=>$rec->zone ?? '',
+
+                'bank_name'=>"eTranzact",
+                'branch_name'=>$bankName ?? '',
+                'pay_mode'=>$payMode,
+                'customer_name'=>$customerName,
+                'email'=>'no@email.com',
+                'kgtin'=>$request->kgtin,
+                "entry_date"=>Carbon::parse(now())->format('Y-m-d'),
+                "token"=>$token ?? ''
+            ]);
+        }
         return response()->json(['message'=>'Payment done'],200);
     }
 
@@ -180,7 +219,8 @@ class PaymentValidationController extends Controller
             "customer_name"=>$customerName,
             "email"=>$email,
             "kgtin"=>$kgTin,
-            "entry_date"=>Carbon::parse(now())->format('Y-m-d')
+            "entry_date"=>Carbon::parse(now())->format('Y-m-d'),
+
         ]);
     }
 
