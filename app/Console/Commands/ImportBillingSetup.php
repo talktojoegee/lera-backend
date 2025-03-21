@@ -41,8 +41,6 @@ class ImportBillingSetup extends Command
                 $class = PropertyClassification::where("class_name", 'like', '%' . $row[2] . '%')->first();
                 if(!empty($class)){
                     PropertyAssessmentValue::create([
-                        //"assessed_amount"=>$row[0],
-                        //"value_rate"=>$row[0],
                         "property_use"=>$row[3],
                         "pav_code"=>$row[0],
                         "zones"=>$row[1],
@@ -53,8 +51,6 @@ class ImportBillingSetup extends Command
                         "br"=>str_replace(',','',$row[4]),
                         "sync_word"=>$row[8],
                     ]);
-
-                    //return dd($class); //category
                 }else{
                     array_push($none, $row[2]);
                 }

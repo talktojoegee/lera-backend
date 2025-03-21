@@ -72,7 +72,8 @@
                 <td><strong>DATE:</strong> {{ isset($record->entryDate) ? date('d/m/Y', strtotime($record->entryDate)) : '-'}}</td>
             </tr>
             <tr>
-                <td><strong>BILL TO:</strong> <br>{{$record->propertyName ?? 'Property Owner'}} </td>
+               {{-- <td><strong>BILL TO:</strong> <br>$record->propertyName ?? 'Property Owner'}} </td>--}}
+                <td><strong>BILL TO:</strong> <br>Property Owner {!! $record->class_id == 2 ? "<br>c/o  " .$record->propertyName : "" !!}</td>
                 <td><strong>ASSESSMENT NO:</strong> <br> <span style="text-transform: uppercase;">{{$record->assessmentNo ?? ''}}</span> </td>
             </tr>
             <tr>
@@ -88,7 +89,7 @@
         </table>
 
 
-        <table class="table-2">
+        <table class="table-2" >
             <tr>
                 <th colspan="3" style="text-align: center; font-size: 15px">{{ $record->year ?? ''  }} LAND USE CHARGE (LUC) OF PROPERTY</th>
             </tr>
@@ -104,7 +105,7 @@
             </tr>
             <tr>
                 <td colspan="2" style="font-size: 15px"><strong>ANNUAL LAND USE CHARGE {{ $record->year  }}</strong></td>
-                <td style="font-size: 14px"><strong>{{ number_format($record->billAmount) }}</strong></td>
+                <td style="font-size: 14px"><strong>{{ number_format(ceil($record->billAmount)) }}</strong></td>
             </tr>
             <tr>
                 <td colspan="2" style="font-size: 15px"><strong>TOTAL AMOUNT PAYABLE</strong></td>
@@ -116,7 +117,7 @@
             </tr>
         </table>
 
-        <p style="margin-left: 20px"><strong>AMOUNT IN WORDS:</strong>  <span style="text-transform: uppercase;">{{ numberToWords($record->billAmount ?? 0 )}}</span> ONLY</p>
+        <p style="margin-left: 20px; margin-top: -20px;"><strong>AMOUNT IN WORDS:</strong>  <span style="text-transform: uppercase;">{{ numberToWords($record->billAmount ?? 0 )}}</span> ONLY</p>
 
     </body>
 @endforeach

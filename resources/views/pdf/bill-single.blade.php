@@ -72,7 +72,8 @@
                 <td><strong>DATE:</strong> {{ isset($record->entryDate) ? date('d/m/Y', strtotime($record->entryDate)) : '-'}}</td>
             </tr>
             <tr>
-                <td><strong>BILL TO:</strong> <br>{{$record->propertyName ?? 'Property Owner'}} </td>
+                {{--<td><strong>BILL TO:</strong> <br>$record->propertyName ?? 'Property Owner'}} </td>--}}
+                <td><strong>BILL TO:</strong> <br>Property Owner {!!  $record->class_id == 2 ? "<br>c/o  " .$record->propertyName : "" !!}</td>
                 <td><strong>ASSESSMENT NO:</strong> <br> <span style="text-transform: uppercase;">{{$record->assessmentNo ?? ''}}</span> </td>
             </tr>
             <tr>
@@ -116,7 +117,7 @@
             </tr>
         </table>
 
-        <p style="margin-left: 20px"><strong>AMOUNT IN WORDS:</strong>  <span style="text-transform: uppercase;">{{ numberToWords($record->billAmount ?? 0 )}}</span> ONLY</p>
+        <p style="margin-left: 20px; margin-top: -20px;"><strong>AMOUNT IN WORDS:</strong>  <span style="text-transform: uppercase;">{{ numberToWords($record->billAmount ?? 0 )}}</span> ONLY</p>
 
     </body>
 

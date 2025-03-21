@@ -80,7 +80,8 @@ class SyncDataJob implements ShouldQueue
                     $propertyList = PropertyList::where("building_code", $record->prop_id)->first();
                     $zoneChar = $this->_getZoneCharacter($record->zone) ?? 'Z';
 
-                    $chargeRate = $this->_getChargeRate($record->occupier_s, $record->landuse);
+                    $chargeRate = $this->_getChargeRate($record->landuse);
+                    //$chargeRate = $this->_getChargeRate($record->occupier_s, $record->landuse);
                     $dep = Depreciation::where('range', $record->property_age)->first();
                     $areaVal = $this->convertToSqm($record->property_area);
 
@@ -130,7 +131,8 @@ class SyncDataJob implements ShouldQueue
                         $propUseReason = empty($propertyUse) ? 'Prop. Use missing' : ($propertyUse->sync_word ?? 'Unknown');
 
                         $reason = "Missing Info: ".$lgaReason." ".$zoneReason." ".$classReason." ".$propUseReason;
-                        if(!empty($pavRecord)){
+                        $ba = $record->area_from_bfp;
+                        if(!empty($pavRecord) && isset($ba)){
                             $exist = PropertyException::where('building_code', $record->prop_id)->first();
                             if(!empty($exist)){
                                 $exist->status = 1; //synchronized
@@ -171,6 +173,7 @@ class SyncDataJob implements ShouldQueue
                                 'occupier' => $record->occupier_s,
                                 'property_address' => $record->prop_addre,
                                 'dep_id' => !empty($dep) ? $dep->id : Depreciation::orderBy('id', 'ASC')->first()->id, //depreciation
+                                'ba' => $record->area_from_bfp ?? 200
                             ]);
                             DB::connection('pgsql')
                                 ->table('Land_Admin_New_Form')
@@ -288,11 +291,12 @@ class SyncDataJob implements ShouldQueue
         }
     }
 
-    public function _getChargeRate($occupier, $landUse){
-        $normalizedClassName = trim($occupier);
+    public function _getChargeRate($landUse){
+        //$normalizedClassName = trim($occupier);
         switch($landUse){
             case 1:
-                if ($normalizedClassName == 'Owner_3rd_Party') {
+                return ChargeRate::first();
+                /*if ($normalizedClassName == 'Owner_3rd_Party') {
                     return ChargeRate::whereRaw("occupancy LIKE ?", ['%Residential Property (Owner and 3rd Party)%'])->first();
                 }elseif ($normalizedClassName == 'Third_party') {
                     return  ChargeRate::whereRaw("occupancy LIKE ?", ['%Residential Property (without Owner in residence)%'])->first();
@@ -303,7 +307,7 @@ class SyncDataJob implements ShouldQueue
                 } elseif ($normalizedClassName == 'Not_Known') {
                     return ChargeRate::whereRaw("occupancy LIKE ?", ['%Owner-occupied Residential Property%'])->first();
 
-                }
+                }*/
                 break;
             case 2:
             case 5:

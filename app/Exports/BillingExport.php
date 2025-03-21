@@ -76,7 +76,7 @@ class BillingExport implements  FromCollection, WithHeadings
         return Billing::where('status', $status)
             ->whereIn('property_use', $propertyUse)
             ->orderBy('id', 'DESC')
-            ->take(10000)
+            //->take(10000)
             ->get();
     }
     public function getReturnedBills($special, $returned){

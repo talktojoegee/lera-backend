@@ -150,6 +150,7 @@ Route::group(['middleware' => 'api'], function(){
     Route::post('/objection/new', [\App\Http\Controllers\ObjectionController::class, 'handleNewObjection']);
     Route::get('/objection/detail/{requestId}', [\App\Http\Controllers\ObjectionController::class, 'showObjectionDetail']);
     Route::get('/objection/all/{status}/{limit}/{skip}', [\App\Http\Controllers\ObjectionController::class, 'showObjectionListByStatus']);
+    Route::post('/submit-objection', [\App\Http\Controllers\ObjectionController::class, 'submitObjection']);
 
     Route::post('objection/action-objection', [\App\Http\Controllers\ObjectionController::class, 'actionObjection']);
 

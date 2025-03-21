@@ -34,6 +34,7 @@ class PDFController extends Controller
                 'property_lists.property_address as propertyAddress',
                 'property_lists.address as address',
                 'billings.cr as chargeRate',
+                'billings.class_id as class_id',
                 'billings.building_code as buildingCode',
                 'billings.entry_date as entryDate',
                 'billings.assessment_no as assessmentNo',
@@ -73,6 +74,7 @@ class PDFController extends Controller
                 'property_lists.property_address as propertyAddress',
                 'property_lists.address as address',
                 'billings.cr as chargeRate',
+                'billings.class_id as class_id',
                 'billings.building_code as buildingCode',
                 'billings.entry_date as entryDate',
                 'billings.assessment_no as assessmentNo',
@@ -147,7 +149,7 @@ class PDFController extends Controller
     {
         $qr = $this->generateQRCode("http://api.kslas.ng/receipt/{$receiptNo}");
         $data = [
-            'payer_id' => $receipt->kgtin ?? '',
+            'payer_id' => $receipt->getBill->getPropertyList->owner_kgtin ?? '', //$receipt->kgtin ?? '',
             'paid_by' => $receipt->customer_name ?? '',
             'address' => $receipt->getBill->getPropertyList->property_address ?? '',
             'assessmentNo' => $receipt->assessment_no ?? '',

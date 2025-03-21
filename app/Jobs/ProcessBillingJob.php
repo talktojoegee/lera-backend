@@ -37,9 +37,9 @@ class ProcessBillingJob implements ShouldQueue
         //try{
 
         if ($this->lgaId == 0) { //All locations/LGAs
-            $propertyLists = PropertyList::orderBy('id', 'DESC')->take(10)->get();
+            $propertyLists = PropertyList::orderBy('id', 'DESC')/*->take(10)*/->get();
         } else {
-            $propertyLists = PropertyList::where('lga_id', $this->lgaId)->take(10) ->get();
+            $propertyLists = PropertyList::where('lga_id', $this->lgaId)/*->take(10) */->get();
         }
         foreach ($propertyLists as $list) {
             $existingBill = Billing::where('year', $this->year)
@@ -66,10 +66,11 @@ class ProcessBillingJob implements ShouldQueue
                     //LUC = {(LA * LR) + (BA% x BR x DR)} * RR% * CR
                     $la = (int) $list->area ?? 1;
                     $lr = $pavOptional->lr ?? 1;
-                    $ba = ( $pavOptional->ba * 0.01) * $la;
+                    //
+                    $ba = $list->ba ?? 0; //( $pavOptional->ba * 0.01) * $la; commented based on new development. Take BA from property list
                     $br = $pavOptional->br;
                     $dr = $depreciation->value * 0.01;
-                    $rr = $pavOptional->rr * 0.01;
+                    $rr = (100 - $pavOptional->rr) * 0.01;
 
 
                     $cr = ($chargeRate->rate * 0.01);
@@ -99,7 +100,7 @@ class ProcessBillingJob implements ShouldQueue
 
                     $billing->rr = $pavOptional->rr ?? 0;
                     $billing->lr = $pavOptional->lr ?? 0;
-                    $billing->ba = $pavOptional->ba ?? 0;
+                    $billing->ba = $ba ?? 0;
                     $billing->br = $pavOptional->br ?? 0;
                     $billing->dr = $depreciation->depreciation_rate ?? 0;
 

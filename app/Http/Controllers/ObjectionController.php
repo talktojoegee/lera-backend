@@ -246,4 +246,72 @@ class ObjectionController extends Controller
         }
 
     }
+
+
+
+
+    public function submitObjection(Request $request){
+
+        $validator = Validator::make($request->all(),
+            [
+                "reason"=>"required",
+                "assessmentNo"=>"required",
+                "selectedReliefs"=>"required|array",
+                "selectedReliefs.*"=>"required",
+                //"selectedReliefs"=>"required|array",
+                //"selectedReliefs.*"=>"required",
+                //"submittedBy"=>"required",
+                //"billId"=>"required",
+            ],
+            [
+                "reason.required"=>"Type your objection in the field provided.",
+                "selectedReliefs.required"=>"Choose at least one relief",
+                //"selectedReliefs.array"=>"Choose at least one relief",
+                //"submittedBy.required"=>"Who is submitting this request?",
+                //"billId.required"=>"Whoops! Something is missing.",
+                "assessmentNo"=>"Assessment number is required"
+            ]
+        );
+        if($validator->fails() ){
+            return response()->json([
+                "errors"=>$validator->messages()
+            ],422);
+        }
+        $bill = Billing::where('assessment_no', $request->assessmentNo)->where('status', 4)->first();
+        if(empty($bill)){
+            return response()->json([
+                "errors"=>"No record found or bill not approved"
+            ],404);
+        }
+        $uniqueNumber = time();
+        $objection = Objection::create([
+            'request_id'=>$uniqueNumber,
+            'bill_id'=>$bill->id,
+            'submitted_by'=>$bill->billed_by, //$request->submittedBy,
+            'reason'=>$request->reason,
+            //'relief_ids'=>$request->selectedReliefs,
+            'relief_ids'=>implode(',', $request->selectedReliefs),
+        ]);
+
+
+        $uploadDir = public_path('assets/drive/');
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+        if (count($request->allFiles() ) > 0) {
+            foreach ($request->allFiles() as $attachment) {
+                $filename = uniqid() . '_' . $attachment->getClientOriginalName();
+                $size = $attachment->getSize();
+                $originalFilename = $attachment->getClientOriginalName();
+                $attachment->move($uploadDir, $filename);
+                ObjectionAttachment::create([
+                    'objection_id' => $objection->id,
+                    'attachment' => $filename,
+                    'filename' => $originalFilename,
+                    'size' => $size,
+                ]);
+            }
+        }
+        return response()->json(['message' => 'Success! Action successful.'], 201);
+    }
 }

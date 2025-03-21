@@ -16,6 +16,10 @@ use Yabacon\Paystack;
 class PaymentController extends Controller
 {
 
+    public $appToken = "b4234351ec7218cadf89300d2402e82b";
+    public $selfServiceToken = "55f5ae74fdaeb019f432216cc89f4029";
+
+
 
     public function handlePaymentRequest(Request $request){
         $validator = Validator::make($request->all(),[
@@ -26,6 +30,7 @@ class PaymentController extends Controller
             'billId'=>'required',
             'paidBy'=>'required',
             'kgtin'=>'required',
+            'appToken'=>'required',
         ],[
             'amount.required'=>"Enter an amount" ,
             'email.required'=>"Enter a valid email address" ,
@@ -34,6 +39,7 @@ class PaymentController extends Controller
             'email.email'=>"Enter a valid email address" ,
             'mobileNo.required'=>"Enter mobile number" ,
             'kgtin.required'=>"KGTIN is required" ,
+            'appToken.required'=>"Token required" ,
         ]);
         if($validator->fails() ){
             return response()->json([
@@ -41,6 +47,11 @@ class PaymentController extends Controller
             ],422);
         }
         $bill = Billing::where("paid", 0)->where("id", $request->billId)->first();
+        if($request->appToken != $this->appToken){
+            return response()->json([
+                'message' => "We can't process this request at the moment."
+            ], 404);
+        }
         if (empty($bill)) {
             return response()->json([
                 'message' => 'Whoops! No record found.'
@@ -110,7 +121,8 @@ class PaymentController extends Controller
                 'customer_name'=>$request->name,
                 'email'=>$request->email,
                 'kgtin'=>$request->kgtin,
-                "entry_date"=>Carbon::parse(now())->format('Y-m-d')
+                "entry_date"=>Carbon::parse(now())->format('Y-m-d'),
+                "token"=>$request->appToken ?? ''
             ]);
         }
 
@@ -134,7 +146,7 @@ class PaymentController extends Controller
                     "telephone"=>$request->mobileNo,
                     "lga_id"=>$bill->lga_id,
                     "added_by"=>$request->paidBy,
-                    "res_address"=>$property->address
+                    "res_address"=>$property->address ?? 'N/A'
                 ]);
             }else{
                 $owner->email = $request->email;
@@ -142,7 +154,7 @@ class PaymentController extends Controller
                 $owner->name = $request->name;
                 $owner->telephone = $request->mobileNo;
                 $owner->lga_id = $bill->lga_id;
-                $owner->res_address = $property->address;
+                $owner->res_address = $property->address ?? 'N/A';
                 $owner->save();
             }
         }
@@ -175,6 +187,7 @@ class PaymentController extends Controller
             'billId'=>'required',
             'paidBy'=>'required',
             'kgtin'=>'required',
+            "appToken"=>"required",
         ],[
             'amount.required'=>"Enter an amount" ,
             'email.required'=>"Enter a valid email address" ,
@@ -183,6 +196,7 @@ class PaymentController extends Controller
             'email.email'=>"Enter a valid email address" ,
             'mobileNo.required'=>"Enter mobile number" ,
             'kgtin.required'=>"KGTIN is required" ,
+            'appToken.required'=>"Token required" ,
         ]);
         if($validator->fails() ){
             return response()->json([
@@ -190,6 +204,11 @@ class PaymentController extends Controller
             ],422);
         }
         $bill = Billing::where("paid", 0)->where("assessment_no", $request->billId)->first();
+        if($request->appToken != $this->selfServiceToken){
+            return response()->json([
+                'message' => "We can't process this request at the moment."
+            ], 404);
+        }
         if (empty($bill)) {
             return response()->json([
                 'message' => 'Whoops! No record found.'
@@ -236,7 +255,7 @@ class PaymentController extends Controller
         }
 
         //log it
-        $rec = Billing::find($request->billId);
+        $rec = Billing::where('assessment_no',$request->billId)->first();
         if(!empty($rec)){
             BillPaymentLog::create([
                 'bill_master'=>$request->billId,
@@ -259,7 +278,8 @@ class PaymentController extends Controller
                 'customer_name'=>$request->name,
                 'email'=>$request->email,
                 'kgtin'=>$request->kgtin,
-                "entry_date"=>Carbon::parse(now())->format('Y-m-d')
+                "entry_date"=>Carbon::parse(now())->format('Y-m-d'),
+                "token"=>$request->appToken ?? ''
             ]);
         }
 
@@ -283,7 +303,7 @@ class PaymentController extends Controller
                     "telephone"=>$request->mobileNo,
                     "lga_id"=>$bill->lga_id,
                     "added_by"=>$request->paidBy,
-                    "res_address"=>$property->address
+                    "res_address"=>$request->address ?? 'N/A'
                 ]);
             }else{
                 $owner->email = $request->email;
@@ -291,7 +311,7 @@ class PaymentController extends Controller
                 $owner->name = $request->name;
                 $owner->telephone = $request->mobileNo;
                 $owner->lga_id = $bill->lga_id;
-                $owner->res_address = $property->address;
+                $owner->res_address = $request->address ?? 'N/A';
                 $owner->save();
             }
         }

@@ -24,7 +24,9 @@ class BillPaymentLog extends Model
         "ward",
         "zone",
         "building_code",
-        "lga_id"
+        "lga_id",
+        "entry_date",
+        "token"
     ];
 
 
