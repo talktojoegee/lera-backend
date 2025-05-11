@@ -2,15 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\WorkflowReportExport;
 use App\Http\Resources\BillDetailExtractResource;
 use App\Http\Resources\BillDetailResource;
 use App\Http\Resources\CustomerStatementResource;
 use App\Http\Resources\OutstandingBillResource;
 use App\Http\Resources\PaymentReportResource;
+use App\Http\Resources\WorkflowResource;
 use App\Models\Billing;
 use App\Models\BillPaymentLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ReportController extends Controller
 {
@@ -121,4 +124,42 @@ class ReportController extends Controller
         }
 
     }
+
+
+
+    public function workflowReport(Request $request){
+        $validator = Validator::make($request->all(),
+            [
+                "year"=>"required"
+            ],
+            [
+                "year.required"=>"Choose year",
+            ]
+        );
+        if($validator->fails() ){
+            return response()->json([
+                "message"=>"Validation failed!",
+                "detail"=>"One or more required field is missing",
+                "errors"=>$validator->messages()
+            ],422);
+        }
+        $bills = Billing::generateWorkflowReport($request->year);
+        return response()->json(['data'=>$bills],200);
+    }
+
+    public function exportWorkflowReport(Request $request)
+    {
+        $request->validate([
+            'year' => 'required'
+        ]);
+
+        $year = $request->year;
+
+        $report = Billing::generateWorkflowReport($year);
+
+        return Excel::download(new WorkflowReportExport($year, $report), 'workflow_report.xlsx');
+    }
+
+
+
 }

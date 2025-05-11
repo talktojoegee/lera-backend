@@ -17,5 +17,7 @@ class KogiRemsNotification extends Model
         "transdate",
         "transRef",
         "paymode",
+        "bank_name",
+        "luc_amount"
     ];
 }

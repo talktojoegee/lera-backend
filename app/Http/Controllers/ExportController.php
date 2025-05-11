@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Exports\BillingExport;
 use App\Exports\CustomerReportExport;
+use App\Exports\PaidBillExport;
 use App\Exports\PaymentReportExport;
+use App\Exports\PropertyExceptionExport;
 use App\Http\Resources\CustomerStatementResource;
 use App\Jobs\ExportBillingJob;
 use App\Models\Billing;
@@ -24,6 +26,20 @@ class ExportController extends Controller
         $type = $request->type ;
         $userId = $request->user ;
         return Excel::download(new BillingExport($userId,$type), 'billings.xlsx');
+    }
+
+    public function exportPaidBills(Request $request)
+    {
+
+
+        $type = $request->type ;
+        $userId = $request->user ;
+        return Excel::download(new PaidBillExport($userId,$type), 'billings.xlsx');
+    }
+
+    public function exportPropertyException(Request $request)
+    {
+        return Excel::download(new PropertyExceptionExport(), 'property-exceptions.xlsx');
     }
 
     public function exportCustomerReport(Request $request)
@@ -103,6 +119,9 @@ class ExportController extends Controller
                         'DATE' => date('d/m/Y', strtotime($billing->entry_date)),
                         'BUILDING CODE' => $billing->building_code ?? '',
                         'ASSESSMENT NO' => $billing->assessment_no,
+                        'RECEIPT NO.' => $billing->receipt_no,
+                        'TRANS. REF' => $billing->trans_ref,
+                        'OWNER NAME' => $billing->customer_name,
                         'LGA' => $billing->lga->lga_name ?? '',
                         '(NGN)AMOUNT' => $billing->amount ?? 0,
                     ];
@@ -118,6 +137,9 @@ class ExportController extends Controller
                         'DATE' => date('d/m/Y', strtotime($billing->entry_date)),
                         'BUILDING CODE' => $billing->building_code ?? '',
                         'ASSESSMENT NO' => $billing->assessment_no ?? '',
+                        'RECEIPT NO.' => $billing->receipt_no,
+                        'TRANS. REF' => $billing->trans_ref,
+                        'OWNER NAME' => $billing->customer_name,
                         'LGA' => $billing->lga->lga_name ?? '',
                         '(NGN)AMOUNT' => $billing->amount ?? 0,
                     ];
@@ -132,6 +154,9 @@ class ExportController extends Controller
                         'DATE' => date('d/m/Y', strtotime($billing->entry_date)),
                         'BUILDING CODE' => $billing->building_code ?? '',
                         'ASSESSMENT NO' => $billing->assessment_no,
+                        'RECEIPT NO.' => $billing->receipt_no,
+                        'TRANS. REF' => $billing->trans_ref,
+                        'OWNER NAME' => $billing->customer_name,
                         'LGA' => $billing->lga->lga_name ?? '',
                         '(NGN)AMOUNT' => $billing->amount ?? 0,
                     ];

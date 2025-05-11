@@ -35,7 +35,10 @@ class NotifyKogiRemsJob implements ShouldQueue
             $email = $notification->email;
             $transdate = $notification->transdate;
             $transRef = $notification->transRef;
-            $response = Http::get("https://kogiirs.aoctms.com.ng/luc/default.asp?assessmentno={$assessment_no}&buildingcode={$buildingcode}&kgtin={$kgtin}&name={$name}&amount={$amount}&phone={$phone}&email={$email}&transdate={$transdate}&transRef={$transRef}&paymode=POS");
+            $paymode = $notification->paymode ?? '';
+            $bankName = $notification->bank_name ?? '';
+            $lucAmount = $notification->luc_amount ?? 0;
+            $response = Http::get("https://kogiirs.aoctms.com.ng/luc/default.asp?assessmentno={$assessment_no}&buildingcode={$buildingcode}&kgtin={$kgtin}&name={$name}&amount={$amount}&phone={$phone}&email={$email}&transdate={$transdate}&transRef={$transRef}&paymode={$paymode}&bank={$bankName}&lucAmount={$lucAmount}");
             if($response->successful()){
                 $notification->status = 1;
                 $notification->save();

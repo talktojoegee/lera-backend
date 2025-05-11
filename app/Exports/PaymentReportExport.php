@@ -62,7 +62,7 @@ class PaymentReportExport implements  FromCollection, WithHeadings, WithStyles
             ['Type', "$type: ($this->sub) "],
             ['Payment Report From:', "$from", 'to', "$to"],
             [''],
-            ['#', 'DATE', 'BUILDING CODE', 'ASSESSMENT NO.', 'LGA', '(NGN)AMOUNT'],
+            ['#', 'DATE', 'BUILDING CODE', 'ASSESSMENT NO.', 'RECEIPT NO.', 'TRANS. REF', 'OWNER NAME', 'LGA', '(NGN)AMOUNT'],
         ];
     }
     public function styles(Worksheet $sheet)

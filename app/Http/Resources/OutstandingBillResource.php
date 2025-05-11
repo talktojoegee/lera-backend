@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\BillPaymentLog;
 use App\Models\Objection;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -18,6 +19,7 @@ class OutstandingBillResource extends JsonResource
         $bbf = $this->balanceBroughtForward($this->year, $this->building_code);
         $objection = Objection::where('bill_id', $this->id)->first();
         $objectionCount = !empty($objection) ? $objection->count() : 0;
+        $payment = BillPaymentLog::where('bill_master', $this->id)->sum('amount') ?? 0;
         return [
           'approvedDate'=> !empty($objection) ? date('d M, Y', strtotime($objection->date_approved)) : '',
           'billId'=>$this->id ?? '',
@@ -30,8 +32,10 @@ class OutstandingBillResource extends JsonResource
           'categoryName'=>$this->getPropertyClassification->class_name ?? '',
           'owner'=>$this->getPropertyList->owner_name ?? '',
           'billAmount'=>ceil($this->bill_amount) ?? '',
-          'balance'=>ceil($this->bill_amount  - $this->paid_amount),
-            'paidAmount'=>$this->paid_amount ?? 0,
+          'balance'=>ceil($this->bill_amount  - $payment),
+          //'balance'=>ceil($this->bill_amount  - $this->paid_amount),
+            'paidAmount'=>$payment ?? 0,
+           // 'paidAmount'=>$this->paid_amount ?? 0,
 
           'lgaName'=>$this->getLGA->lga_name ?? 'N/A',
           'url'=>$this->url ?? '',

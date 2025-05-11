@@ -352,12 +352,44 @@ class BillingController extends Controller
             ], 404);
         }
         $propertyUse = explode(',', $user->sector);
+        $gross = Billing::getGrossAllBillsByParams(0, $propertyUse)->sum('bill_amount');
+        $paid = Billing::getAllBillsPaymentByParams( 0 , 4, $propertyUse)->sum('paid_amount');
+        $partly = Billing::where('paid_amount', '>', 0)->where('paid', 0)->sum('paid_amount');
         return response()->json([
             'data'=>PaidBillResource::collection(Billing::getAllPaidBills($limit, $skip, 1, 0, 4, $propertyUse)),
             'total'=>Billing::getAllBillsByParams(1,0,4, $propertyUse)->count(),
-            'grossBills'=>Billing::getAllBillsByParams(1,0,4, $propertyUse)->sum('bill_amount'),
-            'grossAmountPaid'=>Billing::getAllBillsByParams(1,0,4, $propertyUse)->sum('paid_amount'),
-            'balanceAmount'=>(Billing::getAllBillsByParams(1,0,4, $propertyUse)->sum('bill_amount') - Billing::getAllBillsByParams(1,0,4, $propertyUse)->sum('paid_amount')),
+            'grossBills'=>$gross,
+            //'grossBills'=>Billing::getAllBillsByParams(1,0,4, $propertyUse)->sum('bill_amount'),
+            //'grossBills'=>Billing::getAllBillsByParams(1,0,4, $propertyUse)->sum('bill_amount'),
+            'partial'=>$partly,
+            'grossAmountPaid'=>$paid,
+            'balanceAmount'=>$gross - ($paid + $partly),
+        ]);
+    }
+
+    public function showPartlyPaidBills(Request $request){
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
+        $userId = $request->user ?? 0;
+        $user = User::find($userId);
+
+        if(empty($user)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong.'
+            ], 404);
+        }
+        $propertyUse = explode(',', $user->sector);
+        $gross = Billing::getGrossAllBillsByParams(0, $propertyUse)->sum('bill_amount');
+        $paid = Billing::getAllBillsPaymentByParams( 0 , 4, $propertyUse)->sum('paid_amount');
+        $partlyPaid = Billing::getAllPartlyPaidBills($limit , $skip , 0 , $propertyUse);
+        //return response()->json(['data'=>$skip],200);
+        return response()->json([
+            'data'=>PaidBillResource::collection($partlyPaid),
+            'total'=>$partlyPaid->count(),
+            'grossBills'=>$gross,
+            'partial'=>$partlyPaid->sum('paid_amount'),
+            'grossAmountPaid'=>$paid,
+            'balanceAmount'=>$gross - $paid,
         ]);
     }
 
@@ -462,7 +494,7 @@ class BillingController extends Controller
         $record->bill_amount = ceil($request->lucAmount);
         //$record->bill_rate = $request->chargeRate;
         $record->returned = 2; //processed
-        $record->status = 0; //take it back to pending for it to re-enter the workflow process
+        $record->status = 1; //take it back to pending for it to re-enter the workflow process
         $record->la = $request->la ?? 0;
         $record->ba = $request->ba ?? 0;
         $record->rr = $request->rr ?? 0;
@@ -834,6 +866,34 @@ class BillingController extends Controller
             $record->approved_by = $request->actionedBy;
             $record->date_approved = now();
             $record->save();
+            //notify virtualization table on GIS
+            $property = PropertyList::where('building_code', $record->building_code)->first();
+            if($property){
+                DB::connection('pgsql')
+                    ->table('virtualization')
+                    ->insert([
+                        'building_code' => $property->building_code,
+                        'assessment_code' => $record->assessment_no,
+                        'bill_approved' =>true,
+                        'bill_distributed' => false ,
+                        'bill_paid' => 0,
+                        'bill_approved_date' => now(),
+                        'bill_distributed_date' => null ,
+                        'bill_paid_date' => null ,
+                        'property_name' => $property->property_name ?? '',
+                        'property_address' => $property->address,
+                        'property_lga' => $property->lga_id,
+                        'property_zone' => $property->sub_zone ?? '',
+                        'property_ward' => $property->ward ?? '',
+                        'property_image' => $property->image ?? '',
+                        'bill_delivery_image' => null ,
+                        'property_longitude' => $property->longitude ?? '',
+                        'property_latitude' => $property->latitude ?? '',
+                        'created_at' => now(),
+                        'property_category' => $property->class_id ?? '',
+                    ]);
+            }
+
 
         }
         if($request->action == 5){ //return bill
@@ -954,6 +1014,16 @@ class BillingController extends Controller
                     $record->status = 4;
                     $record->approved_by = $request->actionedBy;
                     $record->date_approved = now();
+                    $record->save();
+                }
+                break;
+            case 'return':
+                foreach($records as $record){
+                    $record->status = 5;
+                    $record->returned = 1;
+                    $record->returned_by = $request->actionedBy;
+                    $record->date_returned = now();
+                    $record->return_reason = 'Bulk return action';
                     $record->save();
                 }
                 break;
@@ -1254,6 +1324,43 @@ class BillingController extends Controller
     public function getZones(){
         $zones = Billing::select('zone_name')->distinct()->get();
         return response()->json(['data'=>$zones], 200);
+    }
+
+
+    public function updateDelivery(Request $request){
+        $validator = Validator::make($request->all(),[
+            "deliveryDate"=>"required|date",
+            "delivered"=>"required",
+            "acknowledgement"=>"required",
+            "buildingCode"=>"required",
+            "year"=>"required",
+        ],[
+            "deliveryDate.required"=>"Enter delivery date",
+            "deliveryDate.date"=>"Enter a valid date",
+            "delivered.required"=>"Indicate whether this bill was delivered",
+            "acknowledgement.required"=>"Indicate acknowledgement",
+            "buildingCode.required"=>"Provide building code",
+            "year.required"=>"Provide year",
+        ]);
+        if($validator->fails()){
+            return response()->json([
+                "errors"=>$validator->messages()
+            ],422);
+        }
+        $bill = Billing::where('building_code', $request->buildingCode)->where('year', $request->year)->first();
+        if(empty($bill)){
+            return response()->json([
+                "message"=>"Record not found"
+            ],404);
+        }
+
+        $bill->delivered = $request->delivered;
+        $bill->delivery_date = $request->deliveryDate;
+        $bill->acknowledgement = $request->acknowledgement;
+        $bill->save();
+
+        return response()->json(['data'=>'Action successful'],200);
+
     }
 
 }

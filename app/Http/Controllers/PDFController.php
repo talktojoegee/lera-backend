@@ -156,7 +156,7 @@ class PDFController extends Controller
             'propertyId' => $receipt->building_code ?? '',
             'amount' => 'NGN' . number_format($receipt->amount ?? 0),
             'amount_words' => $this->numberToWords($receipt->amount ?? 0),
-            'payment_purpose' => "Payment for Land Use Charge ({$receipt->getBill->year})",
+            'payment_purpose' => "Payment for Land Use Charge (Revenue Code: 12020908) {$receipt->getBill->year}",
             'receipt_no' => $receipt->receipt_no ?? '',
             'invoice_no' => 'AST91574/34512/P1/2/2025',
             'swift_code' => $receipt->reference ?? '',
@@ -167,6 +167,7 @@ class PDFController extends Controller
             'authorized_signatory' => 'Sule Saliu Enehe',
             'designation' => 'Executive Chairman (KGIRS)',
             'qr' => $qr,
+            'bankName' => $receipt->bank_name ?? '',
             'background' => asset('/assets/images/receipt.png'),
         ];
         $pdf = Pdf::loadView('pdf.receipt', $data)

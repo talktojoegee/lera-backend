@@ -26,6 +26,7 @@ return [
         'https://kgirs-billing.kslas.ng',
         'http://localhost:4200',
         'http://localhost:53878',
+        '*'
     ],
 
     'allowed_origins_patterns' => [],

@@ -2,113 +2,99 @@
 
 namespace App\Exports;
 
-use App\Http\Resources\BillingExportResource;
-use App\Http\Resources\OutstandingBillResource;
 use App\Models\Billing;
 use App\Models\User;
-use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\FromQuery;
+use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Illuminate\Contracts\Support\Responsable;
 
-class BillingExport implements  FromCollection, WithHeadings
+class BillingExport implements FromQuery, WithMapping, WithHeadings, WithChunkReading, Responsable
 {
     public $type;
     public $userId;
 
-    public function __construct($userId, $type){
+    public function __construct($userId, $type)
+    {
         $this->type = $type;
         $this->userId = $userId;
     }
-    /**
-    * @return \Illuminate\Support\Collection
-    */
-    public function collection()
+
+    public function query()
     {
-        switch ($this->type){
-            case 'normal-outstanding':
-                return BillingExportResource::collection($this->getBills(4,0))->collection;
-            case 'special-outstanding':
-                return BillingExportResource::collection($this->getBills(4,1))->collection;
-            case 'all-pending':
-                return BillingExportResource::collection($this->getAllPendingBills(0))->collection;
-            case 'returned-normal':
-                return BillingExportResource::collection($this->getReturnedBills(0,1))->collection;
-            case 'returned-special':
-                return BillingExportResource::collection($this->getReturnedBills(1,1))->collection;
-            case 'paid-bills':
-                return BillingExportResource::collection($this->getPaidBills(4,1, 0))->collection;
-            case 'si-paid-bills':
-                return BillingExportResource::collection($this->getPaidBills(4,1, 1))->collection;
+        $user = User::find($this->userId);
+
+        if (!$user) {
+            abort(404, 'Whoops! Something went wrong.');
         }
 
+        $propertyUse = explode(',', $user->sector);
+
+        switch ($this->type) {
+            case 'normal-outstanding':
+                return Billing::where('status', 4)->where('special', 0)->whereIn('property_use', $propertyUse)->orderByDesc('id');
+            case 'special-outstanding':
+                return Billing::where('status', 4)->where('special', 1)->whereIn('property_use', $propertyUse)->orderByDesc('id');
+            case 'all-pending':
+                return Billing::where('status', 0)->whereIn('property_use', $propertyUse)->orderByDesc('id');
+            case 'returned-normal':
+                return Billing::where('returned', 1)->where('special', 0)->whereIn('property_use', $propertyUse)->orderByDesc('id');
+            case 'returned-special':
+                return Billing::where('returned', 1)->where('special', 1)->whereIn('property_use', $propertyUse)->orderByDesc('id');
+            case 'paid-bills':
+                return Billing::where('status', 4)->where('paid', 1)->where('special', 0)->whereIn('property_use', $propertyUse)->orderByDesc('id');
+            case 'si-paid-bills':
+                return Billing::where('status', 4)->where('paid', 1)->where('special', 1)->whereIn('property_use', $propertyUse)->orderByDesc('id');
+            default:
+                abort(400, 'Invalid export type.');
+        }
     }
+
+    public function map($bill): array
+    {
+        return [
+            $bill->assessment_no,
+            $bill->building_code,
+            $bill->year,
+            $bill->pav_code,
+            $bill->zone_name,
+            $bill->getPropertyClassification->class_name,
+            $bill->getChargeRate->occupancy ?? '',
+            $bill->cr,
+            $bill->assessed_value ?? 0,
+            $bill->bill_amount,
+            $bill->ba,
+            $bill->rr,
+            $bill->dr,
+            $bill->lr,
+            $bill->la,
+            $bill->cr,
+            $bill->br,
+            $bill->property_use,
+            $bill->getPropertyList->property_name ?? '',
+            $bill->return_reason ?? '',
+        ];
+    }
+
     public function headings(): array
     {
-        return ['Assessment No', 'Building Code', 'Year', 'Billing Code',
+        return [
+            'Assessment No', 'Building Code', 'Year', 'Billing Code',
             'Zone', 'Category', 'Occupancy', 'Charge Rate',
-            'Assessed Mkt. Value(₦)', 'LUC(₦)', 'BA', 'RR',
+            'Assessed Mkt. Value', 'LUC', 'BA', 'RR',
             'DR', 'LR', 'LA', 'CR',
-            'BR', 'Property Use', 'Property Name', 'Reason'];
-    }
-    public function getBills($status, $special){
-        $user = User::find($this->userId);
-
-        if(empty($user)){
-            return response()->json([
-                'message' => 'Whoops! Something went wrong.'
-            ], 404);
-        }
-        $propertyUse = explode(',', $user->sector);
-        return Billing::where('status', $status)
-            ->whereIn('property_use', $propertyUse)
-            ->where('special', $special)
-            ->orderBy('id', 'DESC')
-            ->get();
-    }
-    public function getAllPendingBills($status){
-        $user = User::find($this->userId);
-
-        if(empty($user)){
-            return response()->json([
-                'message' => 'Whoops! Something went wrong.'
-            ], 404);
-        }
-        $propertyUse = explode(',', $user->sector);
-        return Billing::where('status', $status)
-            ->whereIn('property_use', $propertyUse)
-            ->orderBy('id', 'DESC')
-            //->take(10000)
-            ->get();
-    }
-    public function getReturnedBills($special, $returned){
-        $user = User::find($this->userId);
-
-        if(empty($user)){
-            return response()->json([
-                'message' => 'Whoops! Something went wrong.'
-            ], 404);
-        }
-        $propertyUse = explode(',', $user->sector);
-        return Billing::whereIn('property_use', $propertyUse)
-            ->where('returned', $returned)
-            ->where('special', $special)
-            ->orderBy('id', 'DESC')
-            ->get();
+            'BR', 'Property Use', 'Property Name', 'Reason'
+        ];
     }
 
-    public function getPaidBills($status, $paid, $special){
-        $user = User::find($this->userId);
+    public function chunkSize(): int
+    {
+        return 1000;
+    }
 
-        if(empty($user)){
-            return response()->json([
-                'message' => 'Whoops! Something went wrong.'
-            ], 404);
-        }
-        $propertyUse = explode(',', $user->sector);
-        return Billing::whereIn('property_use', $propertyUse)
-            ->where('status', $status)
-            ->where('paid', $paid)
-            ->where('special', $special)
-            ->orderBy('id', 'DESC')
-            ->get();
+    public function toResponse($request)
+    {
+        // TODO: Implement toResponse() method.
     }
 }

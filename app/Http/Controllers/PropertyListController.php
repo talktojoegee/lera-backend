@@ -517,8 +517,10 @@ class PropertyListController extends Controller
                 "errors"=>"No search term submitted"
             ],404);
         }
-        $propertyUse = explode(',', $user->sector);
-        return response()->json(['data'=>PropertySearchResource::collection(PropertyException::searchAllPropertyException($keyword,$propertyUse)) ]);
+        //$propertyUse = explode(',', $user->sector);
+        return response()->json([
+            'data'=>PropertySearchResource::collection(PropertyException::searchAllPropertyException($keyword))
+        ]);
     }
 
 
@@ -565,6 +567,22 @@ class PropertyListController extends Controller
             ActivityLog::LogActivity($title, $narration, $user->id);
         }
         return response()->json(['data'=>"Action successful"],200);
+    }
+
+
+
+    public function showExemptedProperties(Request $request){
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
+        $chargeIds = ChargeRate::where('rate', 0)->pluck('id')->toArray();
+        $records = PropertyList::whereIn('cr', $chargeIds)->skip($skip)
+            ->take($limit)
+            ->orderBy('id', 'desc')
+            ->get();
+        return  response()->json([
+            'list' => PropertyListResource::collection($records),
+            'total' => PropertyList::whereIn('cr', $chargeIds)->orderBy('id', 'DESC')->count(),
+        ]);
     }
 
 

@@ -18,6 +18,9 @@ class PaymentReportResource extends JsonResource
           "date"=>$this->entry_date,
           "buildingCode"=>$this->building_code,
           "assessmentNo"=>$this->assessment_no,
+          "receiptNo"=>$this->receipt_no ?? '',
+          "transRef"=>$this->trans_ref ?? '',
+          "ownerName"=>$this->customer_name ?? '',
           "amount"=>$this->amount,
         ];
     }

@@ -55,7 +55,7 @@ class PropertyException extends Model
     }
 
 
-    public static function searchAllPropertyException($keyword, $propertyUse){
+    public static function searchAllPropertyException($keyword/*, $propertyUse*/){
         return DB::table('property_exceptions')
             ->leftJoin('property_classifications', 'property_exceptions.class_id', '=', 'property_classifications.id')
             ->leftJoin('lgas', 'lgas.id', '=', 'property_exceptions.lga_id')
@@ -83,11 +83,14 @@ class PropertyException extends Model
                 'property_exceptions.occupier',
                 'property_exceptions.sync_word',
                 'property_exceptions.property_use',
+                'property_exceptions.reason',
+                'property_exceptions.status',
+                'property_exceptions.created_at',
 
                 'lgas.lga_name',
                 'property_classifications.class_name',
             )
-            ->whereIn('property_exceptions.property_use', $propertyUse)
+            //->whereIn('property_exceptions.property_use', $propertyUse)
             ->where(function ($query) use ($keyword) {
                 $query->where('property_exceptions.building_code', 'LIKE', "%{$keyword}%")
                     ->orWhere('property_exceptions.pav_code', 'LIKE', "%{$keyword}%")

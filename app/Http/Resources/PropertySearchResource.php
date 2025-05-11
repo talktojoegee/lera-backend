@@ -16,6 +16,7 @@ class PropertySearchResource extends JsonResource
     {
         return [
             "id"=>$this->propertyId,
+            "date"=>date('d/m/Y', strtotime($this->created_at)),
             "buildingCode"=>$this->buildingCode,
             "owner"=>$this->owner_name ?? '',
             "pavCode"=>$this->pav_code,
@@ -32,5 +33,7 @@ class PropertySearchResource extends JsonResource
             "status"=>$this->status ?? '',
             "propertyName"=>$this->property_name ?? '',
         ];
+
+
     }
 }

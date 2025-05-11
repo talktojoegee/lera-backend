@@ -20,6 +20,7 @@ class PropertyListResource extends JsonResource
 
         return [
           "id"=>$this->id,
+          "date"=>date('d/m/Y', strtotime($this->created_at)),
           "buildingCode"=>$this->building_code,
           "owner"=>$this->owner_name ?? '',
           "image"=>$this->image ?? '',
@@ -37,9 +38,9 @@ class PropertyListResource extends JsonResource
           "reason"=>$this->reason ?? '',
           "status"=>$this->status ?? '',
           "propertyName"=>$this->property_name ?? '',
-            "billExistCounter"=> !empty($bill) ? $bill->count() : 0,
-            "lat"=>$this->latitude ?? '',
-            "long"=>$this->longitude ?? '',
+          "billExistCounter"=> !empty($bill) ? $bill->count() : 0,
+          "lat"=>$this->latitude ?? '',
+          "long"=>$this->longitude ?? '',
         ];
     } //extension_dir => /usr/lib/php/20230831 => /usr/lib/php/20230831
 }

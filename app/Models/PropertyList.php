@@ -35,6 +35,7 @@ class PropertyList extends Model
         'building_age',
         'pay_status',
         'cr',
+        'ba',
         'median_age',
         'actual_age',
         'longitude',
@@ -83,7 +84,7 @@ class PropertyList extends Model
                 'property_lists.occupier',
                 'property_lists.sync_word',
                 'property_lists.property_use',
-
+                'property_lists.created_at',
                 'lgas.lga_name',
                 'property_classifications.class_name',
             )

@@ -70,13 +70,19 @@ class SyncDataJob implements ShouldQueue
                 })
                 ->where('completeness_status', 'Complete')
                 ->where('bill_sync', 0)
+                //->where('prop_id', 'Kg/JMU/1090863')
                 //->take(1000)
-                ->orderBy('id', 'ASC')
+                ->orderBy('landuse', 'ASC')
                 ->cursor()
                 ->each(function($record)  {
                     $this->counter++;
+                    //$lgaName = trim($record->lga);
+                    //$lgaOne = Lga::where('lga_name', 'LIKE', "%{$lgaName}%")->first();
                     $lgaName = trim($record->lga);
-                    $lgaOne = Lga::where('lga_name', 'LIKE', "%{$lgaName}%")->first();
+                    $normalizedName = str_replace(['_', '/'], '', strtolower($lgaName));
+                    $lgaOne = Lga::get()->first(function($lga) use ($normalizedName) {
+                        return str_replace(['_', '/'], '', strtolower($lga->lga_name)) === $normalizedName;
+                    });
                     $propertyList = PropertyList::where("building_code", $record->prop_id)->first();
                     $zoneChar = $this->_getZoneCharacter($record->zone) ?? 'Z';
 
@@ -94,45 +100,72 @@ class SyncDataJob implements ShouldQueue
                     //$classID = in_array($record->landuse, $classIds) ? $record->landuse : 1;
                     $lgaExist = Lga::find($lgaOne->id);
                     $reason = '';
+
                     $syncWord = null;
                     if(!is_null($record->residentia)){
                         $syncWord = $record->residentia;
+
+
                     }else if(!is_null($record->commercial)){
                         $syncWord = $record->commercial;
+
+
                     }else if(!is_null($record->industrial)){
                         $syncWord = $record->industrial;
+
+
                     }else if(!is_null($record->industri_1)){
                         $syncWord = $record->industri_1;
+
+
                     }else if(!is_null($record->education)){
                         $syncWord = $record->education;
+
+
                     }else if(!is_null($record->agricultur)){
                         $syncWord = $record->agricultur;
+
+
                     }else if(!is_null($record->transport)){
                         $syncWord = $record->transport;
+
+
                     }else if(!is_null($record->utility)){
                         $syncWord = $record->utility;
+
+
                     }else if(!is_null($record->kgsg_publi)){
                         $syncWord = $record->kgsg_publi;
+
+
                     }else if(!is_null($record->fgn_public)){
                         $syncWord = $record->fgn_public;
+
+
                     }else if(!is_null($record->religious)){
                         $syncWord = $record->religious;
+
+
                     }else if(!is_null($record->others)){
                         $syncWord = $record->others;
+
+
                     }
 
                     $pavRecord = $this->_getPavCode($record->landuse, $record->zone, $syncWord);
                     $propertyUse = PropertyAssessmentValue::where('sync_word', $syncWord)->first();
 
                     if(empty($propertyList)){
-                        $lgaReason = empty($lgaOne) ? 'LGA missing' : $lgaName;
-                        $zoneReason = empty($zoneOne) ? 'Zone missing' : $record->zone;
-                        $classReason = empty($propertyClassification) ? 'Prop. Class missing' : ($propertyClassification->class_name ?? 'Unknown');
-                        $propUseReason = empty($propertyUse) ? 'Prop. Use missing' : ($propertyUse->sync_word ?? 'Unknown');
-
-                        $reason = "Missing Info: ".$lgaReason." ".$zoneReason." ".$classReason." ".$propUseReason;
                         $ba = $record->area_from_bfp;
+                        $lgaReason = empty($lgaOne) ? 'LGA missing:: ' : $lgaName." ;";
+                        $zoneReason = empty($zoneOne) ? 'Zone missing:: ' : $record->zone." ;";
+                        $classReason = empty($propertyClassification) ? 'Prop. Class missing:: ' : ($propertyClassification->class_name ?? 'Unknown')." ;";
+                        $propUseReason = empty($propertyUse) ? 'Prop. Use missing:: ' : ($propertyUse->sync_word ?? 'Unknown')." ;";
+                        $baReason = !isset($ba) ? "BA missing:: " : $ba." ;";
+
+
                         if(!empty($pavRecord) && isset($ba)){
+
                             $exist = PropertyException::where('building_code', $record->prop_id)->first();
                             if(!empty($exist)){
                                 $exist->status = 1; //synchronized
@@ -183,6 +216,7 @@ class SyncDataJob implements ShouldQueue
 
                         }
                         else{
+                            $reason = $lgaReason." ".$zoneReason." ".$classReason." ".$propUseReason." ".$baReason;
                             $exist = PropertyException::where('building_code', $record->prop_id)->first();
                             if(empty($exist)){
                                 PropertyException::create([
@@ -363,9 +397,73 @@ class SyncDataJob implements ShouldQueue
     }
 }
 
+/*
+
+
+'Kg/MPA/1088095',
+'Kg/LKJ/767767',
+'Kg/LKJ/849936',
+'Kg/LKJ/088906',
+'Kg/ERE/612850',
+'Kg/KNE/690560',
+'Kg/AJA/771424',
+'Kg/KPA/1094138',
+'Kg/KAB/793490',
+'Kg/DKN/414357',
+'Kg/SAN/686291',
+'Kg/JMU/390511',
+'Kg/MPA/1088095',
+'Kg/LKJ/767767',
+'Kg/LKJ/849936',
+'Kg/LKJ/088906',
+'Kg/ERE/612850',
+'Kg/KNE/690560',
+'Kg/AJA/771424',
+'Kg/KPA/1094138',
+'Kg/KAB/793490',
+'Kg/DKN/414357',
+'Kg/SAN/686291',
+'Kg/JMU/390511',
+'Kg/LKJ/486273',
+'Kg/LKJ/764846',
+'Kg/DAH/446970',
+'Kg/LKJ/525254',
+'Kg/KAB/786485',
+'Kg/DKN/514604',
+'Kg/KNE/406130',
+'Kg/KPA/402360',
+'Kg/ERE/689188',
+'Kg/LKJ/940218',
+'Kg/AJA/422219',
+'Kg/LKJ/802626',
+'Kg/LKJ/574947',
 
 
 
+'Kg/MPA/1088095',
+'Kg/LKJ/767767',
+'Kg/LKJ/849936',
+'Kg/LKJ/088906',
+'Kg/ERE/612850',
+'Kg/KNE/690560',
+'Kg/AJA/771424',
+'Kg/KPA/1094138',
+'Kg/KAB/793490',
+'Kg/DKN/414357',
+'Kg/SAN/686291',
+'Kg/JMU/390511',
+'Kg/LKJ/486273',
+'Kg/LKJ/764846',
+'Kg/DAH/446970',
+'Kg/LKJ/525254',
+'Kg/KAB/786485',
+'Kg/DKN/514604',
+'Kg/KNE/406130',
+'Kg/KPA/402360',
+'Kg/ERE/689188',
+'Kg/LKJ/940218',
+'Kg/AJA/422219',
+'Kg/LKJ/802626',
 
 
-
+*/

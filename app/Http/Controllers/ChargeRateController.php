@@ -33,6 +33,27 @@ class ChargeRateController extends Controller
 
 
     }
+    public function editChargeRate(Request $request){
+        $validator = Validator::make($request->all(),[
+            "rate"=>"required",
+            "occupancy"=>"required",
+            "id"=>"required",
+        ]);
+        if($validator->fails() ){
+            return response()->json([
+                "errors"=>$validator->messages()
+            ],422);
+        }
+
+        ChargeRate::where("id", $request->id)->update([
+            'rate'=>$request->rate,
+            'occupancy'=>$request->occupancy,
+        ]);
+        return response()->json(['message' => 'Changes saved'], 201);
+
+
+
+    }
 
 
     public function showAllChargeRates(){

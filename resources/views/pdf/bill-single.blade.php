@@ -73,7 +73,11 @@
             </tr>
             <tr>
                 {{--<td><strong>BILL TO:</strong> <br>$record->propertyName ?? 'Property Owner'}} </td>--}}
-                <td><strong>BILL TO:</strong> <br>Property Owner {!!  $record->class_id == 2 ? "<br>c/o  " .$record->propertyName : "" !!}</td>
+                @if(($record->class_id == 2) || ($record->class_id == 3))
+                    <td><strong>BILL TO:</strong> <br>Property Owner {!! "<br>c/o  " .$record->propertyName !!}</td>
+                @else
+                    <td><strong>BILL TO:</strong> <br>Property Owner {!!  $record->propertyName ?? "" !!}</td>
+                @endif
                 <td><strong>ASSESSMENT NO:</strong> <br> <span style="text-transform: uppercase;">{{$record->assessmentNo ?? ''}}</span> </td>
             </tr>
             <tr>

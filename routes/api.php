@@ -29,6 +29,7 @@ Route::group(['middleware' => 'api'], function(){
 
     #Relief settings
     Route::post('/relief/new', [\App\Http\Controllers\ReliefController::class, 'storeReliefSettings']);
+    Route::post('/relief/edit', [\App\Http\Controllers\ReliefController::class, 'editReliefSettings']);
     Route::get('/relief/all', [\App\Http\Controllers\ReliefController::class, 'showReliefSetup']);
     Route::get('/relief/all/{type}', [\App\Http\Controllers\ReliefController::class, 'showReliefSetupByType']);
 
@@ -50,6 +51,7 @@ Route::group(['middleware' => 'api'], function(){
 
     #Charge rate
     Route::post('/charge-rate/new', [\App\Http\Controllers\ChargeRateController::class, 'createChargeRate']);
+    Route::post('/charge-rate/edit', [\App\Http\Controllers\ChargeRateController::class, 'editChargeRate']);
     Route::get('/charge-rate/all', [\App\Http\Controllers\ChargeRateController::class, 'showAllChargeRates']);
 
     #PAV
@@ -102,6 +104,7 @@ Route::group(['middleware' => 'api'], function(){
     //Route::get('/billing/outstanding-bills', [\App\Http\Controllers\BillingController::class, 'showOutstandingBills']);
 
     Route::get('/billing/paid/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showPaidBills']);
+    Route::get('/billing/partly-paid/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showPartlyPaidBills']);
 
     Route::get('/billing/detail/{url}', [\App\Http\Controllers\BillingController::class, 'showBillDetails']);
     Route::post('billing/action-bill', [\App\Http\Controllers\BillingController::class, 'actionBill']);
@@ -131,6 +134,7 @@ Route::group(['middleware' => 'api'], function(){
 
     Route::post('/property-list/search-all-properties', [\App\Http\Controllers\PropertyListController::class, 'searchAllProperties']);
     Route::post('/property-list/search-property-exception', [\App\Http\Controllers\PropertyListController::class, 'searchAllPropertyException']);
+    Route::get('/property-list/exempted-properties/{limit}/{skip}', [\App\Http\Controllers\PropertyListController::class, 'showExemptedProperties']);
 
     Route::get('/property-list/all/{limit}/{skip}', [\App\Http\Controllers\PropertyListController::class, 'getPropertyList']);
     Route::get('/property-exception/all/{limit}/{skip}', [\App\Http\Controllers\PropertyListController::class, 'getPropertyExceptionList']);
@@ -159,9 +163,11 @@ Route::group(['middleware' => 'api'], function(){
 
     #Export operations
     Route::get('/export-bills/{user}/{type}', [\App\Http\Controllers\ExportController::class, 'exportExcel']);
+    Route::get('/paid-bills-export/{user}/{type}', [\App\Http\Controllers\ExportController::class, 'exportPaidBills']);
     Route::post('/export-customer-report', [\App\Http\Controllers\ExportController::class, 'exportCustomerReport']);
     Route::post('/export-payment-report', [\App\Http\Controllers\ExportController::class, 'exportPaymentReport']);
-    //Route::get('/export-bills', [\App\Http\Controllers\ExportController::class, 'exportExcel']);
+    Route::get('/export-property-exception', [\App\Http\Controllers\ExportController::class, 'exportPropertyException']);
+    Route::post('/export-workflow-report', [\App\Http\Controllers\ReportController::class, 'exportWorkflowReport']);
 
 
     #Users
@@ -213,6 +219,8 @@ Route::group(['middleware' => 'api'], function(){
     Route::group(['prefix'=>'reports'], function(){
         Route::post('/customer-statement', [\App\Http\Controllers\ReportController::class, 'handleCustomerStatementReport']);
         Route::post('/payment-report', [\App\Http\Controllers\ReportController::class, 'showPaymentReportPrint']);
+        Route::post('/workflow', [\App\Http\Controllers\ReportController::class, 'workflowReport']);
+
         //Route::post('/payment-report', [\App\Http\Controllers\ReportController::class, 'handlePaymentReportGeneration']);
     });
 
@@ -233,7 +241,10 @@ Route::group(['middleware' => 'api'], function(){
 
 
     Route::get('/etz/validation', [PaymentValidationController::class, 'validatePayment']);
-    Route::get('/etz/notification', [PaymentValidationController::class, 'notifyETranzact']);
+    Route::any('/etz/notification', [PaymentValidationController::class, 'notifyETranzact']);
+
+
+    Route::post('/bill/delivery', [\App\Http\Controllers\BillingController::class, 'updateDelivery']);
 
 
     Route::get('/settlement-setup', [\App\Http\Controllers\SettlementController::class, 'getSettings']);

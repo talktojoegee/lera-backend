@@ -34,11 +34,13 @@ class GISQuickFix extends Command
                 return $query->where('lga_id', $this->lgaId);
             })
             ->where('completeness_status', 'Complete')
+            ->where('bill_sync', 0)
             ->cursor()
             ->each(function($record){
                 $property = PropertyList::where('building_code', $record->prop_id)->first();
                 if(!empty($property)){
-                    $property->image = $record->photo_link ?? '';
+                    //$property->image = $record->photo_link ?? '';
+                    $property->ba = $record->area_from_bfp ?? '';
                     $property->save();
                 }
             });

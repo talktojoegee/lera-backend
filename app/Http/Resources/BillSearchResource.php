@@ -24,6 +24,7 @@ class BillSearchResource extends JsonResource
         $property = PropertyList::find($this->property_id);
         $lga = Lga::find($this->lga_id);
         $chargeRate = ChargeRate::find($this->occupancy);
+        $payment = BillPaymentLog::where('bill_master', $this->billId)->sum('amount') ?? 0;
         return [
             'billId'=>$this->billId ?? '',
             'assessmentNo'=>$this->assessment_no ?? '',
@@ -34,7 +35,8 @@ class BillSearchResource extends JsonResource
             'categoryName'=> !empty($class) ?$class->class_name : '',
             'owner'=>!empty($property) ?$property->owner_name  : '',
             'billAmount'=>$this->bill_amount ?? '',
-            'balance'=>$this->bill_amount  - $this->paid_amount,
+            'balance'=>$this->bill_amount  - $payment,
+            //'balance'=>$this->bill_amount  - $this->paid_amount,
             'lgaName'=>!empty($lga) ?$lga->lga_name  : '',
             'url'=>$this->url ?? '',
             'assessValue'=>$this->assessed_value ?? '',
@@ -44,7 +46,8 @@ class BillSearchResource extends JsonResource
             'status'=>$this->status,
             'propertyUse'=>$this->property_use ?? '',
             'propertyName'=>$this->property_name ?? '',
-            'paidAmount'=>$this->paid_amount ?? 0,
+            'paidAmount'=>$payment ?? 0,
+            //'paidAmount'=>$this->paid_amount ?? 0,
         ];
     }
 }

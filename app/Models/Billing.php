@@ -135,6 +135,18 @@ class Billing extends Model
             ->orderBy('id', 'DESC')
             ->get();
     }
+
+    public static function getAllPartlyPaidBills($limit , $skip , $objection , $propertyUse)
+    {
+        return Billing::where('paid_amount', '>', 0)
+            ->where('objection', $objection)
+            ->whereIn('property_use', $propertyUse)
+            ->where('paid', 0)
+            ->skip($skip)
+            ->take($limit)
+            ->orderBy('id', 'DESC')
+            ->get();
+    }
     public static function getAllPaidSpecialInterestBills($limit ,
                                     $skip ,
                                     $paid ,
@@ -234,6 +246,23 @@ class Billing extends Model
             ->where('objection', $objection)
             ->where('status', $status)
             ->whereIn('property_use', $propertyUse)
+            ->get();
+
+    }
+    public static function getAllBillsPaymentByParams( $objection , $status, $propertyUse)
+    {
+        return Billing::where('objection', $objection)
+            ->where('paid', 1)
+            ->where('status', $status)
+            ->whereIn('property_use', $propertyUse)
+            ->get();
+
+    }
+    public static function getGrossAllBillsByParams( $objection, $propertyUse)
+    {
+        return Billing::where('objection', $objection)
+            ->whereIn('property_use', $propertyUse)
+            ->where('status', 4)
             ->get();
 
     }
@@ -605,5 +634,33 @@ class Billing extends Model
     public static function getCustomerStatementByKgtinDate($buildingCode, $from, $to){
         return Billing::where('building_code', $buildingCode)->whereBetween('entry_date',[$from, $to])->get();
     }
+
+  /*  public static function generateWorkflowReport($from, $to){
+        return Billing::whereBetween('entry_date',[$from, $to] )
+            ->orderBy('id', 'ASC')
+            ->get();
+    }*/
+
+    public static function generateWorkflowReport($year)
+    {
+        $billings = Billing::where('year', $year)->get();
+        $users = User::where('role', 5)->get();
+        return $billings->groupBy('property_use')->map(function ($bills, $sector) use ($users) {
+            $matchedUsers = $users->filter(function ($user) use ($sector) {
+                $userSectors = array_map('trim', explode(',', $user->sector));
+                return in_array($sector, $userSectors);
+            })->values();
+
+            return [
+                'sector' => $sector,
+                'users' => $matchedUsers,
+                'review' => $bills->where('status', 0)->count(),
+                'verification' => $bills->where('status', 1)->count(),
+                'authorization' => $bills->where('status', 2)->count(),
+                'approval' => $bills->where('status', 3)->count(),
+            ];
+        })->values();
+    }
+
 
 }

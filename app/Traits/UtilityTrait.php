@@ -54,7 +54,7 @@ trait UtilityTrait
         }
     }
 
-
+/*
     private function convertLessThanThousand($n, $ones, $teens, $tens) {
         $words = "";
 
@@ -76,7 +76,38 @@ trait UtilityTrait
         }
 
         return trim($words);
+    }*/
+
+    private function convertLessThanThousand($number, $ones, $teens, $tens) {
+        $words = "";
+
+        if ($number >= 100) {
+            $words .= $ones[intval($number / 100)] . " hundred";
+            $number = $number % 100;
+            if ($number > 0) {
+                $words .= " and ";
+            }
+        }
+
+        if ($number > 10 && $number < 20) {
+            $words .= $teens[$number - 10];
+        } else {
+            $ten = intval($number / 10);
+            $one = $number % 10;
+            if ($ten > 0) {
+                $words .= $tens[$ten];
+                if ($one > 0) {
+                    $words .= "-" . $ones[$one];
+                }
+            } else if ($one > 0) {
+                $words .= $ones[$one];
+            }
+        }
+
+        return trim($words);
     }
+
+
 
     private function convertDecimal($decimalPart, $ones, $subCurrency) {
         if (!$decimalPart || intval($decimalPart) === 0) return "";
