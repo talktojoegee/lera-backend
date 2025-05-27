@@ -181,6 +181,23 @@ class Billing extends Model
             ->get();
     }
 
+    public static function getObjectedBillsByStatus($limit ,
+                                            $skip ,
+                                            $status ,
+    $propertyUse,
+    $objectionIds
+    )
+    {
+        return Billing::where('status', $status)
+            ->whereIn('property_use', $propertyUse)
+            ->whereIn('id', $objectionIds)
+            //->where('objection', 1)
+            ->skip($skip)
+            ->take($limit)
+            ->orderBy('id', 'DESC')
+            ->get();
+    }
+
 
     public static function getAllPendingBillsByStatus($limit ,
                                             $skip ,
@@ -301,6 +318,13 @@ class Billing extends Model
     public static function getBillsByParamsByStatus($status , $propertyUse)
     {
         return Billing::where('status', $status)
+            ->whereIn('property_use', $propertyUse)
+            ->get();
+
+    }
+    public static function getObjectedBillsByParamsByStatus($status , $propertyUse)
+    {
+        return Billing::where('status', $status)->where('objection', 1)
             ->whereIn('property_use', $propertyUse)
             ->get();
 
@@ -660,6 +684,89 @@ class Billing extends Model
                 'approval' => $bills->where('status', 3)->count(),
             ];
         })->values();
+    }
+    public static function generatePerformanceReport($from, $to)
+    {
+        $billings = Billing::whereBetween('entry_date', [$from, $to])->get();
+        $users = User::where('role', 5)->get();
+        return $billings->groupBy('property_use')->map(function ($bills, $sector) use ($users) {
+            $matchedUsers = $users->filter(function ($user) use ($sector) {
+                $userSectors = array_map('trim', explode(',', $user->sector));
+                return in_array($sector, $userSectors);
+            })->values();
+
+            return [
+                'sector' => $sector,
+                'users' => $matchedUsers,
+                'review' => $bills->where('status', 0)->count(),
+                'verification' => $bills->where('status', 1)->count(),
+                'authorization' => $bills->where('status', 2)->count(),
+                'approval' => $bills->where('status', 3)->count(),
+            ];
+        })->values();
+    }
+
+    public static function generatePerformanceReportByUsers($from, $to)
+    {
+        $billings = Billing::whereBetween('entry_date', [$from, $to])->get();
+        $users = User::where('role', 5)->get();
+
+        $report = [];
+
+        foreach ($users as $user) {
+            $report[] = [
+                'user' => $user,
+                'reviewed' => $billings->where('reviewed_by', $user->id)->count(),
+                'verified' => $billings->where('actioned_by', $user->id)->count(),
+                'authorized' => $billings->where('authorized_by', $user->id)->count(),
+                'approved' => $billings->where('approved_by', $user->id)->count(),
+            ];
+        }
+
+        return collect($report);
+    }
+
+
+    public static function getDistinctWardByLgaId($lgId){
+        return DB::table('billings')
+            ->where('lga_id', $lgId)
+            ->distinct()
+            ->pluck('ward');
+    }
+    public static function getDistinctZonesByWard($ward){
+        return DB::table('billings')
+            ->where('ward', $ward)
+            ->distinct()
+            ->pluck('zone_name');
+    }
+
+    public static function getFilteredBillsByStatus($limit ,
+                                            $skip ,
+                                            $status ,
+                                            $propertyUse,
+    $lga,$zone,$ward
+    )
+    {
+        return Billing::where('status', $status)
+            ->whereIn('property_use', $propertyUse)
+            ->where('zone_name', $zone)
+            ->where('lga_id', $lga)
+            ->where('ward', $ward)
+            ->where('special', 0)
+            ->skip($skip)
+            ->take($limit)
+            ->orderBy('id', 'DESC')
+            ->get();
+    }
+    public static function getFilteredBillsByParamsByStatus($status , $propertyUse, $lga,$zone,$ward)
+    {
+        return Billing::where('status', $status)
+            ->whereIn('property_use', $propertyUse)
+            ->where('zone_name', $zone)
+            ->where('lga_id', $lga)
+            ->where('ward', $ward)
+            ->get();
+
     }
 
 

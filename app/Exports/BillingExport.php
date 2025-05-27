@@ -32,8 +32,8 @@ class BillingExport implements FromQuery, WithMapping, WithHeadings, WithChunkRe
         $propertyUse = explode(',', $user->sector);
 
         switch ($this->type) {
-            case 'normal-outstanding':
-                return Billing::where('status', 4)->where('special', 0)->whereIn('property_use', $propertyUse)->orderByDesc('id');
+            /*case 'normal-outstanding':
+                return Billing::where('status', 4)->where('special', 0)->whereIn('property_use', $propertyUse)->orderByDesc('id');*/
             case 'special-outstanding':
                 return Billing::where('status', 4)->where('special', 1)->whereIn('property_use', $propertyUse)->orderByDesc('id');
             case 'all-pending':

@@ -21,8 +21,11 @@ class OutstandingBillResource extends JsonResource
         $objectionCount = !empty($objection) ? $objection->count() : 0;
         $payment = BillPaymentLog::where('bill_master', $this->id)->sum('amount') ?? 0;
         return [
-          'approvedDate'=> !empty($objection) ? date('d M, Y', strtotime($objection->date_approved)) : '',
+          'approvedDate'=> !empty($objection) ? date('d/m/Y', strtotime($objection->created_at)) : '',
+          'approvalDate'=> isset($this->date_approved) ? date('d/m/Y', strtotime($this->date_approved)) : '',
+          'returnedDate'=> isset($this->date_returned) ? date('d/m/Y', strtotime($this->date_returned)) : '',
           'billId'=>$this->id ?? '',
+          'ward'=>$this->ward,
           'assessmentNo'=>$this->assessment_no ?? '',
           'buildingCode'=>$this->building_code ?? '',
           'pavCode'=>$this->pav_code ?? '',
@@ -45,6 +48,7 @@ class OutstandingBillResource extends JsonResource
           'objection'=>$objectionCount ?? 0,
           'special'=>$this->special,
           'status'=>$this->status,
+          'printed'=>$this->printed ?? 0,
             'propertyUse'=>$this->property_use ?? '',
             'propertyName'=>$this->getPropertyList->property_name ?? '',
             'paid'=>$this->paid,

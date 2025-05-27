@@ -53,6 +53,7 @@ class BillDetailResource extends JsonResource
             'year'=>$this->year,
             'objection'=>$this->objection,
             'statusInt'=>$this->status,
+            'printed'=>$this->printed ?? 0,
             'returned'=>$this->returned,
             'pavCode'=>$this->pav_code,
             'class'=> !empty($class) ? $class->class_name : '' , //$this->getPropertyList->getPropertyClassification->class_name,

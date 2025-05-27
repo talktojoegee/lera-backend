@@ -94,6 +94,7 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('/billing/outstanding-special-interest-bills/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showOutstandingSpecialInterestBills']);
 
     Route::get('/billing/bills/{user}/{limit}/{skip}/{status}', [\App\Http\Controllers\BillingController::class, 'showBills']);
+    Route::get('/billing/objected-bills/{user}/{limit}/{skip}/{status}', [\App\Http\Controllers\BillingController::class, 'showObjectedBills']);
 
     Route::get('/billing/special-interest-bills/{user}/{limit}/{skip}/{status}', [\App\Http\Controllers\BillingController::class, 'showSpecialInterestBills']);
     Route::get('/billing/paid-special-interest/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showPaidSpecialInterestBills']);
@@ -126,9 +127,15 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('billing/print-by-batch/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'getPrintByBatch']);
     Route::get('billing/print-by-bills/view/{batch}', [\App\Http\Controllers\BillingController::class, 'viewBatchPrinting']);
     Route::post('billing/search-bill-batch', [\App\Http\Controllers\BillingController::class, 'searchBillByAssessment']);
+    Route::get('manual-receipt/{url}/{user}', [\App\Http\Controllers\BillingController::class, 'showReceiptDetail']);
+    Route::get('/download/proof-of-payment/{slug}', [App\Http\Controllers\BillingController::class, 'downloadProofOfPayment'] );
+    Route::post('/action-receipt', [App\Http\Controllers\BillingController::class, 'actionReceipt'] );
 
     Route::get('billing/wards', [\App\Http\Controllers\BillingController::class, 'getWards']);
     Route::get('billing/zones', [\App\Http\Controllers\BillingController::class, 'getZones']);
+    Route::post('billing/bill-check', [\App\Http\Controllers\BillingController::class, 'checkBillExists']);
+    Route::post('billing/store-receipt', [\App\Http\Controllers\BillingController::class, 'storeReceipt']);
+    Route::get('billing/receipts/{user}/{limit}/{skip}/', [\App\Http\Controllers\BillingController::class, 'getManualReceipts']);
 
 
 
@@ -168,6 +175,10 @@ Route::group(['middleware' => 'api'], function(){
     Route::post('/export-payment-report', [\App\Http\Controllers\ExportController::class, 'exportPaymentReport']);
     Route::get('/export-property-exception', [\App\Http\Controllers\ExportController::class, 'exportPropertyException']);
     Route::post('/export-workflow-report', [\App\Http\Controllers\ReportController::class, 'exportWorkflowReport']);
+    Route::post('/export-performance-report', [\App\Http\Controllers\ReportController::class, 'exportPerformanceReport']);
+    Route::post('/handle-reconciliation-request', [\App\Http\Controllers\ReportController::class, 'handleReconciliationRequest']);
+
+    Route::post('export-settlement-report', [\App\Http\Controllers\ExportController::class, 'exportSettlementReport']);
 
 
     #Users
@@ -220,6 +231,7 @@ Route::group(['middleware' => 'api'], function(){
         Route::post('/customer-statement', [\App\Http\Controllers\ReportController::class, 'handleCustomerStatementReport']);
         Route::post('/payment-report', [\App\Http\Controllers\ReportController::class, 'showPaymentReportPrint']);
         Route::post('/workflow', [\App\Http\Controllers\ReportController::class, 'workflowReport']);
+        Route::post('/performance', [\App\Http\Controllers\ReportController::class, 'performanceReport']);
 
         //Route::post('/payment-report', [\App\Http\Controllers\ReportController::class, 'handlePaymentReportGeneration']);
     });
@@ -250,6 +262,13 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('/settlement-setup', [\App\Http\Controllers\SettlementController::class, 'getSettings']);
     Route::post('/settlement-setup', [\App\Http\Controllers\SettlementController::class, 'storeSettlementSetup']);
     Route::post('/settlement-report', [\App\Http\Controllers\SettlementController::class, 'generateSettlementReport']);
+
+    //Filter
+    Route::post('/get-wards', [\App\Http\Controllers\BillingController::class, 'fetchWards']);
+    Route::post('/get-zones', [\App\Http\Controllers\BillingController::class, 'fetchZones']);
+    Route::get('/billing/bills/{user}/{limit}/{skip}/{status}/{zone}/{ward}/{lga}', [\App\Http\Controllers\BillingController::class, 'filterReviewBills']);
+
+
 
 
 });

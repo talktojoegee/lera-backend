@@ -16,10 +16,12 @@ class PaidBillResource extends JsonResource
     public function toArray(Request $request): array
     {
         $payment = BillPaymentLog::where('bill_master', $this->id)->sum('amount') ?? 0;
+        $billPayment = BillPaymentLog::where('bill_master', $this->id)->first();
         return [
             'billId'=>$this->id,
             'assessmentNo'=>$this->assessment_no,
             'buildingCode'=>$this->building_code,
+            'datePaid'=> isset($billPayment->created_at) ? date('d/m/Y', strtotime($billPayment->created_at)) : '',
             'year'=>$this->year,
             'zoneName'=>$this->getPropertyList->zone_name ?? '',
             'categoryName'=>$this->getPropertyList->getPropertyClassification->class_name ?? '',

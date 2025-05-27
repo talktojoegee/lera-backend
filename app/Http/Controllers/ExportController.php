@@ -7,12 +7,17 @@ use App\Exports\CustomerReportExport;
 use App\Exports\PaidBillExport;
 use App\Exports\PaymentReportExport;
 use App\Exports\PropertyExceptionExport;
+use App\Exports\SettlementReportExport;
 use App\Http\Resources\CustomerStatementResource;
+use App\Http\Resources\LGAResource;
+use App\Http\Resources\SettlementReportResource;
 use App\Jobs\ExportBillingJob;
 use App\Models\Billing;
 use App\Models\BillPaymentLog;
 use App\Models\Lga;
+use App\Models\SettlementReportSetup;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -25,6 +30,9 @@ class ExportController extends Controller
 
         $type = $request->type ;
         $userId = $request->user ;
+        if($type == 'normal-outstanding'){
+            return Excel::download(new PaidBillExport($userId,$type), 'billings.xlsx');
+        }
         return Excel::download(new BillingExport($userId,$type), 'billings.xlsx');
     }
 
@@ -120,6 +128,7 @@ class ExportController extends Controller
                         'BUILDING CODE' => $billing->building_code ?? '',
                         'ASSESSMENT NO' => $billing->assessment_no,
                         'RECEIPT NO.' => $billing->receipt_no,
+                        'BANK NAME' => $billing->bank_name ?? '',
                         'TRANS. REF' => $billing->trans_ref,
                         'OWNER NAME' => $billing->customer_name,
                         'LGA' => $billing->lga->lga_name ?? '',
@@ -138,6 +147,7 @@ class ExportController extends Controller
                         'BUILDING CODE' => $billing->building_code ?? '',
                         'ASSESSMENT NO' => $billing->assessment_no ?? '',
                         'RECEIPT NO.' => $billing->receipt_no,
+                        'BANK NAME' => $billing->bank_name ?? '',
                         'TRANS. REF' => $billing->trans_ref,
                         'OWNER NAME' => $billing->customer_name,
                         'LGA' => $billing->lga->lga_name ?? '',
@@ -155,6 +165,7 @@ class ExportController extends Controller
                         'BUILDING CODE' => $billing->building_code ?? '',
                         'ASSESSMENT NO' => $billing->assessment_no,
                         'RECEIPT NO.' => $billing->receipt_no,
+                        'BANK NAME' => $billing->bank_name ?? '',
                         'TRANS. REF' => $billing->trans_ref,
                         'OWNER NAME' => $billing->customer_name,
                         'LGA' => $billing->lga->lga_name ?? '',
@@ -163,6 +174,40 @@ class ExportController extends Controller
                 }
                 return Excel::download(new PaymentReportExport($formattedData, $from, $to, $type, $keyword), 'payment-report.xlsx');
         }
+    }
+
+
+    public function exportSettlementReport(Request $request){
+        $validator = Validator::make($request->all(), [
+            "from" => "required|date",
+            "to" => "required|date"
+        ], [
+            "from.required" => "Choose start date",
+            "to.required" => "Choose end date"
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                "errors" => $validator->messages(),
+                "message"=>"Validation error",
+                "detail"=>"All fields are required."
+            ], 422);
+        }
+        $from = $request->from;
+        $to = $request->to;
+        $data = DB::table('bill_payment_logs')
+            ->join('lgas', 'lgas.id', '=', 'bill_payment_logs.lga_id')
+            ->orderBy('lgas.id', 'ASC')
+            ->whereBetween('entry_date', [$from, $to])
+            ->select('entry_date as date', 'building_code as buildingCode', 'assessment_no as assessmentNo', 'amount', 'lgas.lga_name as lgaName')
+            ->get();
+        $setup = SettlementReportSetup::first();
+        $newWaves = isset($setup->newwaves) ? $setup->newwaves : 0;
+        $lga = isset($setup->lga) ? $setup->lga : 0;
+        $kgirs = isset($setup->kgirs) ? $setup->kgirs : 0;
+        $lgaList = Lga::fetchAllLGAs();
+
+        return Excel::download(new SettlementReportExport($data,$lgaList, $kgirs, $lga, $newWaves, $from, $to), 'settlement_report.xlsx');
     }
 
 }

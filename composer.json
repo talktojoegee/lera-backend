@@ -21,7 +21,8 @@
         "spatie/browsershot": "^5.0",
         "spatie/laravel-pdf": "^1.5",
         "tymon/jwt-auth": "^2.1",
-        "yabacon/paystack-php": "^2.2"
+        "yabacon/paystack-php": "^2.2",
+        "ext-fileinfo": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

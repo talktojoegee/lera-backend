@@ -36,6 +36,12 @@ return [
             'serve' => true,
             'throw' => false,
         ],
+        'assets_drive' => [
+            'driver' => 'local',
+            'root' => public_path('assets/drive'),
+            'url' => env('APP_URL') . '/assets/drive',
+            'visibility' => 'public',
+        ],
 
         'public' => [
             'driver' => 'local',

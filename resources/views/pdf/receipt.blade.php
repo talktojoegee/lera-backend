@@ -50,7 +50,7 @@
 <body>
 <div class="container">
     <div class="formatted"></div>
-    <table >
+    <table style="margin-top: -10px;">
         <tr>
             <td style="width: 20%;">
                 <img style="width: 94px; height: 94px;" src="{{$qr}}" >
@@ -66,13 +66,19 @@
             </td>
         </tr>
     </table>
-    <table style="">
+    <table style="word-break: break-word; width: 600px; margin-top: -10px;">
         <tr><td class="bold">KGTIN:</td><td style="text-transform: uppercase;">{{$payer_id}}</td></tr>
         <tr><td class="bold">Paid By:</td><td>{{$paid_by}}</td></tr>
         <tr><td class="bold">Address:</td><td>{{$address}}</td></tr>
-        <tr><td class="bold">Amount:</td><td>{{$amount}} ({{$amount_words}} Only)</td></tr>
+        <tr>
+            <td class="bold" style="vertical-align: top;">Amount:</td>
+            <td style="word-break: break-word; ">
+                {{$amount}}  <span style="font-size: 11px;">({{$amount_words}} Only)</span>
+            </td>
+        </tr>
         <tr><td class="bold">Being:</td><td>{{$payment_purpose}}</td></tr>
-        <tr><td class="bold">Paid At:</td>
+        <tr>
+            <td class="bold">Paid At:</td>
             <td style="word-wrap: break-word;">{{$pay_mode}}({{$bankName}}) // Receipt No: {{$receipt_no}}
                 <br>  // Invoice No: <span style="text-transform: uppercase;">{{$assessmentNo}}</span>
                 <br>Swift Code: <span style="text-transform: uppercase;">{{$swift_code}}</span>// Paid Date:

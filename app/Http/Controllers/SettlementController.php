@@ -18,12 +18,12 @@ class SettlementController extends Controller
 
     public function storeSettlementSetup(Request $request){
         $validator = Validator::make($request->all(), [
-            "bank" => "required",
+            //"bank" => "required",
             "newwaves" => "required",
             "kgirs" => "required",
             "lga" => "required"
         ], [
-            "bank.required" => "Enter value for bank",
+            //"bank.required" => "Enter value for bank",
             "newwaves.required" => "Enter value for Newwaves",
             "kgirs.required" => "Enter value for KGIRS",
             "lga.required" => "Enter value for LGA"
@@ -39,13 +39,13 @@ class SettlementController extends Controller
         $setup = SettlementReportSetup::first();
         if(empty($setup)){
             SettlementReportSetup::create([
-                'bank'=>$request->bank ?? 0,
+                'bank'=> 0,
                 'newwaves'=>$request->newwaves ?? 0,
                 'kgirs'=>$request->kgirs ?? 0,
                 'lga'=>$request->lga ?? 0,
             ]);
         }else{
-            $setup->bank = $request->bank ?? 0;
+            $setup->bank = 0;
             $setup->newwaves = $request->newwaves ?? 0;
             $setup->kgirs = $request->kgirs ?? 0;
             $setup->lga = $request->lga ?? 0;
@@ -82,3 +82,10 @@ class SettlementController extends Controller
         ]);
     }
 }
+
+/*
+ * entry date, details, value date, amount,
+ * Immediately will upload, the system should generate a report in another format based on :
+ * Entry date, assessment number, payers name, value date and amount.
+ *
+ */

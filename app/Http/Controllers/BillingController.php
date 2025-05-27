@@ -11,7 +11,9 @@ use App\Http\Resources\LGAChairDashboardStatisticsResource;
 use App\Http\Resources\OutstandingBillResource;
 use App\Http\Resources\PaidBillResource;
 use App\Http\Resources\PrintByBatchResource;
+use App\Http\Resources\ReceiptResource;
 use App\Http\Resources\RetrieveBillResource;
+use App\Jobs\NotifyKogiRemsJob;
 use App\Jobs\ProcessBillingJob;
 use App\Models\ActivityLog;
 use App\Models\Billing;
@@ -19,17 +21,23 @@ use App\Models\BillPaymentLog;
 use App\Models\ChargeRate;
 use App\Models\Depreciation;
 use App\Models\EditBillLog;
+use App\Models\KogiRemsNotification;
 use App\Models\Lga;
+use App\Models\ManualReceipt;
 use App\Models\MinimumLuc;
+use App\Models\Objection;
+use App\Models\Owner;
 use App\Models\PrintBillLog;
 use App\Models\PropertyAssessmentValue;
 use App\Models\PropertyClassification;
 use App\Models\PropertyList;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class BillingController extends Controller
 {
@@ -263,6 +271,25 @@ class BillingController extends Controller
         return response()->json([
             'data'=>OutstandingBillResource::collection(Billing::getBillsByStatus($limit, $skip, $status, $propertyUse)),
             'total'=>Billing::getBillsByParamsByStatus($status, $propertyUse)->count(),
+        ],200);
+    }
+    public function showObjectedBills(Request $request){
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
+        $status = $request->status ?? 0;
+        $userId = $request->user ?? 0;
+        $user = User::find($userId);
+
+        if(empty($user)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong.'
+            ], 404);
+        }
+        $propertyUse = explode(',', $user->sector);
+        $objectionIds = Objection::all()->pluck('bill_id')->toArray();
+        return response()->json([
+            'data'=>OutstandingBillResource::collection(Billing::getObjectedBillsByStatus($limit, $skip, $status, $propertyUse, $objectionIds)),
+            'total'=>Billing::getObjectedBillsByParamsByStatus($status, $propertyUse)->count(),
         ],200);
     }
     public function showAllPendingBills(Request $request){
@@ -1361,6 +1388,475 @@ class BillingController extends Controller
 
         return response()->json(['data'=>'Action successful'],200);
 
+    }
+
+    public function checkBillExists(Request $request)
+    {
+        $validator = Validator::make($request->all(),[
+          'assessmentNumber'=>'required'
+        ],[
+            'assessmentNumber.required'=>'Enter assessment number '
+        ]);
+        if($validator->fails()){
+            return response()->json([
+                "errors"=>$validator->messages()
+            ],422);
+        }
+        $bill = Billing::where('assessment_no', $request->assessmentNumber)
+            ->where('objection', 0)
+            ->where('status', 4)
+            ->where('paid', 0)
+            ->first();
+        return new BillDetailResource($bill);
+    }
+
+
+    public function storeReceipt(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'assessmentNumber' => 'required|string',
+            'amount' => 'required|numeric|min:0.01',
+            'proofOfPayment' => 'required|file|mimes:jpg,jpeg,png,pdf|max:2048',
+            'actionedBy' => 'required',
+            'receiptNo' => 'required',
+            'entryDate' => 'required|date',
+            'referenceNo' => 'required',
+            'kgTin' => 'required',
+            'email' => 'required',
+            'customerName' => 'required',
+            'branchName' => 'required',
+            'bankName' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+        //$path = $request->file('proofOfPayment')->store('proofs', 'public');
+        /*$uploadDir = public_path('assets/drive/');
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+        $file = $request->file('proofOfPayment');
+        $filename = uniqid() . '_' . $file->getClientOriginalName();
+        $file->move($uploadDir, $filename);*/
+        $filename = null; // uniqid() . '_' . $file->getClientOriginalName();
+        if ($request->hasFile('proofOfPayment') && $request->file('proofOfPayment')->isValid()) {
+            $file = $request->file('proofOfPayment');
+            $filename = time() . '_' . $file->getClientOriginalName();
+
+            $file->storeAs('', $filename, 'assets_drive');
+        }
+         ManualReceipt::create([
+            'issued_by'=>$request->actionedBy,
+            'assessment_no'=>$request->assessmentNumber,
+            'amount'=>$request->amount,
+            'proof_of_payment'=>$filename,
+            'receipt_no'=>$request->receiptNo,
+            'entry_date'=>$request->entryDate,
+            'bank_name'=>$request->bankName ?? '',
+            'branch_name'=>$request->branchName ?? '',
+            'customer_name'=>$request->customerName ?? '',
+            'email'=>$request->email ?? '',
+            'kgtin'=>$request->kgTin ?? '',
+            'reference'=>$request->referenceNo ?? '',
+             'url'=>Str::uuid()
+        ]);
+        $userId = $request->actionedBy ?? 0;
+        $user = User::find($userId);
+        if(empty($user)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong.'
+            ], 404);
+        }
+        $title = 'New Receipt Issued';
+        $narration = "{$user->name}({$user->id_no}) issued a receipt with the assessment number:  {$request->assessmentNumber}. Amount: {$request->amount}; Reference: {$request->referenceNo}";
+        ActivityLog::LogActivity($title, $narration , $user->id);
+        return response()->json([
+            'message' => 'Action successful',
+        ], 200);
+    }
+
+
+    public function getManualReceipts(Request $request){
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
+        $userId = $request->user ?? 0;
+        $user = User::find($userId);
+        if(empty($user)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong.'
+            ], 404);
+        }
+        $propertyUse = explode(',', $user->sector);
+        $assessmentNos = ManualReceipt::pluck('assessment_no')->toArray();
+        $bills = Billing::join('manual_receipts', 'billings.assessment_no', '=', 'manual_receipts.assessment_no')
+            ->join('users', 'manual_receipts.issued_by', '=', 'users.id')
+            ->join('property_lists', 'property_lists.id', '=', 'billings.property_id')
+            ->whereIn('billings.assessment_no', $assessmentNos)
+            ->whereIn('billings.property_use', $propertyUse)
+            ->where('billings.special', 0)
+            ->orderBy('manual_receipts.id', 'DESC')
+            ->skip($skip)
+            ->take($limit)
+            ->get([
+                'billings.*',
+                'users.name',
+                'users.id_no',
+                'property_lists.property_name',
+                'manual_receipts.receipt_no',
+                'manual_receipts.entry_date',
+                'manual_receipts.amount as receiptAmount',
+                'manual_receipts.proof_of_payment',
+                'manual_receipts.status',
+                'manual_receipts.customer_name',
+                'manual_receipts.bank_name',
+                'manual_receipts.branch_name',
+                'manual_receipts.email',
+                'manual_receipts.kgtin',
+                'manual_receipts.reference',
+                'manual_receipts.email',
+                'manual_receipts.url'
+            ]);
+
+
+        return response()->json([
+            'data'=>ReceiptResource::collection($bills),
+            'total'=>$bills->count(),
+        ],200);
+    }
+
+    public function showReceiptDetail(Request $request){
+        $userId = $request->user ?? 0;
+        $user = User::find($userId);
+        if(empty($user)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong.'
+            ], 404);
+        }
+        $propertyUse = explode(',', $user->sector);
+        $bill = Billing::join('manual_receipts', 'billings.assessment_no', '=', 'manual_receipts.assessment_no')
+            ->join('users', 'manual_receipts.issued_by', '=', 'users.id')
+            ->join('property_lists', 'property_lists.id', '=', 'billings.property_id')
+            ->where('manual_receipts.url', $request->url)
+            ->whereIn('billings.property_use', $propertyUse)
+            ->where('billings.special', 0)
+            ->first([
+                'billings.*',
+                'users.name',
+                'users.id_no',
+                'property_lists.property_name',
+                'manual_receipts.receipt_no',
+                'manual_receipts.entry_date',
+                'manual_receipts.amount as receiptAmount',
+                'manual_receipts.proof_of_payment',
+                'manual_receipts.status',
+                'manual_receipts.customer_name',
+                'manual_receipts.bank_name',
+                'manual_receipts.branch_name',
+                'manual_receipts.email',
+                'manual_receipts.kgtin',
+                'manual_receipts.reference',
+                'manual_receipts.email',
+                'manual_receipts.actioned_by',
+                'manual_receipts.date_actioned',
+                'manual_receipts.url'
+            ]);
+        if (!$bill) {
+            return response()->json(['message' => 'Receipt not found.'], 404);
+        }
+        $actualBill = Billing::where('assessment_no', $bill->assessment_no)->first();
+
+        if(isset($bill->actioned_by)){
+            $actionedBy = User::find($bill->actioned_by);
+            $actionUser = $actionedBy->name."($actionedBy->id_no)";
+        }
+
+        return response()->json([
+            'receipt'=>new ReceiptResource($bill),
+            'actionedBy'=> $actionUser ?? '',
+            'dateActioned'=>date('d/m/Y', strtotime($bill->date_actioned)) ?? '',
+            'bill'=>new  OutstandingBillResource($actualBill),
+        ],200);
+    }
+
+    public function downloadProofOfPayment(Request $request)
+    {
+        try {
+            $filename = trim($request->slug);
+            $attachment = ManualReceipt::where('proof_of_payment', $filename)->first();
+
+            if (!$attachment) {
+                return response()->json([
+                    'message' => 'Whoops! No record found'
+                ], 404);
+            }
+
+            $file_path = public_path('assets/drive/' . $filename);
+
+            if (file_exists($file_path)) {
+                return response()->file($file_path, [
+                    'Content-Type' => mime_content_type($file_path),
+                    'Content-Disposition' => 'attachment; filename="' . $filename . '"'
+                ]);
+            } else {
+                return response()->json([
+                    'message' => 'File not found'
+                ], 404);
+            }
+
+        } catch (\Exception $ex) {
+            return response()->json([
+                'message' => 'Whoops! Something went wrong',
+                'error' => $ex->getMessage()
+            ], 500);
+        }
+    }
+
+
+    public function actionReceipt(Request $request){
+        $validator = Validator::make($request->all(), [
+            'receiptNo' => 'required|string',
+            'actionedBy' => 'required',
+            'action' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+        $action = $request->action;
+        if(!isset($action)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong'
+            ], 404);
+        }
+        $userId = $request->actionedBy ?? 0;
+        $user = User::find($userId);
+        if(empty($user)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong.'
+            ], 404);
+        }
+        $receiptNo = $request->receiptNo;
+        $record = ManualReceipt::where('url', $receiptNo)->where('status', 0)->first();
+        if(empty($record)){
+            return response()->json([
+                'message' => 'Whoops! No record found'
+            ], 404);
+        }
+
+        $bill = Billing::where('assessment_no', $record->assessment_no)
+            ->where('paid', 0)
+            ->first();
+        if(empty($bill)){
+            return response()->json([
+                'message' => 'Whoops! No record found'
+            ], 404);
+        }
+
+        switch ($action){
+            case 'approve':
+                $this->__updateReceipt($record, 1, $request->actionedBy);
+                $this->__processPayment($bill, $record, $request->actionedBy);
+            break;
+            case 'discard':
+                $this->__updateReceipt($record, 2, $request->actionedBy);
+            break;
+
+            default:
+                return response()->json([
+                    'message' => 'Whoops! No record found'
+                ], 404);
+        }
+        $title = 'Receipt Posting';
+        $narration = "{$user->name}({$user->id_no}) posted receipt({$record->receipt_no}):  {$record->assessmentNumber}. Amount: {$record->amount}; Reference: {$record->referenceNo}";
+        ActivityLog::LogActivity($title, $narration , $user->id);
+        return response()->json([
+            'data'=>'Action successful'
+        ], 200);
+    }
+
+    private function __updateReceipt($record, $status, $actionedBy){
+        $record->status = $status;
+        $record->actioned_by = $actionedBy;
+        $record->date_actioned = now();
+        $record->save();
+    }
+
+    private function __processPayment($bill, $record, $actionedBy){
+        $billList = Billing::where('building_code', $bill->building_code)
+            ->where('year','<=', $bill->year)
+            ->where('paid', 0)
+            ->orderBy('id', 'ASC')
+            ->get();
+        if(!empty($billList)){
+            $transAmount = $record->amount;
+            foreach ($billList as $item){
+                $balance = $item->bill_amount - $item->paid_amount;
+                $transBalance = $transAmount - $balance;
+                if($balance > 0){
+                    if($transAmount > $balance){
+                        $item->paid_amount += $balance;
+                        $item->payment_ref = $record->reference;
+                        $item->paid = 1;
+                        $item->date_paid = now();
+                        $item->paid_by = 1;
+                        $item->save();
+                        $this->_registerInPaymentLog($item->id, $actionedBy, $balance, $record->receipt_no, $record->reference,
+                            $record->assessment_no, $record->bank_name, $record->branch_name, 'MANUAL', $record->customer_name,
+                            $record->email, $record->kgtin, $record->reference, $record->entry_date, '234');
+                    }
+                    else{
+                        if($transAmount > 0){
+                            $item->paid_amount += $transAmount;
+                            $item->payment_ref = $record->reference;
+                            $item->save();
+                            if($item->paid_amount == $item->bill_amount){
+                                $item->paid = 1;
+                                $item->date_paid = now();
+                                $item->paid_by = 1;
+                                $item->save();
+                            }
+                            $this->_registerInPaymentLog($item->id, $actionedBy, $transAmount, $record->receipt_no, $record->reference,
+                                $record->assessment_no, $record->bank_name, $record->branch_name, 'MANUAL', $record->customer_name,
+                                $record->email, $record->kgtin, $record->reference, $record->entry_date, '234');
+                        }
+                    }
+                }
+                $transAmount = $transBalance;
+            }
+        }
+    }
+
+    private function _registerInPaymentLog($billMasterId, $paidBy, $amount, $receiptNo, $paymentCode,
+                                           $assessmentNo, $bankName, $branchName, $payMode, $customerName,
+                                           $email, $kgTin, $transRef, $transDate, $phoneNumber){
+        $bill = Billing::find($billMasterId);
+        if($bill){
+            BillPaymentLog::create([
+                "bill_master"=>$billMasterId,
+                "paid_by"=>$paidBy,
+                "amount"=>$amount,
+                "receipt_no"=>$receiptNo,
+                "payment_code"=>$paymentCode,
+                "assessment_no"=>$assessmentNo,
+
+                "building_code"=>!empty($bill) ? $bill->building_code : '',
+                "lga_id"=>!empty($bill) ? $bill->lga_id : '',
+                "ward"=> $bill->ward ?? '',
+                "zone"=> $bill->zone_name ?? '',
+
+                "bank_name"=>$bankName,
+                "branch_name"=>$branchName,
+                "pay_mode"=>$payMode,
+                "customer_name"=>$customerName,
+                "email"=>$email,
+                "kgtin"=>$kgTin,
+                "entry_date"=>Carbon::parse($transDate)->format('Y-m-d'),
+                "token"=>'MANUAL_RECEIPT',
+                "trans_ref"=>$transRef,
+                "reference"=>$transRef,
+
+            ]);
+
+
+
+            //update property
+            $property = PropertyList::where('building_code', $bill->building_code)->first();
+            if(!empty($property)){
+                $property->owner_email = $email;
+                $property->owner_name = $customerName;
+                $property->owner_gsm = $phoneNumber;
+                $property->owner_kgtin = $kgTin ?? null;
+                $property->save();
+            }
+            //update owner
+            if(!empty($property) && !empty($bill)){
+                $owner = Owner::where('kgtin', $kgTin)->first();
+                if(empty($owner)){
+                    Owner::create([
+                        "email"=>$email,
+                        "kgtin"=>$kgTin,
+                        "name"=>$customerName,
+                        "telephone"=>$phoneNumber,
+                        "lga_id"=>$bill->lga_id,
+                        "added_by"=>$paidBy,
+                        "res_address"=>$property->address ?? 'N/A'
+                    ]);
+                }else{
+                    $owner->email = $email;
+                    $owner->kgtin = $kgTin;
+                    $owner->name = $customerName;
+                    $owner->telephone = $phoneNumber;
+                    $owner->lga_id = $bill->lga_id;
+                    $owner->res_address = $property->address ?? 'N/A';
+                    $owner->save();
+                }
+            }
+            //Kogi rems notification register
+            KogiRemsNotification::create([
+                "assessmentno"=>$bill->assessment_no,
+                "buildingcode"=>$bill->building_code,
+                "kgtin"=>$kgTin ?? null,
+                "name"=>$customerName,
+                "amount"=>$amount,
+                "phone"=>$phoneNumber,
+                "email"=>$email,
+                "transdate"=>Carbon::parse($transDate)->format('Y-m-d') ?? now(),
+                "transRef"=>$transRef,
+                "paymode"=>"eTranzact",
+                "bank_name"=>$bankName ?? '',
+                "luc_amount"=>$bill->bill_amount,
+            ]);
+
+            NotifyKogiRemsJob::dispatch();
+
+        }
+
+    }
+
+    public function fetchWards(Request $request){
+        $validator = Validator::make($request->all(), [
+            'lgaId' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+        return response()->json(['data'=>Billing::getDistinctWardByLgaId($request->lgaId)]);
+    }
+    public function fetchZones(Request $request){
+        $validator = Validator::make($request->all(), [
+            'ward' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+        return response()->json(['data'=>Billing::getDistinctZonesByWard($request->ward)]);
+    }
+
+
+    public function filterReviewBills(Request $request){
+        $limit = $request->limit ?? 0;
+        $skip = $request->skip ?? 0;
+        $status = $request->status ?? 0;
+        $userId = $request->user ?? 0;
+        $ward = $request->ward ?? 0;
+        $zone = $request->zone ?? 0;
+        $lga = $request->lga ?? 0;
+        $user = User::find($userId);
+
+        if(empty($user)){
+            return response()->json([
+                'message' => 'Whoops! Something went wrong.'
+            ], 404);
+        }
+        $propertyUse = explode(',', $user->sector);
+        return response()->json([
+            'data'=>OutstandingBillResource::collection(Billing::getFilteredBillsByStatus($limit, $skip,
+                $status, $propertyUse, $lga,$zone,$ward)),
+            'total'=>Billing::getFilteredBillsByParamsByStatus($status, $propertyUse, $lga,$zone,$ward)->count(),
+        ],200);
     }
 
 }

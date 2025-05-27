@@ -25,7 +25,7 @@ class CustomerStatementResource extends JsonResource
 
         return [
           "date"=>date('d M, Y', strtotime($this->entry_date)),
-          "amount"=>$this->amount,
+          "amount"=>number_format($this->amount,2),
             "paymentMode"=>$this->pay_mode ?? '',
             "receipt"=>$this->receipt_no ?? '',
             "narration"=>$narration,

@@ -49,6 +49,13 @@ class PaidBillExport implements FromQuery, WithMapping, WithHeadings, WithChunkR
                         ->where('special', 0)
                         ->where('status', 4)
                         ->orderByDesc('id');
+            case 'normal-outstanding':
+                return Billing::where('paid', 0)
+                    ->where('objection', 0)
+                    ->where('status', 4)
+                    ->whereIn('special', [0])
+                    ->whereIn('property_use', $propertyUse)
+                    ->orderByDesc('id');
             default:
                 abort(400, 'Invalid export type.');
         }
@@ -56,6 +63,22 @@ class PaidBillExport implements FromQuery, WithMapping, WithHeadings, WithChunkR
 
     public function map($bill): array
     {
+
+        if($this->type == 'normal-outstanding'){
+            return [
+                date('d/m/Y', strtotime($bill->date_approved)),
+                $bill->assessment_no,
+                $bill->building_code,
+                $bill->year,
+                $bill->zone_name,
+                $bill->getPropertyClassification->class_name,
+                $bill->getPropertyList->owner_name ?? '',
+                $bill->getPropertyList->property_name ?? '',
+                $bill->bill_amount ?? 0,
+                $bill->paid_amount ?? 0,
+                ($bill->bill_amount - $bill->paid_amount),
+            ];
+        }
         return [
             $bill->assessment_no,
             $bill->building_code,
@@ -71,6 +94,13 @@ class PaidBillExport implements FromQuery, WithMapping, WithHeadings, WithChunkR
 
     public function headings(): array
     {
+        if ($this->type == 'normal-outstanding') {
+            return [
+                'Approval Date','Assessment No.', 'Building Code', 'Year',
+                'Zone', 'Category', 'Owner','Property Name', 'Bill Amount',
+                'Payment', 'Balance'
+            ];
+        }
         return [
             'Assessment No', 'Building Code', 'Year',
             'Zone', 'Category', 'Owner', 'Bill Amount',

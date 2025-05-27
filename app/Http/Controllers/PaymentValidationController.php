@@ -10,6 +10,7 @@ use App\Models\Owner;
 use App\Models\PropertyList;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class PaymentValidationController extends Controller
 {
@@ -79,113 +80,120 @@ class PaymentValidationController extends Controller
 
 
     public function notifyETranzact(Request $request){
-        $clientIp = $request->ip();
-        $allowedIps = [
-            '197.255.244.29',
-            '197.255.244.28',
-            '197.255.244.5',
-            '197.255.244.54',
+        try {
+            DB::beginTransaction();
+            $clientIp = $request->ip();
+            $allowedIps = [
+                '197.255.244.29',
+                '197.255.244.28',
+                '197.255.244.5',
+                '197.255.244.54',
 
-            //'192.168.1.10',
-            //'203.0.113.45',
-            '127.0.0.1'
-        ];
-        if (!in_array($clientIp, $allowedIps)) {
-            return response("false -1", 403);
-        }
-
-        $receiptNo = $request->RECEIPT_NO;
-        $paymentCode = $request->PAYMENT_CODE;
-        $transAmount = $request->TRANS_AMOUNT;
-        $assessmentNo = $request->CUSTOMER_ID;
-        $token = $request->PASSWORD;
-        $transRef = $request->RECEIPT_NO ?? 'TEST';
-        $transDate = $request->TRANS_DATE ?? now();
-
-
-        //return response()->json(['token'=>$transAmount],200);
-        if (empty($receiptNo)  || empty($transAmount) || empty($assessmentNo)) {
-            return  response("false 2");
-        }
-        $bankName = $request->BANK_NAME;
-        $branch = $request->BRANCH_NAME;
-        $payMode = "eTranzact";
-        $phoneNumber = $request->COL5;
-        $customerName = $request->CUSTOMER_NAME;
-        $email = $request->COL4;
-        $kgTin = $request->COL7;
-        //return response()->json(['kgtin'=>$kgTin],200);
-        if(!is_numeric($transAmount)){
-            return  response("false 4");
-        }
-        if(!isset($token)){
-            return response("Provide token");
-        }
-        if(isset($token)){
-            if($token != $this->eTranzactToken){
-                return response("Invalid token");
+                //'192.168.1.10',
+                //'203.0.113.45',
+                '127.0.0.1'
+            ];
+            if (!in_array($clientIp, $allowedIps)) {
+                return response("false -1", 403);
             }
-        }
-        $payment = BillPaymentLog::where('receipt_no', $receiptNo)->first();
-        if(!empty($payment)){
-            return  response("false 1");
-        }
 
-        $bill = Billing::where('assessment_no', $assessmentNo)
-            ->where('paid', 0)
-            ->first();
-        if (empty($bill)) {
-            return response()->json([
-                "FeeRequest" => [
-                    "Customer ID" => $assessmentNo,
-                    "FeeStatus" => "Invalid Customer ID "
-                ]
-            ]);
-        }else{
-            $billList = Billing::where('building_code', $bill->building_code)
-                ->where('year','<=', $bill->year)
+            $receiptNo = $request->RECEIPT_NO;
+            $paymentCode = $request->PAYMENT_CODE;
+            $transAmount = $request->TRANS_AMOUNT;
+            $assessmentNo = $request->CUSTOMER_ID;
+            $token = $request->PASSWORD;
+            $transRef = $request->RECEIPT_NO ?? 'TEST';
+            $transDate = $request->TRANS_DATE ?? now();
+
+
+
+            //return response()->json(['token'=>$transAmount],200);
+            if (empty($receiptNo)  || empty($transAmount) || empty($assessmentNo)) {
+                return  response("false 2");
+            }
+            $bankName = $request->BANK_NAME;
+            $branch = $request->BRANCH_NAME;
+            $payMode = "eTranzact";
+            $phoneNumber = $request->CUSTOMER_PHONE_NUMBER;
+            $customerName = $request->CUSTOMER_NAME;
+            $customerAddress = $request->CUSTOMER_ADDRESS ?? 'N/A';
+            $email = $request->CUSTOMER_EMAIL ?? 'placeholder@email.com';
+            $kgTin = $request->COL7;
+            if(!is_numeric($transAmount)){
+                return  response("false 4");
+            }
+            if(!isset($token)){
+                return response("Provide token");
+            }
+            if(isset($token)){
+                if($token != $this->eTranzactToken){
+                    return response("Invalid token");
+                }
+            }
+            $payment = BillPaymentLog::where('receipt_no', $receiptNo)->first();
+            if(!empty($payment)){
+                return  response("false 1");
+            }
+
+            $bill = Billing::where('assessment_no', $assessmentNo)
                 ->where('paid', 0)
-                ->orderBy('id', 'ASC')
-                ->get();
-            if(!empty($billList)){
-                foreach ($billList as $item){
-                    $balance = $item->bill_amount - $item->paid_amount;
-                    $transBalance = $transAmount - $balance;
-                    if($balance > 0){
-                        if($transAmount > $balance){
-                            $item->paid_amount += $balance;
-                            $item->payment_ref = $paymentCode;
-                            $item->paid = 1;
-                            $item->date_paid = now();
-                            $item->paid_by = 1;
-                            $item->save();
-                            $this->_registerInPaymentLog($item->id, 5, $balance, $receiptNo, $paymentCode,
-                                $assessmentNo, $bankName, $branch, $payMode, $customerName,
-                                $email, $kgTin, $transRef, $transDate, $phoneNumber);
-                        }
-                        else{
-                            if($transAmount > 0){
-                                $item->paid_amount += $transAmount;
+                ->first();
+            if (empty($bill)) {
+                return response()->json([
+                    "FeeRequest" => [
+                        "Customer ID" => $assessmentNo,
+                        "FeeStatus" => "Invalid Customer ID "
+                    ]
+                ]);
+            }else{
+                $billList = Billing::where('building_code', $bill->building_code)
+                    ->where('year','<=', $bill->year)
+                    ->where('paid', 0)
+                    ->orderBy('id', 'ASC')
+                    ->get();
+                if(!empty($billList)){
+                    foreach ($billList as $item){
+                        $balance = $item->bill_amount - $item->paid_amount;
+                        $transBalance = $transAmount - $balance;
+                        if($balance > 0){
+                            if($transAmount > $balance){
+                                $item->paid_amount += $balance;
                                 $item->payment_ref = $paymentCode;
+                                $item->paid = 1;
+                                $item->date_paid = now();
+                                $item->paid_by = 1;
                                 $item->save();
-                                if($item->paid_amount == $item->bill_amount){
-                                    $item->paid = 1;
-                                    $item->date_paid = now();
-                                    $item->paid_by = 1;
-                                    $item->save();
-                                }
-                                $this->_registerInPaymentLog($item->id, 5, $transAmount, $receiptNo, $paymentCode,
+                                $this->_registerInPaymentLog($item->id, 5, $balance, $receiptNo, $paymentCode,
                                     $assessmentNo, $bankName, $branch, $payMode, $customerName,
                                     $email, $kgTin, $transRef, $transDate, $phoneNumber);
                             }
+                            else{
+                                if($transAmount > 0){
+                                    $item->paid_amount += $transAmount;
+                                    $item->payment_ref = $paymentCode;
+                                    $item->save();
+                                    if($item->paid_amount == $item->bill_amount){
+                                        $item->paid = 1;
+                                        $item->date_paid = now();
+                                        $item->paid_by = 1;
+                                        $item->save();
+                                    }
+                                    $this->_registerInPaymentLog($item->id, 5, $transAmount, $receiptNo, $paymentCode,
+                                        $assessmentNo, $bankName, $branch, $payMode, $customerName,
+                                        $email, $kgTin, $transRef, $transDate, $phoneNumber);
+                                }
+                            }
                         }
+                        $transAmount = $transBalance;
                     }
-                    $transAmount = $transBalance;
                 }
             }
+            DB::commit();
+            return  response("true");
+        }catch (\Exception $e){
+            DB::rollBack();
+            return  response("false");
         }
-        return  response("true");
-        //return response()->json(['message'=>'Payment done'],200);
     }
 
 
