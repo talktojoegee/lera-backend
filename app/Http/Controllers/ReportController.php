@@ -9,14 +9,19 @@ use App\Http\Resources\BillDetailResource;
 use App\Http\Resources\CustomerStatementResource;
 use App\Http\Resources\OutstandingBillResource;
 use App\Http\Resources\PaymentReportResource;
+use App\Http\Resources\ReconciliationHistoryResource;
+use App\Http\Resources\ReconciliationResource;
 use App\Http\Resources\WorkflowResource;
 use App\Imports\PropertyImport;
 use App\Imports\ReconciliationReportImport;
 use App\Models\Billing;
 use App\Models\BillPaymentLog;
+use App\Models\Reconciliation;
+use App\Models\ReconciliationMaster;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\HeadingRowImport;
 
@@ -230,17 +235,26 @@ class ReportController extends Controller
             });
             $cleanHeaders = array_values($cleanHeaders);
             $preparedFormat = $this->getSheetHeaderFormat();
-            $uploadedHeaders = array_map(fn($h) => strtolower(trim($h)), $headerList);
             try {
-
-               // return response()->json(['data'=>$cleanHeaders],200);
                 if ($cleanHeaders === $preparedFormat) {
                     DB::beginTransaction();
                     $fileName = $this->uploadFile($request);
-                    Excel::import(new ReconciliationReportImport($request->header, $request->monthYear, $request->auth),
+                    $master = ReconciliationMaster::create([
+                        "user_id"=>$request->auth,
+                        "month"=>date('m', strtotime($request->monthYear)),
+                        "year"=>date('Y', strtotime($request->monthYear)),
+                        "uuid"=>Str::uuid(),
+                    ]);
+                    Excel::import(new ReconciliationReportImport($request->header, $request->monthYear, $request->auth, $master->id),
                         public_path("assets/drive/import/{$fileName}"));
                     DB::commit();
-                    return response()->json(['message' => ' Processing request .']);
+                    $data = Reconciliation::where('month', date('m', strtotime($request->monthYear)))
+                        ->where('year', date('Y', strtotime($request->monthYear)))
+                        ->get();
+                    return response()->json([
+                        "data"=>ReconciliationResource::collection($data),
+                        "uuid"=>$master->uuid ?? '',
+                    ],200);
                 }else{
                     return response()->json([
                         "errors" => "Something went wrong",
@@ -262,6 +276,115 @@ class ReportController extends Controller
 
     }
 
+    public function showReconciliationHistory(){
+        $record = ReconciliationMaster::orderBy('id', 'desc')->get();
+        return response()->json(['data'=>ReconciliationHistoryResource::collection($record)],200);
+    }
+
+
+    public function showReconciliationHistoryDetail(Request $request){
+        $uuid = $request->uuid;
+        $record = ReconciliationMaster::where("uuid", $uuid)->first();
+        if(empty($record)){
+            return response()->json([
+                "message"=>"Whoops!",
+                "detail"=>"No record found",
+                "errors"=>"Something went wrong"
+            ],422);
+        }
+        $data = Reconciliation::where('master_id', $record->id)->get();
+        return response()->json([
+            "data"=>ReconciliationResource::collection($data),
+        ],200);
+
+    }
+
+    public function reQueryConciliation(Request $request){
+        $validator = Validator::make($request->all(), [
+            "assessmentNo" => "required",
+            "amount" => "required",
+            "authUser" => "required",
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                "errors" => $validator->messages()
+            ], 422);
+        }
+        $record = Reconciliation::where('assessment_no', $request->assessmentNo)->where("credit", $request->amount)
+            ->where("reconciled", 0)
+            ->first();
+        if(empty($record)){
+            return response()->json([
+                "errors"=>"Whoops!",
+            ],422);
+        }
+        //query payment
+        $payment = $this->confirmReconciliation($request->authUser, $record->value_date, $record->assessment_no, $record->credit);
+        if($payment){
+            $record->reconciled = 1;
+            $record->reason = "Match found!";
+            $record->reconciled_by = $request->authUser;
+            $record->date_reconciled = now();
+            $record->save();
+            return response()->json(["data"=>"Action successful"],200);
+        }else{
+            return response()->json([
+                "errors" => "Whoops!",
+                "message"=>"Something went wrong",
+                "detail"=>"Could not reconcile & confirm record!"
+            ],422);
+        }
+
+    }
+
+    public function handleConfirmReconciliationRequest(Request $request){
+        $validator = Validator::make($request->all(), [
+            "uuid" => "required",
+            "authUser" => "required",
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                "errors" => $validator->messages()
+            ], 422);
+        }
+        $recordMaster = ReconciliationMaster::where("uuid", $request->uuid)->first();
+        if(empty($recordMaster)){
+            return response()->json([
+                "errors"=>"Whoops! No record found!",
+            ],422);
+        }
+        $recordDetails = Reconciliation::where('master_id', $recordMaster->id)->where('reconciled',1)->get();
+        foreach($recordDetails as $recordDetail){
+            $this->confirmReconciliation($request->authUser, $recordDetail->value_date, $recordDetail->assessment_no, $recordDetail->credit);
+        }
+        return response()->json(["data"=>"Action successful"],200);
+    }
+    public function handlePurgeReconciliationRequest(Request $request){
+        $validator = Validator::make($request->all(), [
+            "uuid" => "required",
+            "authUser" => "required",
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                "errors" => $validator->messages()
+            ], 422);
+        }
+        $recordMaster = ReconciliationMaster::where("uuid", $request->uuid)->first();
+        if(empty($recordMaster)){
+            return response()->json([
+                "errors"=>"Whoops! No record found!",
+            ],422);
+        }
+        $recordDetails = Reconciliation::where('master_id', $recordMaster->id)->get();
+        foreach($recordDetails as $recordDetail){
+            $recordDetail->delete();
+        }
+        $recordMaster->delete();
+        return response()->json(["data"=>"Action successful"],200);
+    }
     private function getSheetHeaderFormat(){
         return [
             'entrydate',
@@ -284,6 +407,22 @@ class ReportController extends Controller
             return $filename;
 
         }
+    }
+
+    private function confirmReconciliation($authUser, $valueDate, $assessmentNo, $amount): bool
+    {
+        $payments = BillPaymentLog::where('assessment_no', $assessmentNo)->where('amount', $amount)->get();
+        if(count($payments) > 0){
+            foreach($payments as $payment){
+                $payment->reconciled = 1;
+                $payment->value_date = $valueDate;
+                $payment->reconciled_by = $authUser;
+                $payment->date_reconciled = now();
+                $payment->save();
+            }
+            return true;
+        }
+        return false;
     }
 
 }

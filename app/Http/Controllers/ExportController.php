@@ -7,6 +7,7 @@ use App\Exports\CustomerReportExport;
 use App\Exports\PaidBillExport;
 use App\Exports\PaymentReportExport;
 use App\Exports\PropertyExceptionExport;
+use App\Exports\ReconciliationReportExport;
 use App\Exports\SettlementReportExport;
 use App\Http\Resources\CustomerStatementResource;
 use App\Http\Resources\LGAResource;
@@ -15,6 +16,8 @@ use App\Jobs\ExportBillingJob;
 use App\Models\Billing;
 use App\Models\BillPaymentLog;
 use App\Models\Lga;
+use App\Models\Reconciliation;
+use App\Models\ReconciliationMaster;
 use App\Models\SettlementReportSetup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -208,6 +211,34 @@ class ExportController extends Controller
         $lgaList = Lga::fetchAllLGAs();
 
         return Excel::download(new SettlementReportExport($data,$lgaList, $kgirs, $lga, $newWaves, $from, $to), 'settlement_report.xlsx');
+    }
+
+    public function exportReconciliationReport(Request $request){
+        $validator = Validator::make($request->all(), [
+            "uuid" => "required",
+        ], [
+            "uuid.required" => "Field is required"
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                "errors" => $validator->messages(),
+                "message"=>"Validation error",
+                "detail"=>"All fields are required."
+            ], 422);
+        }
+        $uuid = $request->uuid;
+        $record = ReconciliationMaster::where("uuid", $uuid)->first();
+        if(empty($record)){
+            return response()->json([
+                "errors" => "Whoops!",
+                "message"=>"Something went wrong.",
+                "detail"=>"No record found."
+            ], 422);
+        }
+        $details = Reconciliation::where('master_id', $record->id)->get();
+
+        return Excel::download(new ReconciliationReportExport($details), 'reconciliation_report.xlsx');
     }
 
 }

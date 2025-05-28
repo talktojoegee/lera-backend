@@ -20,5 +20,9 @@ class Reconciliation extends Model
         'year',
         'payer_name',
         'assessment_no',
+        'reconciled',
+        'reason',
+        'master_id',
+        'building_code'
     ];
 }

@@ -2,6 +2,7 @@
 
 namespace App\Imports;
 
+use App\Models\BillPaymentLog;
 use App\Models\Reconciliation;
 use Carbon\Carbon;
 use DateTime;
@@ -16,11 +17,12 @@ use Maatwebsite\Excel\Concerns\WithStartRow;
 
 class ReconciliationReportImport implements ToModel, WithStartRow, WithMultipleSheets,WithCalculatedFormulas
 {
-    public $header, $monthYear, $auth;
-    public function __construct($header, $monthYear, $auth){
+    public $header, $monthYear, $auth, $masterId;
+    public function __construct($header, $monthYear, $auth, $masterId){
         $this->header = $header;
         $this->monthYear = $monthYear;
         $this->auth = $auth;
+        $this->masterId = $masterId;
     }
     /**
     * @param Collection $collection
@@ -62,20 +64,49 @@ class ReconciliationReportImport implements ToModel, WithStartRow, WithMultipleS
                 $unixDate = ($valueDateSerial - 25569) * 86400;
                 $valueDate = date('Y-m-d', $unixDate);
                 [$assessmentNo, $payerName] = $this->extractDetails($row[1]);
-                    Reconciliation::create([
-                        "entry_date"=>$entryDate,
-                        "details"=>$row[1],
-                        "value_date"=>$valueDate,
-                        "debit"=>$row[3],
-                        "credit"=>$row[4],
-                        "balance"=>$row[5],
-                        "user_id"=>$this->auth,
-                        "month_year"=>$this->monthYear,
-                        "month"=>date("m",strtotime($this->monthYear)),
-                        "year"=>date("Y",strtotime($this->monthYear)),
-                        "payer_name"=>$payerName,
-                        "assessment_no"=>$assessmentNo,
-                    ]);
+                if(!is_null($assessmentNo)){
+                    $billPaymentLog =  BillPaymentLog::where('assessment_no', $assessmentNo)->where('amount', $credit)->first();
+                    if(!empty($billPaymentLog)){
+                        Reconciliation::create([
+                            "entry_date"=>$entryDate,
+                            "details"=>$row[1],
+                            "value_date"=>$valueDate,
+                            "debit"=>$row[3],
+                            "credit"=>$row[4],
+                            "balance"=>$row[5],
+                            "user_id"=>$this->auth,
+                            "month_year"=>$this->monthYear,
+                            "month"=>date("m",strtotime($this->monthYear)),
+                            "year"=>date("Y",strtotime($this->monthYear)),
+                            "payer_name"=>$payerName,
+                            "assessment_no"=>$assessmentNo,
+                            "reconciled"=>1,//matched
+                            "reason"=>"Match found!",
+                            "master_id"=>$this->masterId,
+                            "building_code"=>$billPaymentLog->building_code,
+                        ]);
+                    }else{
+                        Reconciliation::create([
+                            "entry_date"=>$entryDate,
+                            "details"=>$row[1],
+                            "value_date"=>$valueDate,
+                            "debit"=>$row[3],
+                            "credit"=>$row[4],
+                            "balance"=>$row[5],
+                            "user_id"=>$this->auth,
+                            "month_year"=>$this->monthYear,
+                            "month"=>date("m",strtotime($this->monthYear)),
+                            "year"=>date("Y",strtotime($this->monthYear)),
+                            "payer_name"=>$payerName,
+                            "assessment_no"=>$assessmentNo,
+                            "reconciled"=>0,//mis-matched
+                            "reason"=>"Could not find either matching assessment no or amount!",
+                            "master_id"=>$this->masterId,
+                        ]);
+                    }
+
+                }
+
                // }
             }
 

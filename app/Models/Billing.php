@@ -593,6 +593,49 @@ class Billing extends Model
             ->distinct()
             ->get();
     }
+
+    public static function searchReturnedBills($keyword, $propertyUse, $special){
+        return DB::table('billings')
+            ->leftJoin('property_lists', 'billings.property_id', '=', 'property_lists.id')
+            ->select(
+                'billings.id as billId',
+                'billings.building_code as buildingCode',
+                'billings.status',
+                'billings.special',
+                'billings.property_use',
+                'billings.assessment_no',
+                'property_lists.property_name',
+                'property_lists.building_code',
+                'billings.assessment_no',
+                'billings.pav_code',
+                'billings.year',
+                'billings.zone_name',
+                'billings.class_id',
+                'billings.property_id',
+                'billings.lga_id',
+                'billings.bill_amount',
+                'billings.occupancy',
+                'billings.paid_amount',
+                'billings.assessed_value',
+                'billings.special',
+                'billings.status',
+                'billings.property_use',
+                'billings.url',
+                'billings.property_id',
+                'billings.cr',
+            )
+            ->where('billings.returned', 1)
+            ->where('billings.special', $special)
+            ->whereIn('billings.property_use', $propertyUse)
+            ->where(function ($query) use ($keyword) {
+                $query->where('billings.assessment_no', 'LIKE', "%{$keyword}%")
+                    ->orWhere('billings.building_code', 'LIKE', "%{$keyword}%")
+                    ->orWhere('property_lists.property_name', 'LIKE', "%{$keyword}%")
+                    ->orWhere('property_lists.building_code', 'LIKE', "%{$keyword}%");
+            })
+            ->distinct()
+            ->get();
+    }
     public static function searchAllPendingBills($keyword, $propertyUse, $special){
         return DB::table('billings')
             ->leftJoin('property_lists', 'billings.property_id', '=', 'property_lists.id')

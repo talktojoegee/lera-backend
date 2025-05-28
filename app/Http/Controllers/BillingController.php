@@ -1125,6 +1125,18 @@ class BillingController extends Controller
         $propertyUse = explode(',', $user->sector);
         return response()->json(['data'=>BillSearchResource::collection(Billing::searchBills($keyword, $propertyUse, $status, $special)) ]);
     }
+    public function searchReturnedBill(Request $request){
+        $keyword = $request->keyword;
+        $user = User::find($request->actionedBy);
+        $special = $request->special ?? 0;
+        if(!$keyword){
+            return response()->json([
+                "errors"=>"No search term submitted"
+            ],404);
+        }
+        $propertyUse = explode(',', $user->sector);
+        return response()->json(['data'=>BillSearchResource::collection(Billing::searchReturnedBills($keyword, $propertyUse, $special)) ]);
+    }
 
     public function searchAllPendingBills(Request $request){
         $keyword = $request->keyword;

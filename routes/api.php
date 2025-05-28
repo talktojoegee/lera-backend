@@ -115,6 +115,7 @@ Route::group(['middleware' => 'api'], function(){
     Route::post('billing/bills/bulk-action', [\App\Http\Controllers\BillingController::class, 'handleBillBulkAction']);
 
     Route::post('billing/bill-search', [\App\Http\Controllers\BillingController::class, 'billSearch']);
+    Route::post('billing/search-returned-bill', [\App\Http\Controllers\BillingController::class, 'searchReturnedBill']);
     Route::post('billing/search-all-pending-bill', [\App\Http\Controllers\BillingController::class, 'searchAllPendingBills']);
     Route::post('billing/search-outstanding', [\App\Http\Controllers\BillingController::class, 'searchOutstandingBills']);
     Route::get('billing/print/{type}/{lga}', [\App\Http\Controllers\BillingController::class, 'showBillsForPrinting']);
@@ -177,8 +178,14 @@ Route::group(['middleware' => 'api'], function(){
     Route::post('/export-workflow-report', [\App\Http\Controllers\ReportController::class, 'exportWorkflowReport']);
     Route::post('/export-performance-report', [\App\Http\Controllers\ReportController::class, 'exportPerformanceReport']);
     Route::post('/handle-reconciliation-request', [\App\Http\Controllers\ReportController::class, 'handleReconciliationRequest']);
+    Route::get('/reconciliation-history', [\App\Http\Controllers\ReportController::class, 'showReconciliationHistory']);
+    Route::get('/reconciliation-history/{uuid}', [\App\Http\Controllers\ReportController::class, 'showReconciliationHistoryDetail']);
+    Route::post('/re-query-conciliation', [\App\Http\Controllers\ReportController::class, 'reQueryConciliation']);
+    Route::post('/confirm-reconciliation', [\App\Http\Controllers\ReportController::class, 'handleConfirmReconciliationRequest']);
+    Route::post('/purge-reconciliation', [\App\Http\Controllers\ReportController::class, 'handlePurgeReconciliationRequest']);
 
     Route::post('export-settlement-report', [\App\Http\Controllers\ExportController::class, 'exportSettlementReport']);
+    Route::post('export-reconciliation-report', [\App\Http\Controllers\ExportController::class, 'exportReconciliationReport']);
 
 
     #Users
