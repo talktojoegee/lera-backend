@@ -39,7 +39,8 @@ class NotifyKogiRemsCommand extends Command
             $transdate = $notification->transdate;
             $transRef = $notification->transRef;
             $lucAmount = $notification->luc_amount ?? 0;
-            $response = Http::get("https://kogiirs.aoctms.com.ng/luc/default.asp?assessmentno={$assessment_no}&buildingcode={$buildingcode}&kgtin={$kgtin}&name={$name}&amount={$amount}&phone={$phone}&email={$email}&transdate={$transdate}&transRef={$transRef}&paymode=POS&lucAmount={$lucAmount}");
+            $response = Http::get("https://luc.irs.kg.gov.ng/default.asp?assessmentno={$assessment_no}&buildingcode={$buildingcode}&kgtin={$kgtin}&name={$name}&amount={$amount}&phone={$phone}&email={$email}&transdate={$transdate}&transRef={$transRef}&paymode=POS&lucAmount={$lucAmount}");
+            //$response = Http::get("https://kogiirs.aoctms.com.ng/luc/default.asp?assessmentno={$assessment_no}&buildingcode={$buildingcode}&kgtin={$kgtin}&name={$name}&amount={$amount}&phone={$phone}&email={$email}&transdate={$transdate}&transRef={$transRef}&paymode=POS&lucAmount={$lucAmount}");
             if($response->successful()){
                 $notification->status = 1;
                 $notification->save();
@@ -52,3 +53,4 @@ class NotifyKogiRemsCommand extends Command
 
     }
 }
+//https://luc.irs.kg.gov.ng/default.asp

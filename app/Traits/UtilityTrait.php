@@ -2,11 +2,18 @@
 
 namespace App\Traits;
 
+use App\Jobs\NotifyKogiRemsJob;
+use App\Models\BillPaymentLog;
+use App\Models\KogiRemsNotification;
+use App\Models\Owner;
+use App\Models\PropertyList;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
+use App\Models\Billing;
 
 trait UtilityTrait
 {
+    public $eTranzactToken = "ytw6h351ec7897wef89300d240u87n";
     public function generateRandomUrls(Request $request)
     {
         $numberOfUrls = 10;
@@ -54,29 +61,7 @@ trait UtilityTrait
         }
     }
 
-/*
-    private function convertLessThanThousand($n, $ones, $teens, $tens) {
-        $words = "";
 
-        if ($n >= 100) {
-            $words .= $ones[floor($n / 100)] . " hundred";
-            $n %= 100;
-            if ($n > 0) $words .= " and ";
-        }
-
-        if ($n >= 11 && $n <= 19) {
-            $words .= $teens[$n - 10];
-        } else {
-            if ($n >= 20) {
-                $words .= $tens[floor($n / 10)];
-                if ($n % 10 > 0) $words .= "-" . $ones[$n % 10];
-            } else if ($n > 0) {
-                $words .= $ones[$n];
-            }
-        }
-
-        return trim($words);
-    }*/
 
     private function convertLessThanThousand($number, $ones, $teens, $tens) {
         $words = "";
@@ -157,6 +142,172 @@ trait UtilityTrait
 
         return ucfirst(trim($wordString . " " . $mainCurrency));
     }
+
+
+
+
+
+
+public function handleBillPayment(string $buildingCode, float $transAmount, array $paymentData){
+                $currentYear = date('Y');
+                $bills = Billing::where('building_code', $buildingCode)
+                    ->where('year','<=', $currentYear)
+                    //->whereColumn('paid_amount', '<', 'bill_amount')
+                    ->where('paid', 0)
+                    ->orderBy('year', 'ASC')
+                    ->get();
+
+                foreach ($bills as $bill) {
+
+                    if ($transAmount <= 0) {
+                        break;
+                    }
+
+                    $balance = $bill->bill_amount - $bill->paid_amount;
+
+                    if ($balance <= 0) {
+                        continue;
+                    }
+
+                    $amountToPay = min($transAmount, $balance);
+
+                    // Update bill
+                    $bill->paid_amount += $amountToPay;
+                    $bill->payment_ref = $paymentData['payment_ref'] ?? null;
+
+                    if ($bill->paid_amount >= $bill->bill_amount) {
+                        $bill->paid = 1;
+                        $bill->date_paid = now();
+                        $bill->paid_by = $paymentData['paid_by'] ?? null;
+                    }
+
+                    $bill->save();
+                    $paymentData['assessment_no'] = $bill->assessment_no;
+                    $paymentData['zone'] = $bill->zone_name ?? '';
+
+                    // Register log if needed
+                        $this->_registerInPaymentLog(
+                            $bill->id,
+                            $paymentData['paid_by'] ?? 5,
+                            $amountToPay,
+                            $paymentData['receipt_no'] ?? null,
+                            $paymentData['payment_ref'] ?? null,
+                            $paymentData['assessment_no'] ?? null,
+                            $paymentData['bank_name'] ?? null,
+                            $paymentData['branch'] ?? null,
+                            $paymentData['pay_mode'] ?? null,
+                            $paymentData['customer_name'] ?? null,
+                            $paymentData['email'] ?? null,
+                            $paymentData['kg_tin'] ?? null,
+                            $paymentData['trans_ref'] ?? null,
+                            $paymentData['trans_date'] ?? null,
+                            $paymentData['phone_number'] ?? null
+                        );
+
+                    $transAmount -= $amountToPay;
+                }
+
+
+}
+
+    private function _registerInPaymentLog($billMasterId, $paidBy, $amount, $receiptNo, $paymentCode,
+                                           $assessmentNo, $bankName, $branchName, $payMode, $customerName,
+                                           $email, $kgTin, $transRef, $transDate, $phoneNumber){
+        $bill = Billing::find($billMasterId);
+        if (!$bill) {
+            return;
+        }
+
+        $existingLogsCount = BillPaymentLog::where('trans_ref', $transRef)->count();
+        $uniqueReceiptNo = $receiptNo;
+
+        if ($existingLogsCount > 0) {
+            $uniqueReceiptNo = $receiptNo . '_' . ($existingLogsCount + 1);
+        }
+
+        //if($bill){
+            BillPaymentLog::create([
+                "bill_master"=>$billMasterId,
+                "paid_by"=>$paidBy,
+                "amount"=>$amount,
+                "receipt_no"=>$uniqueReceiptNo,
+                "payment_code"=>$paymentCode,
+                "assessment_no"=>$assessmentNo,
+
+                "building_code"=>!empty($bill) ? $bill->building_code : '',
+                "lga_id"=>!empty($bill) ? $bill->lga_id : '',
+                "ward"=> $bill->ward ?? '',
+                "zone"=> $bill->zone_name ?? '',
+
+                "bank_name"=>$bankName,
+                "branch_name"=>$branchName,
+                "pay_mode"=>$payMode,
+                "customer_name"=>$customerName,
+                "email"=>$email,
+                "kgtin"=>$kgTin,
+                "entry_date"=>Carbon::parse($transDate)->format('Y-m-d'),
+                "token"=>$this->eTranzactToken,
+                "trans_ref"=>$transRef,
+                "reference"=>$transRef,
+
+            ]);
+
+
+
+            //update property
+            $property = PropertyList::where('building_code', $bill->building_code)->first();
+            if(!empty($property)){
+                $property->owner_email = $email;
+                $property->owner_name = $customerName;
+                $property->owner_gsm = $phoneNumber;
+                $property->owner_kgtin = $kgTin ?? null;
+                $property->save();
+            }
+            //update owner
+            if(!empty($property) && !empty($bill)){
+                $owner = Owner::where('kgtin', $kgTin)->first();
+                if(empty($owner)){
+                    Owner::create([
+                        "email"=>$email,
+                        "kgtin"=>$kgTin,
+                        "name"=>$customerName,
+                        "telephone"=>$phoneNumber,
+                        "lga_id"=>$bill->lga_id,
+                        "added_by"=>$paidBy,
+                        "res_address"=>$property->address ?? 'N/A'
+                    ]);
+                }else{
+                    $owner->email = $email;
+                    $owner->kgtin = $kgTin;
+                    $owner->name = $customerName;
+                    $owner->telephone = $phoneNumber;
+                    $owner->lga_id = $bill->lga_id;
+                    $owner->res_address = $property->address ?? 'N/A';
+                    $owner->save();
+                }
+            }
+            //Kogi rems notification register
+            KogiRemsNotification::create([
+                "assessmentno"=>$bill->assessment_no,
+                "buildingcode"=>$bill->building_code,
+                "kgtin"=>$kgTin ?? null,
+                "name"=>$customerName,
+                "amount"=>$amount,
+                "phone"=>$phoneNumber,
+                "email"=>$email,
+                "transdate"=>Carbon::parse($transDate)->format('Y-m-d') ?? now(),
+                "transRef"=>$transRef,
+                "paymode"=>"eTranzact",
+                "bank_name"=>$bankName ?? '',
+                "luc_amount"=>$bill->bill_amount,
+            ]);
+
+            NotifyKogiRemsJob::dispatch();
+
+        //}
+
+    }
+
 
 
 }

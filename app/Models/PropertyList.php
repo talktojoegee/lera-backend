@@ -46,6 +46,8 @@ class PropertyList extends Model
         'property_address',
         'sync_word',
         'property_use',
+        'tracker',
+        'distribution_code'
     ];
 
 

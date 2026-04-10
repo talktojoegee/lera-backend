@@ -16,6 +16,7 @@ class ReconciliationHistoryResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $unmatched = Reconciliation::where('master_id', $this->id)->where('reconciled',0)->count();
         return
             [
                 "month"=>$this->month,
@@ -25,6 +26,7 @@ class ReconciliationHistoryResource extends JsonResource
                 "createdAt"=>date('d/m/Y', strtotime($this->created_at)),
                 "user"=>User::find($this->user_id)->name ?? null,
                 "count"=>Reconciliation::where("master_id", $this->id)->count() ?? 0,
+                "unmatched"=>number_format($unmatched) ?? 0,
             ];
     }
 }

@@ -23,6 +23,13 @@ class Reconciliation extends Model
         'reconciled',
         'reason',
         'master_id',
-        'building_code'
+        'building_code',
+        'property_name',
+        'billing_amount',
+        'dc_type',
+        'bank_amount',
+        'matched',
+        'bill_payment_assessment_no',
+        'bill_payment_building_code',
     ];
 }

@@ -8,6 +8,62 @@ use Illuminate\Support\Facades\DB;
 
 class Billing extends Model
 {
+    protected $fillable = [
+        'assessed_value',
+        'bill_amount',
+        'minimum_luc',
+        'bill_rate',
+        'ba',
+        'rr',
+        'dr',
+        'dr_value',
+        'lr',
+        'la',
+        'br',
+        'cr',
+        'paid_amount',
+        'assessment_no',
+        'building_code',
+        'entry_date',
+        'objection',
+        'paid',
+        'payment_ref',
+        'paid_by',
+        'date_paid',
+        'status',
+        'date_returned',
+        'returned_by',
+        'returned',
+        'return_reason',
+        'pav_code',
+        'year',
+        'lga_id',
+        'billed_by',
+        'url',
+        'property_id',
+        'created_at',
+        'updated_at',
+        'zone_name',
+        'ward',
+        'date_approved',
+        'approved_by',
+        'date_authorized',
+        'authorized_by',
+        'date_actioned',
+        'actioned_by',
+        'class_id',
+        'occupancy',
+        'special',
+        'property_use',
+        'reviewed_by',
+        'date_reviewed',
+        'property_name',
+        'delivered',
+        'delivery_date',
+        'acknowledgement',
+        'printed',
+        'rollover'
+    ];
     //
   public $currentYear;
 
@@ -21,6 +77,8 @@ class Billing extends Model
   public function getReturnedBy(){
       return $this->belongsTo(User::class, 'returned_by');
   }
+
+
 
 
   public function getApprovedBy(){
@@ -191,7 +249,7 @@ class Billing extends Model
         return Billing::where('status', $status)
             ->whereIn('property_use', $propertyUse)
             ->whereIn('id', $objectionIds)
-            //->where('objection', 1)
+            ->where('objection', 1)
             ->skip($skip)
             ->take($limit)
             ->orderBy('id', 'DESC')
@@ -228,6 +286,53 @@ class Billing extends Model
             ->get();
     }
 
+    public static function getBillDeliveryReport($lga, $from, $to, $skip, $limit)
+    {
+        return Billing::when($lga != 0, function ($query) use ($lga) {
+            $query->where('lga_id', $lga);
+        })
+            ->whereBetween('entry_date', [$from, $to])
+            ->where('delivered', 1)
+            ->skip($skip)
+            ->take($limit)
+            ->orderBy('entry_date', 'ASC')
+            ->get();
+    }
+    public static function getBillPrintReport($lga, $from, $to, $skip, $limit)
+    {
+        return Billing::when($lga != 0, function ($query) use ($lga) {
+            $query->where('lga_id', $lga);
+        })
+            ->whereBetween('entry_date', [$from, $to])
+            ->where('printed', 1)
+            ->skip($skip)
+            ->take($limit)
+            ->orderBy('entry_date', 'ASC')
+            ->get();
+    }
+    public static function getBillDeliveryReportNoPagination($lga, $from, $to)
+    {
+        return Billing::when($lga != 0, function ($query) use ($lga) {
+            $query->where('lga_id', $lga);
+        })
+            ->whereBetween('entry_date', [$from, $to])
+            ->where('delivered', 1)
+            ->orderBy('entry_date', 'ASC')
+            ->get();
+    }
+
+    public static function getBillPrintReportNoPagination($lga, $from, $to)
+    {
+        return Billing::when($lga != 0, function ($query) use ($lga) {
+            $query->where('lga_id', $lga);
+        })
+            ->whereBetween('entry_date', [$from, $to])
+            ->where('printed', 1)
+            ->orderBy('entry_date', 'ASC')
+            ->get();
+    }
+
+
 
     public static function getAllReturnedBills($limit ,
                                             $skip ,
@@ -239,7 +344,7 @@ class Billing extends Model
             ->whereIn('property_use', $propertyUse)
             ->skip($skip)
             ->take($limit)
-            ->orderBy('id', 'DESC')
+            ->orderBy('date_returned', 'DESC')
             ->get();
     }
 
@@ -266,6 +371,7 @@ class Billing extends Model
             ->get();
 
     }
+
     public static function getAllBillsPaymentByParams( $objection , $status, $propertyUse)
     {
         return Billing::where('objection', $objection)
@@ -384,7 +490,9 @@ class Billing extends Model
             DB::raw('MONTH(entry_date) as month'),
             DB::raw('SUM(bill_amount) as total_bill_amount')
         )->where('status', 4)
-            ->whereYear('entry_date', $year)
+            ->when($year != 0, function ($query) use ($year) {
+                $query->whereYear('entry_date', $year);
+            })
             ->groupBy(DB::raw('MONTH(entry_date)'))
             ->orderBy(DB::raw('MONTH(entry_date)'))
             ->get();
@@ -401,8 +509,9 @@ class Billing extends Model
         $monthlyBills = Billing::select(
             DB::raw('MONTH(entry_date) as month'),
             DB::raw('SUM(bill_amount) as total_bill_amount')
-        )
-            ->whereYear('entry_date', $year)
+        )->when($year != 0, function ($query) use ($year) {
+                $query->whereYear('entry_date', $year);
+            })
             ->where('lga_id', $lgaId)
             ->where('status', 4)//approved
             ->groupBy(DB::raw('MONTH(entry_date)'))
@@ -422,7 +531,9 @@ class Billing extends Model
             DB::raw('MONTH(entry_date) as month'),
             DB::raw('SUM(paid_amount) as total_bill_amount')
         )->where('status', 4)
-            ->whereYear('entry_date', $year)
+            ->when($year != 0, function ($query) use ($year) {
+                $query->whereYear('entry_date', $year);
+            })
             ->groupBy(DB::raw('MONTH(entry_date)'))
             ->orderBy(DB::raw('MONTH(entry_date)'))
             ->get();
@@ -438,8 +549,9 @@ class Billing extends Model
         $monthlyBills = Billing::select(
             DB::raw('MONTH(entry_date) as month'),
             DB::raw('SUM(paid_amount) as total_bill_amount')
-        )
-            ->whereYear('entry_date', $year)
+        )->when($year != 0, function ($query) use ($year) {
+                $query->whereYear('entry_date', $year);
+            })
             ->where('lga_id', $lgaId)
             ->where('status', 4)//approved
             ->groupBy(DB::raw('MONTH(entry_date)'))
@@ -457,7 +569,10 @@ class Billing extends Model
         return DB::table('billings')
             ->join('zones', 'billings.zone_name', '=', 'zones.sub_zone')
             ->select('zones.sub_zone', DB::raw('SUM(billings.bill_amount) as total_bills'))
-            ->whereYear('billings.entry_date', $year)
+            ->when($year != 0, function ($query) use ($year) {
+                $query->whereYear('billings.entry_date', $year);
+            })
+           // ->whereYear('billings.entry_date', $year)
             ->where('billings.status', 4)
             ->groupBy('zones.sub_zone')
             ->orderBy('zones.sub_zone', 'ASC')
@@ -468,7 +583,10 @@ class Billing extends Model
         return DB::table('billings')
             ->join('zones', 'billings.zone_name', '=', 'zones.sub_zone')
             ->select('zones.sub_zone', DB::raw('SUM(billings.bill_amount) as total_bills'))
-            ->whereYear('billings.entry_date', $year)
+            ->when($year != 0, function ($query) use ($year) {
+                $query->whereYear('billings.entry_date', $year);
+            })
+            //->whereYear('billings.entry_date', $year)
             ->where('billings.lga_id', $lgaId)
             ->where('billings.status', 4)//approved
             ->groupBy('zones.sub_zone')
@@ -482,7 +600,10 @@ class Billing extends Model
         return DB::table('billings')
             ->join('lgas', 'billings.lga_id', '=', 'lgas.id')
             ->select('lgas.lga_name', DB::raw('SUM(billings.bill_amount) as total_bills'))
-            ->whereYear('billings.entry_date', $year)
+            ->when($year != 0, function ($query) use ($year) {
+                $query->whereYear('billings.entry_date', $year);
+            })
+            //->whereYear('billings.entry_date', $year)
             ->where('billings.status', 4)
             ->groupBy('lgas.lga_name')
             ->orderBy('lgas.lga_name', 'ASC')
@@ -496,7 +617,10 @@ class Billing extends Model
         return DB::table('billings')
             ->join('lgas', 'billings.lga_id', '=', 'lgas.id')
             ->select('lgas.lga_name', DB::raw('SUM(billings.bill_amount) as total_bills'))
-            ->whereYear('billings.entry_date', $year)
+            ->when($year != 0, function ($query) use ($year) {
+                $query->whereYear('billings.entry_date', $year);
+            })
+            //->whereYear('billings.entry_date', $year)
             ->where('billings.lga_id', $lgaId)
             ->where('billings.status', 4)//approved
             ->groupBy('lgas.lga_name')
@@ -510,7 +634,10 @@ class Billing extends Model
         return DB::table('billings')
             ->join('lgas', 'billings.lga_id', '=', 'lgas.id')
             ->select('lgas.lga_name', DB::raw('SUM(billings.paid_amount) as amount'))
-            ->whereYear('billings.entry_date', $year)
+            ->when($year != 0, function ($query) use ($year) {
+                $query->whereYear('billings.entry_date', $year);
+            })
+            //->whereYear('billings.entry_date', $year)
             ->where('billings.status', 4)
             ->groupBy('lgas.lga_name')
             ->orderBy('lgas.lga_name', 'ASC')
@@ -524,7 +651,10 @@ class Billing extends Model
         return DB::table('billings')
             ->join('lgas', 'billings.lga_id', '=', 'lgas.id')
             ->select('lgas.lga_name', DB::raw('SUM(billings.paid_amount) as amount'))
-            ->whereYear('billings.entry_date', $year)
+            ->when($year != 0, function ($query) use ($year) {
+                $query->whereYear('billings.entry_date', $year);
+            })
+            //->whereYear('billings.entry_date', $year)
             ->where('billings.lga_id', $lgaId)
             ->where('billings.status', 4)//approved
             ->groupBy('lgas.lga_name')
@@ -580,6 +710,7 @@ class Billing extends Model
                 'billings.url',
                 'billings.property_id',
                 'billings.cr',
+                'billings.printed',
             )
             ->where('billings.status', $status)
             ->where('billings.special', $special)
@@ -751,7 +882,7 @@ class Billing extends Model
 
     public static function generatePerformanceReportByUsers($from, $to)
     {
-        $billings = Billing::whereBetween('entry_date', [$from, $to])->get();
+        //$billings = Billing::whereBetween('date_reviewed', [$from, $to])->get();
         $users = User::where('role', 5)->get();
 
         $report = [];
@@ -759,14 +890,29 @@ class Billing extends Model
         foreach ($users as $user) {
             $report[] = [
                 'user' => $user,
-                'reviewed' => $billings->where('reviewed_by', $user->id)->count(),
-                'verified' => $billings->where('actioned_by', $user->id)->count(),
-                'authorized' => $billings->where('authorized_by', $user->id)->count(),
-                'approved' => $billings->where('approved_by', $user->id)->count(),
+                'reviewed' => Billing::where('reviewed_by', $user->id)
+                    ->whereBetween('date_reviewed', [$from, $to])
+                    ->count(),
+                'verified' => Billing::where('actioned_by', $user->id)
+                    ->whereBetween('date_actioned', [$from, $to])
+                    ->count(),
+                'authorized' => Billing::where('authorized_by', $user->id)
+                    ->whereBetween('date_authorized', [$from, $to])
+                    ->count(),
+                'approved' => Billing::where('approved_by', $user->id)
+                    ->whereBetween('date_approved', [$from, $to])
+                    ->count(),
             ];
         }
 
         return collect($report);
+    }
+
+    private function reviewCounter($userId, $from, $to){
+        $reviewedCount = DB::selectOne(
+            'SELECT COUNT(*) as count FROM billings WHERE reviewed_by = ? AND date_reviewed BETWEEN ? AND ?',
+            [$userId, $from, $to]
+        )->count;
     }
 
 

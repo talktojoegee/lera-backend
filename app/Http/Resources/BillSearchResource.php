@@ -47,6 +47,8 @@ class BillSearchResource extends JsonResource
             'propertyUse'=>$this->property_use ?? '',
             'propertyName'=>$this->property_name ?? '',
             'paidAmount'=>$payment ?? 0,
+            'objection'=>$this->objection ?? 0,
+            'printed'=>$this->printed ?? 0,
             //'paidAmount'=>$this->paid_amount ?? 0,
         ];
     }

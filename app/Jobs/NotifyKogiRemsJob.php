@@ -2,9 +2,11 @@
 
 namespace App\Jobs;
 
+use App\Models\Billing;
 use App\Models\KogiRemsNotification;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
 class NotifyKogiRemsJob implements ShouldQueue
@@ -46,6 +48,25 @@ class NotifyKogiRemsJob implements ShouldQueue
                 $notification->status = 2;
                 $notification->save();
             }
+
+            $bill = Billing::where('assessment_no', $assessment_no)->first();
+            if(!empty($bill)){
+                if($bill->bill_amount == $bill->paid_amount){
+                    DB::connection('pgsql')
+                        ->table('virtualization')
+                        ->updateOrInsert(
+                            [
+                                'building_code' => $bill->building_code,
+                            ],
+                            [
+                                'bill_paid' => 1,
+                                'bill_paid_date' => now(),
+                            ]
+                        );
+
+                }
+            }
+
 
         }
     }

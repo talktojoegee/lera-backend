@@ -16,10 +16,12 @@ use App\Imports\PropertyImport;
 use App\Imports\ReconciliationReportImport;
 use App\Models\Billing;
 use App\Models\BillPaymentLog;
+use App\Models\PropertyList;
 use App\Models\Reconciliation;
 use App\Models\ReconciliationMaster;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
@@ -57,6 +59,73 @@ class ReportController extends Controller
            "bill"=>new BillDetailExtractResource($bills->first()),
             "data"=>CustomerStatementResource::collection($bills),
         ],200);
+    }
+    public function handleBillDeliveryReport(Request $request){
+        $validator = Validator::make($request->all(),
+            [
+                "lga"=>"required",
+                "from"=>"required|date",
+                "to"=>"required|date",
+                "requestedBy"=>"required",
+            ],
+            [
+                "lga.required"=>"Provide a valid LGA",
+                "from.required"=>"Choose a start period",
+                "from.date"=>"Enter a valid date format",
+                "to.required"=>"Choose an end period",
+                "to.date"=>"Enter a valid date format",
+                "requestedBy.required"=>"",
+            ]
+        );
+        if($validator->fails() ){
+            return response()->json([
+                "message"=>"Validation failed!",
+                "detail"=>"One or more required field is missing",
+                "errors"=>$validator->messages()
+            ],422);
+        }
+        $skip = $request->skip;
+        $limit = $request->limit;
+        $bills = Billing::getBillDeliveryReport($request->lga, $request->from, $request->to,  $skip, $limit);
+        $total = Billing::where('delivered', 1)->whereBetween('entry_date', [$request->from, $request->to])->count();
+        return response()->json([
+           "total"=>$total,
+            "data"=>BillDetailResource::collection($bills),
+        ]);
+    }
+
+    public function handleBillPrintReport(Request $request){
+        $validator = Validator::make($request->all(),
+            [
+                "lga"=>"required",
+                "from"=>"required|date",
+                "to"=>"required|date",
+                "requestedBy"=>"required",
+            ],
+            [
+                "lga.required"=>"Provide a valid LGA",
+                "from.required"=>"Choose a start period",
+                "from.date"=>"Enter a valid date format",
+                "to.required"=>"Choose an end period",
+                "to.date"=>"Enter a valid date format",
+                "requestedBy.required"=>"",
+            ]
+        );
+        if($validator->fails() ){
+            return response()->json([
+                "message"=>"Validation failed!",
+                "detail"=>"One or more required field is missing",
+                "errors"=>$validator->messages()
+            ],422);
+        }
+        $skip = $request->skip;
+        $limit = $request->limit;
+        $bills = Billing::getBillPrintReport($request->lga, $request->from, $request->to,  $skip, $limit);
+        $total = Billing::where('printed', 1)->whereBetween('entry_date', [$request->from, $request->to])->count();
+        return response()->json([
+            "total"=>$total,
+            "data"=>BillDetailResource::collection($bills),
+        ]);
     }
 
 
@@ -225,6 +294,18 @@ class ReportController extends Controller
                 "errors" => $validator->messages()
             ], 422);
         }
+        $month = date('m', strtotime($request->monthYear));
+        $year = date('Y', strtotime($request->monthYear));
+        $record = ReconciliationMaster::where('confirmed',1)->where('month', $month)
+            ->where('year', $year)->first();
+        if(!empty($record)){
+            return response()->json([
+                "errors" => "Whoops!",
+                "message"=>"Validation error",
+                "detail"=>"Reconciliation report for this month and year already exists. Please use the purge option to delete the existing report"
+            ], 422);
+        }
+
         $path = $request->file('attachment')->store('uploads', 'public');
 
         if($request->hasFile('attachment')){
@@ -247,10 +328,15 @@ class ReportController extends Controller
                     ]);
                     Excel::import(new ReconciliationReportImport($request->header, $request->monthYear, $request->auth, $master->id),
                         public_path("assets/drive/import/{$fileName}"));
-                    DB::commit();
-                    $data = Reconciliation::where('month', date('m', strtotime($request->monthYear)))
-                        ->where('year', date('Y', strtotime($request->monthYear)))
+
+                    $data = Reconciliation::where('master_id',$master->id)
+                        ->orderBy('dc_type','desc')
+                        ->orderBy('entry_date','asc')
                         ->get();
+                    //where('month', date('m', strtotime($request->monthYear)))
+                        //->where('year', date('Y', strtotime($request->monthYear)))
+                       // ->get();
+                    DB::commit();
                     return response()->json([
                         "data"=>ReconciliationResource::collection($data),
                         "uuid"=>$master->uuid ?? '',
@@ -276,8 +362,43 @@ class ReportController extends Controller
 
     }
 
+    public function handleUnreconciledReport(Request $request){
+        $validator = Validator::make($request->all(), [
+            "auth" => "required",
+            "monthYear" => "required",
+        ], [
+            "auth.required" => "",
+            "monthYear.required" => "Indicate month and year",
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                "errors" => $validator->messages()
+            ], 422);
+        }
+        $month = date('m', strtotime($request->monthYear));
+        $year = date('Y', strtotime($request->monthYear));
+            try {
+                $data = Reconciliation::where('month', $month)
+                    ->where('year', $year)
+                    ->where('reconciled', 0)
+                    ->get();
+                return response()->json([
+                    "month"=>$month,
+                    "year"=>$year,
+                    "data"=>ReconciliationResource::collection($data),
+                ],200);
+
+            }catch (\Exception $e){
+                return response()->json(['message' => $e->getMessage()]);
+            }
+
+
+
+    }
+
     public function showReconciliationHistory(){
-        $record = ReconciliationMaster::orderBy('id', 'desc')->get();
+        $record = ReconciliationMaster::where('confirmed', 1)->orderBy('id', 'desc')->get();
         return response()->json(['data'=>ReconciliationHistoryResource::collection($record)],200);
     }
 
@@ -292,8 +413,11 @@ class ReportController extends Controller
                 "errors"=>"Something went wrong"
             ],422);
         }
-        $data = Reconciliation::where('master_id', $record->id)->get();
+        $data = Reconciliation::where('master_id', $record->id)->orderBy('dc_type','desc')
+            ->orderBy('entry_date','asc')->get();
         return response()->json([
+            "month"=>$record->month,
+            "year"=>$record->year,
             "data"=>ReconciliationResource::collection($data),
         ],200);
 
@@ -302,7 +426,7 @@ class ReportController extends Controller
     public function reQueryConciliation(Request $request){
         $validator = Validator::make($request->all(), [
             "assessmentNo" => "required",
-            "amount" => "required",
+            //"amount" => "required",
             "authUser" => "required",
         ]);
 
@@ -311,7 +435,7 @@ class ReportController extends Controller
                 "errors" => $validator->messages()
             ], 422);
         }
-        $record = Reconciliation::where('assessment_no', $request->assessmentNo)->where("credit", $request->amount)
+        $record = Reconciliation::where('assessment_no', $request->assessmentNo)/*->where("credit", $request->amount)*/
             ->where("reconciled", 0)
             ->first();
         if(empty($record)){
@@ -320,14 +444,67 @@ class ReportController extends Controller
             ],422);
         }
         //query payment
-        $payment = $this->confirmReconciliation($request->authUser, $record->value_date, $record->assessment_no, $record->credit);
+        $payment = $this->confirmReconciliation($request->authUser, $record->value_date, $record->assessment_no, $record->bank_amount);
         if($payment){
             $record->reconciled = 1;
+            $record->matched = 1;
             $record->reason = "Match found!";
             $record->reconciled_by = $request->authUser;
             $record->date_reconciled = now();
+            $record->bill_payment_assessment_no = $request->assessmentNo;
+            $record->billing_amount = $record->bank_amount;
             $record->save();
-            return response()->json(["data"=>"Action successful"],200);
+            return response()->json(["data"=>"Action successful"]);
+        }else{
+            return response()->json([
+                "errors" => "Whoops!",
+                "message"=>"Something went wrong",
+                "detail"=>"Could not reconcile & confirm record!"
+            ],422);
+        }
+
+    }
+
+    public function manualReQueryConciliation(Request $request){
+        $validator = Validator::make($request->all(), [
+            "assessmentNo" => "required",
+            "authUser" => "required",
+            "id"=>"required"
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                "errors" => $validator->messages()
+            ], 422);
+        }
+        $paymentExists = BillPaymentLog::where('assessment_no', $request->assessmentNo)->where('reconciled', 0)->first();
+        $record = Reconciliation::where('reconciled', 0)->where('id',$request->id)->first();
+        if(empty($paymentExists) || empty($record)){
+            return response()->json([
+                "errors"=>"Whoops!",
+                "message"=>"Something went wrong",
+                "detail"=>"No record found",
+            ],422);
+        }
+        if($record->bank_amount == $paymentExists->amount){
+            $paymentExists->reconciled = 1;
+            $paymentExists->value_date = $record->value_date;
+            $paymentExists->reconciled_by = $request->authUser;
+            $paymentExists->date_reconciled = now();
+            $paymentExists->matched = 1;
+            $paymentExists->save();
+
+            $record->reconciled = 1;
+            $record->matched = 1;
+            $record->reason = "Match found!";
+            $record->reconciled_by = $request->authUser;
+            $record->date_reconciled = now();
+            $record->bill_payment_assessment_no = $request->assessmentNo;
+            $record->building_code = $paymentExists->building_code;
+            $record->billing_amount = $record->bank_amount;
+            $record->save();
+
+                return response()->json(["data"=>"Action successful"],200);
         }else{
             return response()->json([
                 "errors" => "Whoops!",
@@ -355,11 +532,24 @@ class ReportController extends Controller
                 "errors"=>"Whoops! No record found!",
             ],422);
         }
-        $recordDetails = Reconciliation::where('master_id', $recordMaster->id)->where('reconciled',1)->get();
+        $recordDetails = Reconciliation::where('master_id', $recordMaster->id)->where('matched',1)->get();
         foreach($recordDetails as $recordDetail){
-            $this->confirmReconciliation($request->authUser, $recordDetail->value_date, $recordDetail->assessment_no, $recordDetail->credit);
+            $billPayment = BillPaymentLog::where('reconcile_detail_id', $recordDetail->id)
+                ->where('matched', 1)
+                ->first();
+            if(!empty($billPayment)){
+                $billPayment->reconciled = 1;
+                $billPayment->value_date = $recordDetail->value_date;
+                $billPayment->reconciled_by = $request->authUser;
+                $billPayment->date_reconciled = now();
+                $billPayment->save();
+            }
+            $recordDetail->reconciled = 1;
+            $recordDetail->save();
         }
-        return response()->json(["data"=>"Action successful"],200);
+        $recordMaster->confirmed = 1;
+        $recordMaster->save();
+        return response()->json(["data"=>"Action successful"]);
     }
     public function handlePurgeReconciliationRequest(Request $request){
         $validator = Validator::make($request->all(), [
@@ -409,17 +599,20 @@ class ReportController extends Controller
         }
     }
 
-    private function confirmReconciliation($authUser, $valueDate, $assessmentNo, $amount): bool
+    public function confirmReconciliation($authUser, $valueDate, $assessmentNo, $amount):bool
     {
-        $payments = BillPaymentLog::where('assessment_no', $assessmentNo)->where('amount', $amount)->get();
-        if(count($payments) > 0){
-            foreach($payments as $payment){
-                $payment->reconciled = 1;
-                $payment->value_date = $valueDate;
-                $payment->reconciled_by = $authUser;
-                $payment->date_reconciled = now();
-                $payment->save();
-            }
+        $payment = BillPaymentLog::where('assessment_no', $assessmentNo)
+            ->where('amount', $amount)
+            ->where('matched', 0)
+            ->where('reconciled', 0)
+            ->first();
+        if(!empty($payment)){
+            $payment->reconciled = 1;
+            $payment->value_date = $valueDate;
+            $payment->reconciled_by = $authUser;
+            $payment->date_reconciled = now();
+            $payment->matched = 1;
+            $payment->save();
             return true;
         }
         return false;

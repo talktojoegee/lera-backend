@@ -2,8 +2,11 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Billing;
 use App\Models\EditBillLog;
+use App\Models\PrintBillLog;
 use App\Models\PropertyClassification;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\DB;
@@ -17,14 +20,20 @@ class BillDetailResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        //$currentYear = date('Y');
+        $printedByDetails = $this->getPrintedByDetails($this->assessment_no);
+        $printedBy = $printedByDetails ? User::find($printedByDetails->user_id)->name : '-';
+        $datePrinted = $printedByDetails ? date('d M, Y h:ia', strtotime($printedByDetails->created_at)) : '-';
+
+
         $bbf = $this->balanceBroughtForward($this->year, $this->building_code);
         $class = PropertyClassification::find($this->class_id);
         $logs = DB::table('edit_bill_logs')
-        ->join('users', 'users.id','=', 'edit_bill_logs.edited_by')
-        ->where('edit_bill_logs.bill_id', $this->id)
-        ->select('edit_bill_logs.*', 'users.name')
-        ->orderBy('edit_bill_logs.id', 'DESC')
-        ->get();
+            ->join('users', 'users.id','=', 'edit_bill_logs.edited_by')
+            ->where('edit_bill_logs.bill_id', $this->id)
+            ->select('edit_bill_logs.*', 'users.name')
+            ->orderBy('edit_bill_logs.id', 'DESC')
+            ->get();
         $payments = DB::table('bill_payment_logs')
             ->join('billings', 'billings.id','=', 'bill_payment_logs.bill_master')
             ->where('bill_payment_logs.bill_master', $this->id)
@@ -95,10 +104,33 @@ class BillDetailResource extends JsonResource
 
             'returnedBy'=>$this->getReturnedBy->name ?? '',
             'dateReturned'=>date('d M, Y h:ia', strtotime($this->date_returned)),
+
+            'printedBy'=>$printedBy,
+            'datePrinted'=>$datePrinted,
+            'delivered'=>$this->delivered,
+            'dateDelivered'=>!is_null($this->delivery_date) ? date('d M, Y h:ia', strtotime($this->delivery_date)) : '-',
+
+
             'log'=>$logs,
             'payments'=>$payments,
 
 
         ];
+    }
+
+    public function balanceBroughtForward(int $year, string $buildingCode): float
+    {
+        return Billing::where('building_code', $buildingCode)
+            ->where('year', '<', $year)
+            ->where(function ($query) {
+                $query->where('paid', 0)
+                    ->orWhereColumn('paid_amount', '<', 'bill_amount');
+            })
+            ->select(DB::raw('SUM(bill_amount - paid_amount) as balance'))
+            ->value('balance') ?? 0.0;
+    }
+
+    public function getPrintedByDetails($assessmentNo){
+        return PrintBillLog::where('assessment_no', $assessmentNo)->where('status', 1)->first();
     }
 }

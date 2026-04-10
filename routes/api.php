@@ -23,8 +23,10 @@ Route::post('/logout', [\App\Http\Controllers\AuthenticationController::class, '
 Route::group(['middleware' => 'api'], function(){
     Route::post('/lga/new', [\App\Http\Controllers\LGAController::class, 'createLGA']);
     Route::get('/lga/all', [\App\Http\Controllers\LGAController::class, 'showAllLGAs']);
+    Route::get('/distribution-code', [\App\Http\Controllers\LGAController::class, 'showDistributionCode']);
 
     Route::post('/zone/new', [\App\Http\Controllers\ZoneController::class, 'createZone']);
+    Route::get('/use/property-use', [\App\Http\Controllers\ZoneController::class, 'showAllPropertyUse']);
     Route::get('/zone/all', [\App\Http\Controllers\ZoneController::class, 'showAllZones']);
 
     #Relief settings
@@ -118,7 +120,7 @@ Route::group(['middleware' => 'api'], function(){
     Route::post('billing/search-returned-bill', [\App\Http\Controllers\BillingController::class, 'searchReturnedBill']);
     Route::post('billing/search-all-pending-bill', [\App\Http\Controllers\BillingController::class, 'searchAllPendingBills']);
     Route::post('billing/search-outstanding', [\App\Http\Controllers\BillingController::class, 'searchOutstandingBills']);
-    Route::get('billing/print/{type}/{lga}', [\App\Http\Controllers\BillingController::class, 'showBillsForPrinting']);
+    Route::get('billing/print/{actionedBy}/{type}/{lga}/{classId}/{quantity}', [\App\Http\Controllers\BillingController::class, 'showBillsForPrinting']);
 
 
 
@@ -163,6 +165,7 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('/objection/detail/{requestId}', [\App\Http\Controllers\ObjectionController::class, 'showObjectionDetail']);
     Route::get('/objection/all/{status}/{limit}/{skip}', [\App\Http\Controllers\ObjectionController::class, 'showObjectionListByStatus']);
     Route::post('/submit-objection', [\App\Http\Controllers\ObjectionController::class, 'submitObjection']);
+    Route::post('objection/objection-search', [\App\Http\Controllers\ObjectionController::class, 'objectionSearch']);
 
     Route::post('objection/action-objection', [\App\Http\Controllers\ObjectionController::class, 'actionObjection']);
 
@@ -170,9 +173,31 @@ Route::group(['middleware' => 'api'], function(){
 
 
     #Export operations
+    Route::get('/export-download/{id}', function ($id) {
+        $record = \App\Models\ExportRecord::findOrFail($id);
+
+        if ($record->status !== 'completed') {
+            return response()->json(['error' => 'File not ready'], 400);
+        }
+
+        $filePath = "public/{$record->file_path}";
+
+        if (!Storage::exists($filePath)) {
+            return response()->json(['error' => 'File not found'], 404);
+        }
+
+        return response()->download(
+            storage_path("app/public/{$record->file_path}"),
+            basename($record->file_path),
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+        );
+    });
     Route::get('/export-bills/{user}/{type}', [\App\Http\Controllers\ExportController::class, 'exportExcel']);
+    Route::get('/export-status/{exportId}', [\App\Http\Controllers\ExportController::class, 'getExportStatus']);
     Route::get('/paid-bills-export/{user}/{type}', [\App\Http\Controllers\ExportController::class, 'exportPaidBills']);
     Route::post('/export-customer-report', [\App\Http\Controllers\ExportController::class, 'exportCustomerReport']);
+    Route::post('/export-bill-delivery-report', [\App\Http\Controllers\ExportController::class, 'exportBillDeliveryReport']);
+    Route::post('/export-bill-print-report', [\App\Http\Controllers\ExportController::class, 'exportBillPrintReport']);
     Route::post('/export-payment-report', [\App\Http\Controllers\ExportController::class, 'exportPaymentReport']);
     Route::get('/export-property-exception', [\App\Http\Controllers\ExportController::class, 'exportPropertyException']);
     Route::post('/export-workflow-report', [\App\Http\Controllers\ReportController::class, 'exportWorkflowReport']);
@@ -181,11 +206,14 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('/reconciliation-history', [\App\Http\Controllers\ReportController::class, 'showReconciliationHistory']);
     Route::get('/reconciliation-history/{uuid}', [\App\Http\Controllers\ReportController::class, 'showReconciliationHistoryDetail']);
     Route::post('/re-query-conciliation', [\App\Http\Controllers\ReportController::class, 'reQueryConciliation']);
+    Route::post('/manual-re-query-conciliation', [\App\Http\Controllers\ReportController::class, 'manualReQueryConciliation']);
     Route::post('/confirm-reconciliation', [\App\Http\Controllers\ReportController::class, 'handleConfirmReconciliationRequest']);
     Route::post('/purge-reconciliation', [\App\Http\Controllers\ReportController::class, 'handlePurgeReconciliationRequest']);
+    Route::post('/fetch-unreconciled-report', [\App\Http\Controllers\ReportController::class, 'handleUnreconciledReport']);
 
     Route::post('export-settlement-report', [\App\Http\Controllers\ExportController::class, 'exportSettlementReport']);
     Route::post('export-reconciliation-report', [\App\Http\Controllers\ExportController::class, 'exportReconciliationReport']);
+    Route::post('export-unreconciled-report', [\App\Http\Controllers\ExportController::class, 'exportUnreconciledReport']);
 
 
     #Users
@@ -236,6 +264,8 @@ Route::group(['middleware' => 'api'], function(){
 
     Route::group(['prefix'=>'reports'], function(){
         Route::post('/customer-statement', [\App\Http\Controllers\ReportController::class, 'handleCustomerStatementReport']);
+        Route::post('/bill-delivery-report', [\App\Http\Controllers\ReportController::class, 'handleBillDeliveryReport']);
+        Route::post('/bill-print-report', [\App\Http\Controllers\ReportController::class, 'handleBillPrintReport']);
         Route::post('/payment-report', [\App\Http\Controllers\ReportController::class, 'showPaymentReportPrint']);
         Route::post('/workflow', [\App\Http\Controllers\ReportController::class, 'workflowReport']);
         Route::post('/performance', [\App\Http\Controllers\ReportController::class, 'performanceReport']);

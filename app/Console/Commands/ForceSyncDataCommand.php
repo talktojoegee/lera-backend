@@ -192,6 +192,7 @@ class ForceSyncDataCommand extends Command
                                     'occupier' => $record->occupier_s,
                                     'property_address' => $record->prop_addre,
                                     'dep_id' => !empty($dep) ? $dep->id : Depreciation::orderBy('id', 'ASC')->first()->id, //depreciation
+                                    'distribution_code'=>$record->enum_cell_number ?? null,
                                 ]);
                                 DB::connection('pgsql')
                                     ->table('Land_Admin_New_Form')

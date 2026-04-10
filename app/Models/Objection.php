@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Objection extends Model
 {
@@ -66,4 +67,92 @@ class Objection extends Model
     public function getReliefs($ids){
         return Relief::whereIn('id', $ids)->get('item');
     }
+
+
+    public static function searchBills($keyword, $propertyUse, $status, $special){
+        return DB::table('billings')
+            ->leftJoin('property_lists', 'billings.property_id', '=', 'property_lists.id')
+            ->leftJoin('objections', 'objections.bill_id', '=', 'billings.id')
+            ->leftJoin('property_classifications', 'property_lists.class_id', '=', 'property_classifications.id')
+            ->select(
+                'billings.id as billId',
+                'billings.building_code as buildingCode',
+                'billings.status',
+                'billings.special',
+                'billings.property_use',
+                'billings.assessment_no',
+
+                'property_lists.property_name',
+                'property_lists.building_code',
+                'property_classifications.class_name as className',
+                'billings.assessment_no',
+                'billings.pav_code',
+                'billings.year',
+                'billings.zone_name as zone',
+                'billings.class_id',
+                'billings.property_id',
+                'billings.lga_id',
+                'billings.bill_amount as billAmount',
+                'billings.occupancy',
+                'billings.paid_amount as amountPaid',
+                'billings.assessed_value',
+                'billings.special',
+                'billings.status',
+                'billings.url',
+                'billings.property_id',
+                'billings.bill_rate as rate',
+                'objections.created_at as date',
+                'objections.request_id as requestId',
+            )
+            ->where('objections.status', $status)
+            ->whereIn('billings.property_use', $propertyUse)
+            ->where(function ($query) use ($keyword) {
+                $query->where('billings.assessment_no', 'LIKE', "%{$keyword}%")
+                    ->orWhere('billings.building_code', 'LIKE', "%{$keyword}%")
+                    ->orWhere('property_lists.property_name', 'LIKE', "%{$keyword}%")
+                    ->orWhere('property_lists.building_code', 'LIKE', "%{$keyword}%")
+                    ->orWhere('objections.request_id', 'LIKE', "%{$keyword}%");
+            })
+            ->distinct()
+            ->get();
+    }
 }
+/*
+ *
+
+
+
+
+assessedValue
+lgaName
+submittedBy
+reason
+year
+reliefs
+
+statusInt
+
+billEntryDate
+assessmentNo
+
+age
+pavCode
+payStatus
+
+
+objectionAssessValue
+objectionRate
+objectionAmount
+objectionStatus
+ownerName
+ownerEmail
+ownerMobileNo
+ownerKgTin
+actionedBy
+dateActioned
+authorizedBy
+authorizedDate
+approvedBy
+approvedDate
+attachments
+ */

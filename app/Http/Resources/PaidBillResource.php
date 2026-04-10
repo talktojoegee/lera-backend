@@ -26,6 +26,8 @@ class PaidBillResource extends JsonResource
             'zoneName'=>$this->getPropertyList->zone_name ?? '',
             'categoryName'=>$this->getPropertyList->getPropertyClassification->class_name ?? '',
             'owner'=>$this->getPropertyList->owner_name ?? '',
+
+            'kgTin'=>$this->getPropertyList->owner_kgtin ?? '-',
             'billAmount'=>$this->bill_amount,
             'balance'=>($this->bill_amount  - $payment),
             'lgaName'=>$this->getLGA->lga_name ?? 'N/A',

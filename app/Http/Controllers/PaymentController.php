@@ -9,14 +9,17 @@ use App\Models\KogiRemsNotification;
 use App\Models\Owner;
 use App\Models\PropertyList;
 use App\Traits\EmailTrait;
+use App\Traits\UtilityTrait;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Yabacon\Paystack;
 
 class PaymentController extends Controller
 {
     use EmailTrait;
+    use UtilityTrait;
 
     public $appToken = "b4234351ec7218cadf89300d2402e82b";
     public $selfServiceToken = "55f5ae74fdaeb019f432216cc89f4029";
@@ -61,130 +64,31 @@ class PaymentController extends Controller
                 'message' => 'Whoops! No record found.'
             ], 404);
         }else{
-            $billList = Billing::where('building_code', $bill->building_code)
-                ->where('year','<=', $bill->year)
-                ->where('paid', 0)
-                ->orderBy('id', 'ASC')
-                ->get();
-            if(!empty($billList)){
-                $transAmount = $request->amount;
-                foreach ($billList as $item){
-                    $paymentCode = substr(sha1(time()),31,40);
-                    $receiptNo = substr(sha1(time()),20,32);
-                    $balance = $item->bill_amount - $item->paid_amount;
-                    $transBalance = $transAmount - $balance;
-                    if($balance > 0){
-                        if($transAmount > $balance){
-                            $item->paid_amount += $balance;
-                            $item->payment_ref = $request->transRef;
-                            $item->paid = 1;
-                            $item->date_paid = now();
-                            $item->paid_by = $request->paidBy;
-                            $item->save();
-                        }
-                        else{
-                            if($transAmount > 0){
-                                $item->paid_amount += $transAmount;
-                                $item->payment_ref = $request->transRef;
-                                $item->save();
-                                if($item->paid_amount == $item->bill_amount){
-                                    $item->paid = 1;
-                                    $item->date_paid = now();
-                                    $item->paid_by = $request->paidBy;
-                                    $item->save();
-                                }
-                            }
-                        }
-                    }
-                    $transAmount = $transBalance;
-                }
-            }
+            $paymentCode = substr(sha1(time()),31,40);
+            $receiptNo = substr(sha1(time()),20,32);
+
+
+            $paymentData['payment_code'] = $paymentCode;
+            $paymentData['paid_by'] = $request->paidBy;
+            $paymentData['receipt_no'] = $receiptNo;
+            $paymentData['payment_ref']  = $request->transRef;
+            //$paymentData['assessment_no'] = $assessmentNo;
+            $paymentData['branch'] = 'Credo';
+            $paymentData['pay_mode'] = 'Webpay Credo';
+            $paymentData['customer_name'] = $request->name;
+            $paymentData['email'] = $request->email;
+            $paymentData['kg_tin'] = $request->kgtin;
+            $paymentData['trans_ref'] = $request->transRef ?? '';
+            $paymentData['reference'] = $request->reference ?? '';
+            $paymentData['trans_date'] = Carbon::parse(now())->format('Y-m-d');
+            //$paymentData['phone_number'] = $phoneNumber;
+            $paymentData['token'] = $request->appToken;
+            $paymentData['entry_date'] = Carbon::parse(now())->format('Y-m-d');
+            $paymentData['branch_name'] = 'Credo';
+            $paymentData['bank_name'] = 'Credo';
+
+            $this->handleBillPayment($bill->building_code, $request->amount,$paymentData);
         }
-
-        //log it
-        $rec = Billing::find($request->billId);
-        if(!empty($rec)){
-            BillPaymentLog::create([
-                'bill_master'=>$request->billId,
-                'paid_by'=>$request->paidBy,
-                'amount'=>$request->amount,
-                'trans_ref'=>$request->transRef,
-                'reference'=>$request->reference,
-                'receipt_no'=>$receiptNo,
-                'payment_code'=>$paymentCode ?? '',
-                'assessment_no'=>$item->assessment_no,
-
-                'building_code'=>$rec->building_code,
-                'lga_id'=>$rec->lga_id ?? '',
-                'ward'=>$rec->ward ?? '',
-                'zone'=>$rec->zone_name ?? '',
-
-                'bank_name'=>"Credo",
-                'branch_name'=>"Credo",
-                'pay_mode'=>"Webpay Credo",
-                'customer_name'=>$request->name,
-                'email'=>$request->email,
-                'kgtin'=>$request->kgtin,
-                "entry_date"=>Carbon::parse(now())->format('Y-m-d'),
-                "token"=>$request->appToken ?? ''
-            ]);
-            $data = [
-                "name"=>$request->name ?? '',
-                "receiptNo"=>$receiptNo,
-                "amount"=>$request->amount
-            ];
-          //  if(isset($request->email)) $this->sendEmail($request->email, 'Payment Acknowledgement', 'emails.receipt', $data);
-        }
-
-        //update property
-        $property = PropertyList::where('building_code', $bill->building_code)->first();
-        if(!empty($property)){
-            $property->owner_email = $request->email;
-            $property->owner_name = $request->name;
-            $property->owner_gsm = $request->mobileNo;
-            $property->owner_kgtin = $request->kgtin ?? null;
-            $property->save();
-        }
-        //update owner
-        if(!empty($property) && !empty($bill)){
-            $owner = Owner::where('kgtin', $request->kgtin)->first();
-            if(empty($owner)){
-                Owner::create([
-                    "email"=>$request->email,
-                    "kgtin"=>$request->kgtin,
-                    "name"=>$request->name,
-                    "telephone"=>$request->mobileNo,
-                    "lga_id"=>$bill->lga_id,
-                    "added_by"=>$request->paidBy,
-                    "res_address"=>$property->address ?? 'N/A'
-                ]);
-            }else{
-                $owner->email = $request->email;
-                $owner->kgtin = $request->kgtin;
-                $owner->name = $request->name;
-                $owner->telephone = $request->mobileNo;
-                $owner->lga_id = $bill->lga_id;
-                $owner->res_address = $property->address ?? 'N/A';
-                $owner->save();
-            }
-        }
-        //Kogi rems notification register
-        KogiRemsNotification::create([
-            "assessmentno"=>$bill->assessment_no,
-            "buildingcode"=>$bill->building_code,
-            "kgtin"=>$request->kgtin ?? null,
-            "name"=>$request->name,
-            "amount"=>$request->amount,
-            "phone"=>$request->mobileNo,
-            "email"=>$request->email,
-            "transdate"=>$request->transdate ?? now(),
-            "transRef"=>$request->reference,
-            "paymode"=>$request->paymode ?? "Credo",
-            "bank_name"=> "eTranzact",
-            "luc_amount"=>$bill->bill_amount,
-        ]);
-
-        NotifyKogiRemsJob::dispatch();
 
         return response()->json(['data'=>"Payment recorded"], 201);
 
@@ -232,153 +136,41 @@ class PaymentController extends Controller
             ], 404);
         }
 
-        $existingReference = BillPaymentLog::where("reference", $request->transRef)->first();
-
         if (empty($bill)) {
             return response()->json([
                 'message' => 'Whoops! No record found.'
             ], 404);
         }else{
+            $paymentCode = substr(sha1(time()),31,40);
+            $receiptNo = substr(sha1(time()),20,32);
 
-            if(!$existingReference){
-                $billList = Billing::where('building_code', $bill->building_code)
-                    ->where('year','<=', $bill->year)
-                    ->where('paid', 0)
-                    ->orderBy('id', 'ASC')
-                    ->get();
-                if(!empty($billList)){
-                    $transAmount = $request->amount;
-                    foreach ($billList as $item){
-                        $paymentCode = substr(sha1(time()),31,40);
-                        $receiptNo = substr(sha1(time()),20,32);
-                        $balance = $item->bill_amount - $item->paid_amount;
-                        $transBalance = $transAmount - $balance;
-                        if($balance > 0){
-                            if($transAmount > $balance){
-                                $item->paid_amount += $balance;
-                                $item->payment_ref = $request->transRef;
-                                $item->paid = 1;
-                                $item->date_paid = now();
-                                $item->paid_by = $request->paidBy;
-                                $item->save();
-                            }
-                            else{
-                                if($transAmount > 0){
-                                    $item->paid_amount += $transAmount;
-                                    $item->payment_ref = $request->transRef;
-                                    $item->save();
-                                    if($item->paid_amount == $item->bill_amount){
-                                        $item->paid = 1;
-                                        $item->date_paid = now();
-                                        $item->paid_by = $request->paidBy;
-                                        $item->save();
-                                    }
-                                }
-                            }
-                        }
-                        $transAmount = $transBalance;
-                    }
-                }
-            }
+            $paymentData['payment_code'] = $paymentCode;
+            $paymentData['paid_by'] = $request->paidBy;
+            $paymentData['receipt_no'] = $receiptNo;
+            $paymentData['payment_ref']  = $request->transRef;
+            //$paymentData['assessment_no'] = $assessmentNo;
+            $paymentData['branch'] = 'Credo';
+            $paymentData['pay_mode'] = 'Webpay Credo';
+            $paymentData['customer_name'] = $request->name;
+            $paymentData['email'] = $request->email;
+            $paymentData['kg_tin'] = $request->kgtin;
+            $paymentData['trans_ref'] = $request->transRef ?? '';
+            $paymentData['reference'] = $request->reference ?? '';
+            $paymentData['trans_date'] = Carbon::parse(now())->format('Y-m-d');
+            //$paymentData['phone_number'] = $phoneNumber;
+            $paymentData['token'] = $request->appToken;
+            $paymentData['entry_date'] = Carbon::parse(now())->format('Y-m-d');
+            $paymentData['branch_name'] = 'Credo';
+            $paymentData['bank_name'] = 'Credo';
 
-
-
-
-
+            $this->handleBillPayment($bill->building_code, $request->amount,$paymentData);
+            $data = [
+                "name"=>$request->name ?? '',
+                "receiptNo"=>$receiptNo,
+                "amount"=>$request->amount
+            ];
+            if(isset($request->email)) $this->sendEmail($request->email, 'Payment Acknowledgement', 'emails.receipt', $data);
         }
-
-        //log it
-        $ref = substr(sha1(time()),29,40);
-        $rec = Billing::where('assessment_no',$request->billId)->first();
-        if(!empty($rec)){
-            if(!$existingReference){
-                BillPaymentLog::create([
-                    'bill_master'=>$rec->id, //$request->billId,
-                    'paid_by'=>$request->paidBy,
-                    'amount'=>$request->amount,
-                    'trans_ref'=>$request->transRef ?? $ref,
-                    'reference'=>$request->transRef ?? $ref,
-                    'receipt_no'=>$receiptNo,
-                    'payment_code'=>$paymentCode ?? '',
-                    'assessment_no'=>$item->assessment_no,
-
-                    'building_code'=>$rec->building_code,
-                    'lga_id'=>$rec->lga_id ?? '',
-                    'ward'=>$rec->ward ?? '',
-                    'zone'=>$rec->zone_name ?? '',
-
-                    'bank_name'=>"Credo",
-                    'branch_name'=>"Credo",
-                    'pay_mode'=>"Webpay Credo",
-                    'customer_name'=>$request->name,
-                    'email'=>$request->email,
-                    'kgtin'=>$request->kgtin,
-                    "entry_date"=>Carbon::parse(now())->format('Y-m-d'),
-                    "token"=>$request->appToken ?? ''
-                ]);
-                $data = [
-                    "name"=>$request->name ?? '',
-                    "receiptNo"=>$receiptNo,
-                    "amount"=>$request->amount
-                ];
-                // if(isset($request->email)) $this->sendEmail($request->email, 'Payment Acknowledgement', 'emails.receipt', $data);
-            }
-
-        }
-
-        //update property
-        $property = PropertyList::where('building_code', $bill->building_code)->first();
-        if(!empty($property)){
-            $property->owner_email = $request->email;
-            $property->owner_name = $request->name;
-            $property->owner_gsm = $request->mobileNo;
-            $property->owner_kgtin = $request->kgtin ?? null;
-            $property->save();
-        }
-        //update owner
-        if(!empty($property) && !empty($bill)){
-            $owner = Owner::where('kgtin', $request->kgtin)->first();
-            if(empty($owner)){
-                Owner::create([
-                    "email"=>$request->email,
-                    "kgtin"=>$request->kgtin,
-                    "name"=>$request->name,
-                    "telephone"=>$request->mobileNo,
-                    "lga_id"=>$bill->lga_id,
-                    "added_by"=>$request->paidBy,
-                    "res_address"=>$request->address ?? 'N/A'
-                ]);
-            }else{
-                $owner->email = $request->email;
-                $owner->kgtin = $request->kgtin;
-                $owner->name = $request->name;
-                $owner->telephone = $request->mobileNo;
-                $owner->lga_id = $bill->lga_id;
-                $owner->res_address = $request->address ?? 'N/A';
-                $owner->save();
-            }
-        }
-        //Kogi rems notification register
-        if(!$existingReference){
-            KogiRemsNotification::create([
-                "assessmentno"=>$bill->assessment_no,
-                "buildingcode"=>$bill->building_code,
-                "kgtin"=>$request->kgtin ?? null,
-                "name"=>$request->name,
-                "amount"=>$request->amount,
-                "phone"=>$request->mobileNo,
-                "email"=>$request->email,
-                "transdate"=>$request->transdate ?? now(),
-                "transRef"=>$request->reference ?? $ref,
-                "paymode"=>$request->paymode ?? "Credo",
-                "bank_name"=> "eTranzact",
-                "luc_amount"=>$bill->bill_amount,
-            ]);
-
-            NotifyKogiRemsJob::dispatch();
-        }
-
-
         return response()->json(['data'=>"Payment recorded"], 201);
 
     }

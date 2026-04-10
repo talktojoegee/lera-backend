@@ -3,6 +3,7 @@
 namespace App\Imports;
 
 use App\Models\BillPaymentLog;
+use App\Models\PropertyList;
 use App\Models\Reconciliation;
 use Carbon\Carbon;
 use DateTime;
@@ -54,126 +55,114 @@ class ReconciliationReportImport implements ToModel, WithStartRow, WithMultipleS
         }
 
         try {
+            $entryDateSerial = $row[0];
+            $unixDate = ($entryDateSerial - 25569) * 86400;
+            $entryDate = date('Y-m-d', $unixDate);
+
+            $valueDateSerial = $row[2];
+            $unixDate = ($valueDateSerial - 25569) * 86400;
+            $valueDate = date('Y-m-d', $unixDate);
+
             $credit = floatval(preg_replace('/[^\d.]/', '', $row[4]));
-            if ($credit > 0){
-                $entryDateSerial = $row[0];
-                $unixDate = ($entryDateSerial - 25569) * 86400;
-                $entryDate = date('Y-m-d', $unixDate);
-
-                $valueDateSerial = $row[0];
-                $unixDate = ($valueDateSerial - 25569) * 86400;
-                $valueDate = date('Y-m-d', $unixDate);
-                [$assessmentNo, $payerName] = $this->extractDetails($row[1]);
-                if(!is_null($assessmentNo)){
-                    $billPaymentLog =  BillPaymentLog::where('assessment_no', $assessmentNo)->where('amount', $credit)->first();
-                    if(!empty($billPaymentLog)){
-                        Reconciliation::create([
-                            "entry_date"=>$entryDate,
-                            "details"=>$row[1],
-                            "value_date"=>$valueDate,
-                            "debit"=>$row[3],
-                            "credit"=>$row[4],
-                            "balance"=>$row[5],
-                            "user_id"=>$this->auth,
-                            "month_year"=>$this->monthYear,
-                            "month"=>date("m",strtotime($this->monthYear)),
-                            "year"=>date("Y",strtotime($this->monthYear)),
-                            "payer_name"=>$payerName,
-                            "assessment_no"=>$assessmentNo,
-                            "reconciled"=>1,//matched
-                            "reason"=>"Match found!",
-                            "master_id"=>$this->masterId,
-                            "building_code"=>$billPaymentLog->building_code,
-                        ]);
-                    }else{
-                        Reconciliation::create([
-                            "entry_date"=>$entryDate,
-                            "details"=>$row[1],
-                            "value_date"=>$valueDate,
-                            "debit"=>$row[3],
-                            "credit"=>$row[4],
-                            "balance"=>$row[5],
-                            "user_id"=>$this->auth,
-                            "month_year"=>$this->monthYear,
-                            "month"=>date("m",strtotime($this->monthYear)),
-                            "year"=>date("Y",strtotime($this->monthYear)),
-                            "payer_name"=>$payerName,
-                            "assessment_no"=>$assessmentNo,
-                            "reconciled"=>0,//mis-matched
-                            "reason"=>"Could not find either matching assessment no or amount!",
-                            "master_id"=>$this->masterId,
-                        ]);
-                    }
-
+            $debit = floatval(preg_replace('/[^\d.]/', '', $row[3]));
+            [$assessmentNo, $payerName] = $this->extractDetails((string)$row[1]);
+            $matched = false;
+            $assessmentNoFlag = false;
+            $creditFlag = false;
+            $property = null;
+            $reason = null;
+            $billPaymentLog =  BillPaymentLog::where('assessment_no', $assessmentNo)
+                ->where('reconciled', 0)
+                ->first();
+            $payment =  BillPaymentLog::where('assessment_no', $assessmentNo)
+                ->where('amount',$credit)
+                ->where('matched', 0)
+                ->where('reconciled', 0)->first();
+            if($payment){
+                $creditFlag = true;
+                $assessmentNoFlag = true;
+            }
+            if ( !empty($billPaymentLog)) {
+                if ($creditFlag) {
+                    $reason = "Match found!";
+                } else {
+                    $reason = "Assessment number found! Amount not found!";
                 }
-
-               // }
+            } else {
+                $reason = "Assessment number not found!";
             }
 
+            if( $assessmentNoFlag && $creditFlag ) {
+                $property = PropertyList::where('building_code', $billPaymentLog->building_code)->first();
+            }
+
+           $record =  Reconciliation::create([
+                "entry_date"=>$entryDate,
+                "details"=>$row[1],
+                "value_date"=>$valueDate,
+                "debit"=>0,
+                "credit"=>0,
+                "bank_amount"=>$credit > 0 ? $credit : $debit,
+                "balance"=>$row[5],
+                "user_id"=>$this->auth,
+                "month_year"=>$this->monthYear,
+                "month"=>date("m",strtotime($this->monthYear)),
+                "year"=>date("Y",strtotime($this->monthYear)),
+                "payer_name"=> $payerName ?? 'N/A',
+                "assessment_no"=>  $assessmentNo ?? 'N/A' ,
+                "reconciled"=> 0,
+                "reason"=>$reason,
+                "master_id"=>$this->masterId,
+                "building_code"=> $creditFlag ? $property->building_code : 'N/A',
+                "property_name"=> $creditFlag ? $property->property_name : 'N/A',
+                "dc_type"=>$credit > 0 ? 2 : 1,
+                "matched"=> $creditFlag ? 1 : 0,
+               "bill_payment_assessment_no"=>!empty($billPaymentLog) ? $billPaymentLog->assessment_no : 'N/A',
+               "billing_amount"=>!empty($billPaymentLog) ? $billPaymentLog->amount : 0,
+               "bill_payment_building_code"=>!empty($billPaymentLog) ? $billPaymentLog->building_code : 'N/A',
+            ]);
+        if($creditFlag){
+            $payment->matched = 1;
+            $payment->reconcile_detail_id = $record->id;
+            $payment->save();
+        }
         } catch (\Exception $e) {
             Log::error("Import error: " . $e->getMessage());
         }
     }
 
-    private function extractDetails0($details) {
-        $details = strtoupper($details);
-        $prefixes = ['PAYOUTLET-', 'PAYOUTLET_', 'BANK-', 'WEB-', 'CREDO:;WEB-'];
-
-        foreach ($prefixes as $prefix) {
-            if (strpos($details, $prefix) !== false) {
-                // Remove the prefix
-                $parts = explode($prefix, $details, 2);
-                if (count($parts) < 2) return [null, null];
-                $afterPrefix = $parts[1];
-
-                // Split by dash or underscore, whichever comes next
-                if (strpos($afterPrefix, '-') !== false) {
-                    $segments = explode('-', $afterPrefix, 2);
-                } elseif (strpos($afterPrefix, '_') !== false) {
-                    $segments = explode('_', $afterPrefix, 2);
-                } else {
-                    return [null, null];
-                }
-
-                $assessmentNo = trim($segments[0]);
-                $customerName = isset($segments[1]) ? trim($segments[1]) : null;
-
-                return [$assessmentNo, $customerName];
-            }
+    public function extractDetails($details)
+    {
+        if (empty($details) || !is_string($details)) {
+            return [null, null];
         }
 
-        return [null, null];
-    }
-
-    private function extractDetails($details) {
+        $original = $details;
         $details = strtoupper(trim($details));
+        preg_match('/(?:^|[^A-Z0-9])([A-Z0-9]{13})(?:[^A-Z0-9]|$)/', $details, $matches);
+        $assessmentNo = $matches[1] ?? null;
 
-        // First, try to match assessment number pattern
-        preg_match_all('/[A-Z0-9]{12,}/', $details, $matches);
-        $assessmentNo = $matches[0][0] ?? null;
-
-        // Now extract name by removing the assessment no and known prefixes
-        $name = $details;
-
-        // Remove known prefixes
-        $prefixes = ['PAYOUTLET-', 'PAYOUTLET_', 'BANK-', 'WEB-', 'CREDO:;WEB-', 'PAYOUTLET '];
+        if (!$assessmentNo) {
+            return [null, null];
+        }
+        $name = str_ireplace($assessmentNo, '', $original);
+        $prefixes = [
+            'PAYOUTLET-', 'PAYOUTLET_', 'BANK-', 'WEB-', 'CREDO:;WEB-',
+            'PAYOUTLET', 'Payoutlet-', 'payoutlet-', 'PAYOUTLET:;', 'PAYOUTLET:', 'CREDO:;WEB'
+        ];
         foreach ($prefixes as $prefix) {
-            if (strpos($name, $prefix) !== false) {
-                $name = str_replace($prefix, '', $name);
-            }
+            $name = str_ireplace($prefix, '', $name);
         }
-
-        // Remove assessment number
-        if ($assessmentNo) {
-            $name = str_replace($assessmentNo, '', $name);
-        }
-
-        // Clean up leftover dashes, underscores, or colons
-        $name = preg_replace('/[-_:]+/', ' ', $name);
+        $name = preg_replace('/[-_:;]+/', ' ', $name);
         $name = trim($name);
 
-        return [$assessmentNo, $name];
+        return [strtoupper($assessmentNo), $name ?: null];
     }
+
+
+
+
+
 
 
 }

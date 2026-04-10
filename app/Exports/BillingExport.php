@@ -31,21 +31,32 @@ class BillingExport implements FromQuery, WithMapping, WithHeadings, WithChunkRe
 
         $propertyUse = explode(',', $user->sector);
 
+        $baseQuery = Billing::query()
+            ->with([
+                'getPropertyClassification:id,class_name',
+                'getChargeRate:id,occupancy',
+                'getPropertyList:id,property_name',
+            ])
+            ->select([
+                'id', 'assessment_no', 'building_code', 'year', 'pav_code', 'zone_name',
+                'class_id', 'occupancy', 'cr', 'assessed_value', 'bill_amount', 'ba',
+                'rr', 'dr', 'lr', 'la', 'br', 'property_use', 'property_id', 'return_reason',
+                'status', 'special', 'paid', 'returned'
+            ]);
+
         switch ($this->type) {
-            /*case 'normal-outstanding':
-                return Billing::where('status', 4)->where('special', 0)->whereIn('property_use', $propertyUse)->orderByDesc('id');*/
             case 'special-outstanding':
-                return Billing::where('status', 4)->where('special', 1)->whereIn('property_use', $propertyUse)->orderByDesc('id');
+                return $baseQuery->where('status', 4)->where('special', 1)->whereIn('property_use', $propertyUse)->orderByDesc('id');
             case 'all-pending':
-                return Billing::where('status', 0)->whereIn('property_use', $propertyUse)->orderByDesc('id');
+                return $baseQuery->where('status', 0)->whereIn('property_use', $propertyUse)->orderByDesc('id');
             case 'returned-normal':
-                return Billing::where('returned', 1)->where('special', 0)->whereIn('property_use', $propertyUse)->orderByDesc('id');
+                return $baseQuery->where('returned', 1)->where('special', 0)->whereIn('property_use', $propertyUse)->orderByDesc('id');
             case 'returned-special':
-                return Billing::where('returned', 1)->where('special', 1)->whereIn('property_use', $propertyUse)->orderByDesc('id');
+                return $baseQuery->where('returned', 1)->where('special', 1)->whereIn('property_use', $propertyUse)->orderByDesc('id');
             case 'paid-bills':
-                return Billing::where('status', 4)->where('paid', 1)->where('special', 0)->whereIn('property_use', $propertyUse)->orderByDesc('id');
+                return $baseQuery->where('status', 4)->where('paid', 1)->where('special', 0)->whereIn('property_use', $propertyUse)->orderByDesc('id');
             case 'si-paid-bills':
-                return Billing::where('status', 4)->where('paid', 1)->where('special', 1)->whereIn('property_use', $propertyUse)->orderByDesc('id');
+                return $baseQuery->where('status', 4)->where('paid', 1)->where('special', 1)->whereIn('property_use', $propertyUse)->orderByDesc('id');
             default:
                 abort(400, 'Invalid export type.');
         }
@@ -58,8 +69,8 @@ class BillingExport implements FromQuery, WithMapping, WithHeadings, WithChunkRe
             $bill->building_code,
             $bill->year,
             $bill->pav_code,
-            $bill->zone_name,
-            $bill->getPropertyClassification->class_name,
+            $bill->zone_name ?? '',
+            $bill->getPropertyClassification->class_name ?? '',
             $bill->getChargeRate->occupancy ?? '',
             $bill->cr,
             $bill->assessed_value ?? 0,
@@ -90,7 +101,7 @@ class BillingExport implements FromQuery, WithMapping, WithHeadings, WithChunkRe
 
     public function chunkSize(): int
     {
-        return 1000;
+        return 500;
     }
 
     public function toResponse($request)

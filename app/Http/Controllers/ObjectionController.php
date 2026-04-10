@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\ObjectionResource;
+use App\Http\Resources\ObjectionSearchResource;
 use App\Models\Billing;
 use App\Models\Lga;
 use App\Models\Objection;
@@ -83,9 +84,23 @@ class ObjectionController extends Controller
         $records = Objection::fetchObjectionsByStatus($status, $limit, $skip);
         return response()->json([
             'data'=>ObjectionResource::collection($records),
-            'total'=>Objection::fetchObjectionByParam($status)
+            'total'=>Objection::fetchObjectionByParam($status)->count()
         ]);
     }
+    public function objectionSearch(Request $request){
+        $keyword = $request->keyword;
+        $user = User::find($request->actionedBy);
+        $status = $request->status ?? 0;
+        $special = $request->special ?? 0;
+        if(!$keyword){
+            return response()->json([
+                "errors"=>"No search term submitted"
+            ],404);
+        }
+        $propertyUse = explode(',', $user->sector);
+        return response()->json(['data'=>ObjectionSearchResource::collection(Objection::searchBills($keyword, $propertyUse, $status, $special)) ]);
+    }
+
 
 
     public function showObjectionDetail(Request $request){
@@ -135,7 +150,7 @@ class ObjectionController extends Controller
 
         }
         if($request->action == 3){ //authorization
-            $record->status = $request->action;
+            $record->status = 4;//$request->action;
             $record->luc_amount = $request->lucAmount ?? 0;
             $record->rate = $request->chargeRate ?? 0;
             $record->assess_value = $request->assessedValue ?? 0;
@@ -174,7 +189,7 @@ class ObjectionController extends Controller
 
                 $billing->year = $bill->year;
                 $billing->entry_date = $bill->entry_date;
-                $billing->billed_by = 1;
+                $billing->billed_by = $request->actionedBy;
                 $billing->paid = 0;
                 $billing->paid_amount = 0.00;
                 $billing->objection = 0;

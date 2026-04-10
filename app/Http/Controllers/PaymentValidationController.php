@@ -8,19 +8,21 @@ use App\Models\BillPaymentLog;
 use App\Models\KogiRemsNotification;
 use App\Models\Owner;
 use App\Models\PropertyList;
+use App\Traits\UtilityTrait;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class PaymentValidationController extends Controller
 {
+    use UtilityTrait;
     public $eTranzactToken = "ytw6h351ec7897wef89300d240u87n";
     public function validatePayment(Request $request)
     {
         $payeeId = $request->query('PAYEE_ID');
         //$paymentType = $request->query('PAYMENT_TYPE');
         if (empty($payeeId)) {
-            return  response("PAYEE_ID=$payeeId&~PAYMENT_TYPE=LUC&~FeeStatus=PAYEE ID is Empty");
+            return  response("PAYEE_ID=$payeeId&~PAYMENT_TYPE=LUC&~FeeStatus=PAYEE ID is Empty", 400);
         }
         $bill = Billing::where('assessment_no', $payeeId)
             ->where('objection', 0)
@@ -33,7 +35,7 @@ class PaymentValidationController extends Controller
                     "PayeeID" => $payeeId,
                     "FeeStatus" => "Invalid Payee ID "
                 ]
-            ]);
+            ],400);
         }
 
         /* if ($bill->status != 4) { //approved
@@ -58,22 +60,27 @@ class PaymentValidationController extends Controller
                     "PhoneNumber" => $bill->getPropertyList->owner_gsm ?? '',
                     "KG_TIN"=>$bill->getPropertyList->owner_kgtin ?? '',
                     "ADDRESS"=>$bill->getPropertyList->property_address ?? '',
+                    "PropertyImage"=>$bill->getPropertyList->image ?? '',
                 ]
             ]);
         }
         /*
          * KG_TIN, EMAIL, PHONE, NAME, ADDRESS
          */
+        $billAmount = ($bill->bill_amount - $bill->paid_amount);
+        $bbf = $this->balanceBroughtForward($bill->year, $bill->building_code) ?? 0;
+        $grandTotal = $bbf + $billAmount;
         return response()->json([
             "FeeRequest" => [
                 "PayeeName" => $bill->getPropertyList->owner_name ?? '',
                 "PayeeID" => $bill->assessment_no,
-                "Amount" => number_format(($bill->bill_amount - $bill->paid_amount),2, '.',''),
+                "Amount" => number_format($grandTotal,2, '.',''),
                 "FeeStatus" => "Fee has not yet been paid",
                 "Email" => $bill->email ?? '',
                 "PhoneNumber" => $bill->getPropertyList->owner_gsm ?? '',
                 "KG_TIN"=>$bill->getPropertyList->owner_kgtin ?? '',
                 "ADDRESS"=>$bill->getPropertyList->property_address ?? '',
+                "PropertyImage"=>$bill->getPropertyList->image ?? '',
             ]
         ]);
     }
@@ -104,6 +111,7 @@ class PaymentValidationController extends Controller
             $token = $request->PASSWORD;
             $transRef = $request->RECEIPT_NO ?? 'TEST';
             $transDate = $request->TRANS_DATE ?? now();
+            $currentYear = date('Y');
 
 
 
@@ -146,67 +154,53 @@ class PaymentValidationController extends Controller
                     ]
                 ]);
             }else{
-                $billList = Billing::where('building_code', $bill->building_code)
-                    ->where('year','<=', $bill->year)
-                    ->where('paid', 0)
-                    ->orderBy('id', 'ASC')
-                    ->get();
-                if(!empty($billList)){
-                    foreach ($billList as $item){
-                        $balance = $item->bill_amount - $item->paid_amount;
-                        $transBalance = $transAmount - $balance;
-                        if($balance > 0){
-                            if($transAmount > $balance){
-                                $item->paid_amount += $balance;
-                                $item->payment_ref = $paymentCode;
-                                $item->paid = 1;
-                                $item->date_paid = now();
-                                $item->paid_by = 1;
-                                $item->save();
-                                $this->_registerInPaymentLog($item->id, 5, $balance, $receiptNo, $paymentCode,
-                                    $assessmentNo, $bankName, $branch, $payMode, $customerName,
-                                    $email, $kgTin, $transRef, $transDate, $phoneNumber);
-                            }
-                            else{
-                                if($transAmount > 0){
-                                    $item->paid_amount += $transAmount;
-                                    $item->payment_ref = $paymentCode;
-                                    $item->save();
-                                    if($item->paid_amount == $item->bill_amount){
-                                        $item->paid = 1;
-                                        $item->date_paid = now();
-                                        $item->paid_by = 1;
-                                        $item->save();
-                                    }
-                                    $this->_registerInPaymentLog($item->id, 5, $transAmount, $receiptNo, $paymentCode,
-                                        $assessmentNo, $bankName, $branch, $payMode, $customerName,
-                                        $email, $kgTin, $transRef, $transDate, $phoneNumber);
-                                }
-                            }
-                        }
-                        $transAmount = $transBalance;
-                    }
-                }
+                $paymentData['payment_code'] = $paymentCode;
+                $paymentData['paid_by'] = 5;
+                $paymentData['receipt_no'] = $receiptNo;
+                $paymentData['payment_ref']  = $paymentCode;
+                $paymentData['assessment_no'] = $assessmentNo;
+                $paymentData['bank_name'] = $bankName;
+                $paymentData['branch'] = $branch;
+                $paymentData['pay_mode'] = $payMode;
+                $paymentData['customer_name'] = $customerName;
+                $paymentData['email'] = $email;
+                $paymentData['kg_tin'] = $kgTin;
+                $paymentData['trans_ref'] = $transRef;
+                $paymentData['trans_date'] = $transDate;
+                $paymentData['phone_number'] = $phoneNumber;
+                $paymentData['token'] = $token;
+
+                $this->handleBillPayment($bill->building_code, $transAmount, $paymentData);
             }
             DB::commit();
             return  response("true");
         }catch (\Exception $e){
             DB::rollBack();
-            return  response("false");
+            return  response("false $e");
         }
     }
 
 
-    private function _registerInPaymentLog($billMasterId, $paidBy = 5, $amount, $receiptNo, $paymentCode,
+    private function _registerInPaymentLog($billMasterId, $paidBy, $amount, $receiptNo, $paymentCode,
                                            $assessmentNo, $bankName, $branchName, $payMode, $customerName,
                                            $email, $kgTin, $transRef, $transDate, $phoneNumber){
         $bill = Billing::find($billMasterId);
-        if($bill){
+        if (!$bill) {
+            return;
+        }
+
+        $existingLogsCount = BillPaymentLog::where('trans_ref', $transRef)->count();
+        $uniqueReceiptNo = $receiptNo;
+
+        if ($existingLogsCount > 0) {
+            $uniqueReceiptNo = $receiptNo . '_' . ($existingLogsCount + 1);
+        }
+        //if($bill){
             BillPaymentLog::create([
                 "bill_master"=>$billMasterId,
                 "paid_by"=>$paidBy,
                 "amount"=>$amount,
-                "receipt_no"=>$receiptNo,
+                "receipt_no"=>$uniqueReceiptNo,
                 "payment_code"=>$paymentCode,
                 "assessment_no"=>$assessmentNo,
 
@@ -280,8 +274,20 @@ class PaymentValidationController extends Controller
 
             NotifyKogiRemsJob::dispatch();
 
-        }
+        //}
 
+    }
+
+    public function balanceBroughtForward(int $year, string $buildingCode): float
+    {
+        return Billing::where('building_code', $buildingCode)
+            ->where('year', '<', $year)
+            ->where(function ($query) {
+                $query->where('paid', 0)
+                    ->orWhereColumn('paid_amount', '<', 'bill_amount');
+            })
+            ->select(DB::raw('SUM(bill_amount - paid_amount) as balance'))
+            ->value('balance') ?? 0.0;
     }
 
 }

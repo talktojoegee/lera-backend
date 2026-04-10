@@ -28,4 +28,14 @@ class PropertyAssessmentValue extends Model
     public function getZonesByIds($ids){
         return Zone::whereIn('id', $ids)->pluck('sub_zone');
     }
+
+    public static function getDistinctPropertyUses()
+    {
+        return PropertyAssessmentValue::query()
+            ->select('property_use')
+            ->whereNotNull('property_use')
+            ->groupBy('property_use')
+            ->orderBy('property_use')
+            ->get();
+    }
 }

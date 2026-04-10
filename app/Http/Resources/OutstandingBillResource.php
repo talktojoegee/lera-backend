@@ -95,6 +95,7 @@ class OutstandingBillResource extends JsonResource
 
             'returnedBy'=>$this->getReturnedBy->name ?? '',
             'dateReturned'=>date('d M, Y h:ia', strtotime($this->date_returned)),
+            'printed'=>$this->printed,
 
         ];
     }

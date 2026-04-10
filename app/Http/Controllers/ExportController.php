@@ -2,19 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\BillDeliveryExport;
 use App\Exports\BillingExport;
+use App\Exports\BillPrintReportExport;
 use App\Exports\CustomerReportExport;
 use App\Exports\PaidBillExport;
 use App\Exports\PaymentReportExport;
 use App\Exports\PropertyExceptionExport;
 use App\Exports\ReconciliationReportExport;
 use App\Exports\SettlementReportExport;
+use App\Exports\UnreconciledReportExport;
 use App\Http\Resources\CustomerStatementResource;
 use App\Http\Resources\LGAResource;
 use App\Http\Resources\SettlementReportResource;
+use App\Jobs\BulkExportBillByTypeJob;
 use App\Jobs\ExportBillingJob;
 use App\Models\Billing;
 use App\Models\BillPaymentLog;
+use App\Models\ExportRecord;
 use App\Models\Lga;
 use App\Models\Reconciliation;
 use App\Models\ReconciliationMaster;
@@ -27,7 +32,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ExportController extends Controller
 {
-    public function exportExcel(Request $request)
+/*    public function exportExcel(Request $request)
     {
 
 
@@ -37,7 +42,46 @@ class ExportController extends Controller
             return Excel::download(new PaidBillExport($userId,$type), 'billings.xlsx');
         }
         return Excel::download(new BillingExport($userId,$type), 'billings.xlsx');
+    }*/
+    public function exportExcel(Request $request)
+    {
+        $type = $request->type;
+        $userId = $request->user;
+        $fileName = 'billings_' . now()->format('Y_m_d_His') . '.xlsx';
+        $path = "exports/{$fileName}";
+
+        $record = ExportRecord::create([
+            'user_id' => $userId,
+            'type' => $type,
+            'file_path' => $path,
+            'status' => 'queued',
+            'message' => 'Export has been queued successfully.'
+        ]);
+
+        BulkExportBillByTypeJob::dispatch($userId, $type, $path, $record->id)
+            ->onQueue('data_sync_queue');
+
+        return response()->json([
+            'message' => 'Export request queued successfully',
+            'status' => 'queued',
+            'file' => asset('storage/' . $path),
+            'export_id' => $record->id
+        ]);
+
+
     }
+    public function getExportStatus($id)
+    {
+        $record = ExportRecord::findOrFail($id);
+
+        return response()->json([
+            'status' => $record->status,
+            'message' => $record->message,
+            'file_url' => $record->status === 'completed' ? asset("storage/{$record->file_path}") : null,
+        ]);
+    }
+
+
 
     public function exportPaidBills(Request $request)
     {
@@ -95,6 +139,95 @@ class ExportController extends Controller
 
 
         return Excel::download(new CustomerReportExport($formattedData, $buildingCode, $from, $to), 'customer-report.xlsx');
+    }
+    public function exportBillDeliveryReport(Request $request)
+    {
+        $validator = Validator::make($request->all(),[
+            'lga'=>'required',
+            'from'=>'required',
+            'to'=>'required'
+        ],[
+            'lga.required'=>"LGA is required" ,
+            'from.required'=>"Set a start date" ,
+            'to.required'=>"Set an end date"
+        ]);
+        if($validator->fails() ){
+            return response()->json([
+                "errors"=>$validator->messages()
+            ],422);
+        }
+
+        $lga = $request->lga ;
+        $from = $request->from ;
+        $to = $request->to ;
+        $bills =  Billing::getBillDeliveryReportNoPagination($lga, $from, $to);
+        $formattedData = [];
+        foreach ($bills as $index => $billing) {
+            $formattedData[] = [
+                '#' => $index + 1,
+                'DATE' => date('d M, Y', strtotime($billing->entry_date)),
+                'ASSESSMENT NO.'=> $billing->assessment_no,
+                'BUILDING CODE'=> $billing->building_code,
+                'YEAR'=> $billing->year,
+                'BILLING CODE'=> $billing->pav_code,
+                'ZONE'=> $billing->zone_name ?? '',
+                'CATEGORY'=> $billing->getPropertyClassification->class_name ?? '',
+                'PROPERTY USE'=> $billing->property_use,
+                'OCCUPANCY'=> $billing->property_use ?? '',
+                'PROPERTY NAME'=> $billing->getPropertyList->property_name ?? '',
+                'CHARGE RATE'=> $billing->cr ?? '',
+                'ASSESSED MKT. VALUE'=> number_format($billing->assessed_value, 2),
+                '(₦)LUC' => number_format($billing->bill_amount, 2),
+            ];
+        }
+
+
+        return Excel::download(new BillDeliveryExport($formattedData, $lga, $from, $to), 'Bill-Delivery-report.xlsx');
+    }
+
+    public function exportBillPrintReport(Request $request)
+    {
+        $validator = Validator::make($request->all(),[
+            'lga'=>'required',
+            'from'=>'required',
+            'to'=>'required'
+        ],[
+            'lga.required'=>"LGA is required" ,
+            'from.required'=>"Set a start date" ,
+            'to.required'=>"Set an end date"
+        ]);
+        if($validator->fails() ){
+            return response()->json([
+                "errors"=>$validator->messages()
+            ],422);
+        }
+
+        $lga = $request->lga ;
+        $from = $request->from ;
+        $to = $request->to ;
+        $bills =  Billing::getBillPrintReportNoPagination($lga, $from, $to);
+        $formattedData = [];
+        foreach ($bills as $index => $billing) {
+            $formattedData[] = [
+                '#' => $index + 1,
+                'DATE' => date('d M, Y', strtotime($billing->entry_date)),
+                'ASSESSMENT NO.'=> $billing->assessment_no,
+                'BUILDING CODE'=> $billing->building_code,
+                'YEAR'=> $billing->year,
+                'BILLING CODE'=> $billing->pav_code,
+                'ZONE'=> $billing->zone_name ?? '',
+                'CATEGORY'=> $billing->getPropertyClassification->class_name ?? '',
+                'PROPERTY USE'=> $billing->property_use,
+                'OCCUPANCY'=> $billing->property_use ?? '',
+                'PROPERTY NAME'=> $billing->getPropertyList->property_name ?? '',
+                'CHARGE RATE'=> $billing->cr ?? '',
+                'ASSESSED MKT. VALUE'=> number_format($billing->assessed_value, 2),
+                '(₦)LUC' => number_format($billing->bill_amount, 2),
+            ];
+        }
+
+
+        return Excel::download(new BillPrintReportExport($formattedData, $lga, $from, $to), 'Bill-Print-report.xlsx');
     }
 
 
@@ -239,6 +372,31 @@ class ExportController extends Controller
         $details = Reconciliation::where('master_id', $record->id)->get();
 
         return Excel::download(new ReconciliationReportExport($details), 'reconciliation_report.xlsx');
+    }
+
+    public function exportUnreconciledReport(Request $request){
+        $validator = Validator::make($request->all(), [
+            "month" => "required",
+            "year" => "required",
+        ], [
+            "month.required" => "Field is required",
+            "year.required" => "Field is required"
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                "errors" => $validator->messages(),
+                "message"=>"Validation error",
+                "detail"=>"All fields are required."
+            ], 422);
+        }
+        $month = $request->month;
+        $year = $request->year;
+        $records = Reconciliation::where('month', $month)
+            ->where('year', $year)
+            ->where('reconciled', 0)
+            ->get();
+        return Excel::download(new UnreconciledReportExport($records), 'unreconciled_report.xlsx');
     }
 
 }

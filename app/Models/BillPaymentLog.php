@@ -26,7 +26,10 @@ class BillPaymentLog extends Model
         "building_code",
         "lga_id",
         "entry_date",
-        "token"
+        "token",
+        "matched",
+        "is_discount",
+        "discount"
     ];
 
 
@@ -49,18 +52,18 @@ class BillPaymentLog extends Model
     public static function getPaymentReportByLGADateRange($lga, $from, $to){
         return BillPaymentLog::when($lga > 0, function($query) use ($lga) {
             return $query->where('lga_id', $lga);
-        })->whereBetween('entry_date',[$from, $to] )
+        })->where('is_discount', 0)->whereBetween('entry_date',[$from, $to] )
             ->orderBy('id', 'ASC')
             ->get();
     }
     public static function getPaymentReportByWardDateRange($ward, $from, $to){
-        return BillPaymentLog::where('ward', $ward)->whereBetween('entry_date',[$from, $to] )
+        return BillPaymentLog::where('ward', $ward)->where('is_discount', 0)->whereBetween('entry_date',[$from, $to] )
             ->orderBy('id', 'ASC')
             ->get();
     }
 
     public static function getPaymentReportByZoneDateRange($zone, $from, $to){
-        return BillPaymentLog::where('zone', $zone)->whereBetween('entry_date',[$from, $to] )
+        return BillPaymentLog::where('zone', $zone)->where('is_discount', 0)->whereBetween('entry_date',[$from, $to] )
             ->orderBy('id', 'ASC')
             ->get();
     }

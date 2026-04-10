@@ -32,17 +32,128 @@ class GISQuickFixWithFileCommand extends Command
      */
     public function handle()
     {
-        $path =  storage_path('app/public/delete-insert.csv');
+        $properties = PropertyList::/*whereNotNull('distribution_code')->*/orderBy('id', 'DESC')->get();
+
+       /*
+        *  foreach ($properties as $property){
+            $propertyId = $property->building_code;
+            $result = DB::connection('pgsql')->selectOne("
+    WITH intersected_cells AS (
+        SELECT
+            lp.prop_id,
+            ec.enum_cell_number,
+            lp.lga_abb,
+            lp.lga,
+            CASE
+                WHEN ec.enum_cell_number ILIKE '%' || lp.lga_abb || '%' THEN 1
+                WHEN ec.enum_cell_number ILIKE '%' || lp.lga || '%' THEN 2
+                ELSE 3
+            END AS match_rank
+        FROM
+            public.\"Land_Admin_New_Form\" lp
+        JOIN
+            public.enumeration_cells ec
+            ON ST_Intersects(lp.geom, ec.geom)
+        WHERE
+            lp.completeness_status = 'Complete'
+    ),
+    ranked_cells AS (
+        SELECT *,
+            ROW_NUMBER() OVER (PARTITION BY prop_id ORDER BY match_rank, enum_cell_number) AS rn
+        FROM intersected_cells
+    )
+    SELECT
+        prop_id,
+        enum_cell_number
+    FROM
+        ranked_cells
+    WHERE
+        rn = 1
+        AND prop_id = ?
+    ORDER BY
+        enum_cell_number
+", [$propertyId]);
+            if(!empty($result)){
+                $property->distribution_code = $result->enum_cell_number;
+                $property->save();
+                echo "Property ID:: $propertyId Distribution Code:: $result->enum_cell_number \n";
+            }
+        } */
+        foreach ($properties as $property){
+            $propertyId = $property->building_code;
+            $result = DB::connection('pgsql')->selectOne("
+    WITH intersected_cells AS (
+        SELECT
+            lp.prop_id,
+            ec.enum_cell_number,
+            lp.lga_abb,
+            lp.lga,
+            ST_Area(ec.geom) AS cell_area,
+            CASE
+                WHEN ec.enum_cell_number ILIKE '%' || lp.lga_abb || '%' THEN 1
+                WHEN ec.enum_cell_number ILIKE '%' || lp.lga || '%' THEN 2
+                ELSE 3
+            END AS match_rank
+        FROM
+            public.\"Land_Admin_New_Form\" lp
+        JOIN
+            public.enumeration_cells ec
+            ON ST_Intersects(lp.geom, ec.geom)
+        WHERE
+            lp.completeness_status = 'Complete'
+    ),
+    ranked_cells AS (
+        SELECT *,
+            ROW_NUMBER() OVER (PARTITION BY prop_id ORDER BY match_rank, cell_area ASC, enum_cell_number) AS rn
+        FROM intersected_cells
+    )
+    SELECT
+        prop_id,
+        enum_cell_number
+    FROM
+        ranked_cells
+    WHERE
+        rn = 1
+        AND prop_id = ?
+    ORDER BY
+        enum_cell_number
+", [$propertyId]);
+            if(!empty($result)){
+                $property->distribution_code = $result->enum_cell_number;
+                //$property->save();
+                echo "Property ID:: $propertyId Distribution Code:: $result->enum_cell_number \n";
+            }
+        }
+
+
+
+        /*$path =  storage_path('app/public/deleteBillsProperties.csv');
         $reader =  Reader::createFromPath($path, 'r');
         $reader->setDelimiter(",");
         $first = true;
         $counter = 0;
-        $updateCounter = 0;
-        /*foreach ($reader->getRecords() as $key => $row) {
-            if ($first) {
+        $updateCounter = 0;*/
+        //foreach ($reader->getRecords() as $key => $row) {
+           /* if ($first) {
                 $first = false;
                 continue;
-            }
+            }*/
+           /* if(!empty($row[0]) ){
+                $bill = Billing::where('building_code', $row[0])->first();
+                if(!empty($bill)){
+                    $bill->delete();
+                    echo "Bill {$row[0]} deleted \n";
+                }
+                $property = PropertyList::where('building_code', $row[0])->first();
+                if(!empty($property)){
+                    $property->delete();
+                    echo "Property {$row[0]} deleted \n";
+                }
+
+            }*/
+
+        //}
+        /*
             $record = DB::connection('pgsql')
                 ->table('Land_Admin_New_Form')
                 ->where('completeness_status', 'Complete')
@@ -66,7 +177,7 @@ class GISQuickFixWithFileCommand extends Command
 
 
         //Another operation
-        foreach ($reader->getRecords() as $key => $row) {
+       /* foreach ($reader->getRecords() as $key => $row) {
             if ($first) {
                 $first = false;
                 continue;
@@ -85,10 +196,7 @@ class GISQuickFixWithFileCommand extends Command
                 $updateCounter++;
                 echo "Item:: ".$updateCounter." updated \n";
             }
-
-            //echo "Item:: ".$counter;
-
-        }
+        }*/
 
     }
 

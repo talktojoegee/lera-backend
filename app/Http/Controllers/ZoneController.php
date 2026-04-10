@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\LGAResource;
+use App\Http\Resources\PropertyUseResource;
 use App\Http\Resources\ZoneResource;
 use App\Models\Lga;
+use App\Models\PropertyAssessmentValue;
 use App\Models\Zone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -37,5 +39,9 @@ class ZoneController extends Controller
 
     public function showAllZones(){
         return ZoneResource::collection(Zone::all());
+    }
+
+    public function showAllPropertyUse(){
+        return PropertyUseResource::collection(PropertyAssessmentValue::getDistinctPropertyUses());
     }
 }

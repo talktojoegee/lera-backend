@@ -5,11 +5,6 @@ namespace App\Exports;
 use App\Models\Billing;
 use App\Models\User;
 use Illuminate\Contracts\Support\Responsable;
-use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
-use Illuminate\Database\Eloquent\Relations\Relation;
-use Illuminate\Database\Query\Builder;
-use Laravel\Scout\Builder as ScoutBuilder;
-use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -37,12 +32,23 @@ class PaidBillExport implements FromQuery, WithMapping, WithHeadings, WithChunkR
 
         $propertyUse = explode(',', $user->sector);
 
+        $baseQuery = Billing::query()
+            ->with([
+                'getPropertyClassification:id,class_name',
+                'getPropertyList:id,owner_name,owner_kgtin,property_name',
+            ])
+            ->select([
+                'id', 'assessment_no', 'building_code', 'year', 'zone_name', 'class_id',
+                'property_id', 'bill_amount', 'paid_amount', 'date_approved', 'status',
+                'paid', 'special', 'objection', 'property_use'
+            ]);
+
         switch ($this->type) {
             case 'paid-bills':
-                return Billing::where('status', 4)->where('paid', 1)->where('special', 0)->where('objection',0)->whereIn('property_use', $propertyUse)->orderByDesc('id');
+                return $baseQuery->where('status', 4)->where('paid', 1)->where('special', 0)->where('objection',0)->whereIn('property_use', $propertyUse)->orderByDesc('id');
             case 'partly-paid-bills':
                 return
-                    Billing::where('paid_amount', '>', 0)
+                    $baseQuery->where('paid_amount', '>', 0)
                         ->where('objection', 0)
                         ->whereIn('property_use', $propertyUse)
                         ->where('paid', 0)
@@ -50,7 +56,7 @@ class PaidBillExport implements FromQuery, WithMapping, WithHeadings, WithChunkR
                         ->where('status', 4)
                         ->orderByDesc('id');
             case 'normal-outstanding':
-                return Billing::where('paid', 0)
+                return $baseQuery->where('paid', 0)
                     ->where('objection', 0)
                     ->where('status', 4)
                     ->whereIn('special', [0])
@@ -70,8 +76,8 @@ class PaidBillExport implements FromQuery, WithMapping, WithHeadings, WithChunkR
                 $bill->assessment_no,
                 $bill->building_code,
                 $bill->year,
-                $bill->zone_name,
-                $bill->getPropertyClassification->class_name,
+                $bill->zone_name ?? '',
+                $bill->getPropertyClassification->class_name ?? '',
                 $bill->getPropertyList->owner_name ?? '',
                 $bill->getPropertyList->property_name ?? '',
                 $bill->bill_amount ?? 0,
@@ -83,9 +89,10 @@ class PaidBillExport implements FromQuery, WithMapping, WithHeadings, WithChunkR
             $bill->assessment_no,
             $bill->building_code,
             $bill->year,
-            $bill->zone_name,
-            $bill->getPropertyClassification->class_name,
+            $bill->zone_name ?? '',
+            $bill->getPropertyClassification->class_name ?? '',
             $bill->getPropertyList->owner_name ?? '',
+            $bill->getPropertyList->owner_kgtin ?? '',
             $bill->bill_amount ?? 0,
             $bill->paid_amount ?? 0,
             ($bill->bill_amount - $bill->paid_amount),
@@ -103,14 +110,14 @@ class PaidBillExport implements FromQuery, WithMapping, WithHeadings, WithChunkR
         }
         return [
             'Assessment No', 'Building Code', 'Year',
-            'Zone', 'Category', 'Owner', 'Bill Amount',
+            'Zone', 'Category', 'Owner', 'KGTIN', 'Bill Amount',
             'Payment', 'Balance'
         ];
     }
 
     public function chunkSize(): int
     {
-        return 1000;
+        return 500;
     }
 
     public function toResponse($request)

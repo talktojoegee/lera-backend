@@ -45,6 +45,12 @@ class PDFController extends Controller
             ])
             ->whereIn('billings.id', $printLogIds)
             ->get();
+        foreach ($records as $record) {
+            $record->bbf = $this->balanceBroughtForward(
+                $record->year,
+                $record->buildingCode
+            );
+        }
         $pdf = Pdf::loadView('pdf.bill',compact('records'))
             ->setPaper('A4', 'portrait')
             ->setOptions([
@@ -88,6 +94,8 @@ class PDFController extends Controller
         if(empty($record)){
             return \response()->json(['error'=>'No record found'],404);
         }
+        $bbf = $this->balanceBroughtForward($record->year, $record->buildingCode);
+        $record->bbf = $bbf;
         $pdf = Pdf::loadView('pdf.bill-single',compact('record'))
             ->setPaper('A4', 'portrait')
             ->setOptions([
@@ -154,8 +162,8 @@ class PDFController extends Controller
             'address' => $receipt->getBill->getPropertyList->property_address ?? '',
             'assessmentNo' => $receipt->assessment_no ?? '',
             'propertyId' => $receipt->building_code ?? '',
-            'amount' => 'NGN' . number_format($receipt->amount ?? 0),
-            'amount_words' => $this->numberToWords($receipt->amount ?? 0),
+            'amount' => 'NGN' . number_format(round($receipt->amount) ?? 0),
+            'amount_words' => $this->numberToWords(round($receipt->amount) ?? 0),
             'payment_purpose' => "Payment for Land Use Charge (Revenue Code: 12020908) {$receipt->getBill->year}",
             'receipt_no' => $receipt->receipt_no ?? '',
             'invoice_no' => 'AST91574/34512/P1/2/2025',
@@ -244,6 +252,18 @@ class PDFController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="document.pdf"',
         ]);
+    }
+
+    public function balanceBroughtForward(int $year, string $buildingCode): float
+    {
+        return Billing::where('building_code', $buildingCode)
+            ->where('year', '<', $year)
+            ->where(function ($query) {
+                $query->where('paid', 0)
+                    ->orWhereColumn('paid_amount', '<', 'bill_amount');
+            })
+            ->select(DB::raw('SUM(bill_amount - paid_amount) as balance'))
+            ->value('balance') ?? 0.0;
     }
 
 

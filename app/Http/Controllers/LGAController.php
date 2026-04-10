@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\LGAResource;
 use App\Models\Lga;
+use App\Models\PropertyList;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -34,6 +35,13 @@ class LGAController extends Controller
 
     public function showAllLGAs(){
         return LGAResource::collection(Lga::fetchAllLGAs());
+    }
+    public function showDistributionCode(){
+        $record = PropertyList::whereNotNull('distribution_code')
+            ->select('distribution_code')
+            ->distinct()
+            ->pluck('distribution_code');
+        return  response()->json(['data'=>$record],200);
     }
 
 }

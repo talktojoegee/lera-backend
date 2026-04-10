@@ -32,6 +32,8 @@ use App\Models\PropertyAssessmentValue;
 use App\Models\PropertyClassification;
 use App\Models\PropertyList;
 use App\Models\User;
+use App\Traits\EmailTrait;
+use App\Traits\UtilityTrait;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -41,6 +43,7 @@ use Illuminate\Support\Str;
 
 class BillingController extends Controller
 {
+    use UtilityTrait, EmailTrait;
     public function __construct(){
 
     }
@@ -146,27 +149,144 @@ class BillingController extends Controller
 
 
 
-    public function showOutstandingBills(Request $request){
+    public function showOutstandingBills(Request $request)
+    {
         $limit = $request->limit ?? 0;
         $skip = $request->skip ?? 0;
         $userId = $request->user ?? 0;
         $user = User::find($userId);
 
-        if(empty($user)){
+        if (!$user) {
             return response()->json([
                 'message' => 'Whoops! Something went wrong.'
             ], 404);
         }
-        $propertyUse = explode(',', $user->sector);
+
+        $propertyUse = array_filter(explode(',', $user->sector));
+
+        $category = $request->query('category');
+        $filterYear = $request->query('filterYear');
+        $zone = $request->query('zone');
+        $selectedLga = $request->query('selectedLga');
+
+        $query = Billing::query()
+            ->where('status', 4)      // outstanding
+            ->where('special', 0)
+            ->where('paid', 0)
+            ->where('objection', 0)
+            ->whereIn('property_use', $propertyUse);
+
+        // Apply filters
+        if (!empty($category)) {
+            $query->where('class_id', $category);
+        }
+
+        if (!empty($filterYear) && $filterYear != 0) {
+            $query->whereYear('entry_date', $filterYear);
+        }
+
+        if (!empty($selectedLga)) {
+            $query->where('lga_id', $selectedLga);
+        }
+
+        // Clone query for aggregates
+        $summaryQuery = clone $query;
+
+        $total = $query->count();
+
+        $data = $query
+            ->orderBy('id', 'DESC')
+            ->skip($skip)
+            ->take($limit)
+            ->get();
+
+        $grossBills = $summaryQuery->sum('bill_amount');
+        $grossAmountPaid = $summaryQuery->sum('paid_amount');
+        $balanceAmount = $grossBills - $grossAmountPaid;
 
         return response()->json([
-            'data'=>OutstandingBillResource::collection(Billing::getBills($limit, $skip, 0, 0, 4, $propertyUse, [0])),
-            'total'=>Billing::getBillsByParams(0,0,4, $propertyUse, [0])->count(),
-            'grossBills'=>Billing::getBillsByParams(0,0,4, $propertyUse, [0])->sum('bill_amount'),
-            'grossAmountPaid'=>Billing::getBillsByParams(0,0,4, $propertyUse, [0])->sum('paid_amount'),
-            'balanceAmount'=>(Billing::getBillsByParams(0,0,4, $propertyUse, [0])->sum('bill_amount') - Billing::getBillsByParams(0,0,3, $propertyUse, [0])->sum('paid_amount')),
-        ],200);
+            'data' => OutstandingBillResource::collection($data),
+            'total' => $total,
+            'grossBills' => $grossBills,
+            'grossAmountPaid' => $grossAmountPaid,
+            'balanceAmount' => $balanceAmount,
+        ], 200);
     }
+
+
+
+    /* public function showOutstandingBills(Request $request){
+         $limit = $request->limit ?? 0;
+         $skip = $request->skip ?? 0;
+         $userId = $request->user ?? 0;
+         $user = User::find($userId);
+
+         if(empty($user)){
+             return response()->json([
+                 'message' => 'Whoops! Something went wrong.'
+             ], 404);
+         }
+
+         $propertyUse = explode(',', $user->sector);
+
+
+
+
+
+
+         $category = $request->query('category');
+         $selectedfilterYear = $request->query('filterYear');
+         $zone = $request->query('zone');
+         $query = Billing::query()
+             ->where('status', 4)
+             ->where('special', 0)
+             ->whereIn('property_use', $propertyUse);
+         //Apply filters if present
+         if (!empty($category)) {
+             $query->where('class_id', $category);
+         }
+
+         if (!empty($selectedfilterYear)) {
+             $query->whereYear('entry_date', $selectedfilterYear);
+         }
+
+         if (!empty($zone)) {
+             $query->where('zone_name', $zone);
+         }
+
+
+         $total = $query->count();
+         $data = $query
+             ->skip($skip)
+             ->take($limit)
+             ->orderBy('id', 'DESC')
+             ->get();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+         return response()->json([
+             'data'=>OutstandingBillResource::collection(Billing::getBills($limit, $skip, 0, 0, 4, $propertyUse, [0])),
+             'total'=>Billing::getBillsByParams(0,0,4, $propertyUse, [0])->count(),
+             'grossBills'=>Billing::getBillsByParams(0,0,4, $propertyUse, [0])->sum('bill_amount'),
+             'grossAmountPaid'=>Billing::getBillsByParams(0,0,4, $propertyUse, [0])->sum('paid_amount'),
+             'balanceAmount'=>(Billing::getBillsByParams(0,0,4, $propertyUse, [0])->sum('bill_amount') - Billing::getBillsByParams(0,0,3, $propertyUse, [0])->sum('paid_amount')),
+         ],200);
+     }*/
 
 
     public function showLGAChairOutstandingBills(Request $request){
@@ -268,10 +388,45 @@ class BillingController extends Controller
             ], 404);
         }
         $propertyUse = explode(',', $user->sector);
+
+        $category = $request->query('category');
+        $selectedPropertyUse = $request->query('propertyUse');
+        $zone = $request->query('zone');
+        //$query = Billing::getBillsByStatus($limit, $skip, $status, $propertyUse);
+        $query = Billing::query()
+            ->where('status', $status)
+            ->where('special', 0)
+            ->whereIn('property_use', $propertyUse);
+        //Apply filters if present
+        if (!empty($category)) {
+            $query->where('class_id', $category);
+        }
+
+        if (!empty($selectedPropertyUse)) {
+            $query->where('property_use', $selectedPropertyUse);
+        }
+
+        if (!empty($zone)) {
+            $query->where('zone_name', $zone);
+        }
+
+
+        $total = $query->count();
+        $data = $query
+            ->skip($skip)
+            ->take($limit)
+            ->orderBy('id', 'DESC')
+            ->get();
+
         return response()->json([
+            'data' => OutstandingBillResource::collection($data),
+            'total' => $total,
+        ], 200);
+
+        /* return response()->json([
             'data'=>OutstandingBillResource::collection(Billing::getBillsByStatus($limit, $skip, $status, $propertyUse)),
             'total'=>Billing::getBillsByParamsByStatus($status, $propertyUse)->count(),
-        ],200);
+        ],200); */
     }
     public function showObjectedBills(Request $request){
         $limit = $request->limit ?? 0;
@@ -545,7 +700,9 @@ class BillingController extends Controller
         $billsData = DB::table('billings')
             ->selectRaw('MONTH(created_at) AS month, SUM(paid_amount) AS totalBillAmount')
             ->where('status', 4)
-            ->whereYear('entry_date', '=', $year)
+            ->when($year != 0, function ($query) use ($year) {
+                $query->whereYear('entry_date', $year);
+            })
             ->groupBy('month')
             ->orderBy('month')
             ->get();
@@ -569,7 +726,9 @@ class BillingController extends Controller
     private function getLGAChairMonthlyBillPaymentByYear($year, $lgaId){
         $billsData = DB::table('billings')
             ->selectRaw('MONTH(created_at) AS month, SUM(paid_amount) AS totalBillAmount')
-            ->whereYear('entry_date', '=', $year)
+            ->when($year != 0, function ($query) use ($year) {
+                $query->whereYear('entry_date', $year);
+            })
             ->where('lga_id', $lgaId)
             ->where('status', 4)//approved
             ->groupBy('month')
@@ -704,7 +863,9 @@ class BillingController extends Controller
         return DB::table('property_lists')
             ->join('zones', 'property_lists.sub_zone', '=', 'zones.sub_zone')
             ->selectRaw('zones.sub_zone AS zoneName, COUNT(property_lists.id) AS totalProperties')
-            ->whereYear('property_lists.created_at', '=', $year )
+            ->when($year != 0, function ($query) use ($year) {
+                $query->whereYear('property_lists.created_at', $year);
+            })
             ->groupBy('zoneName')
             //->orderBy('month')
             ->orderBy('zoneName')
@@ -717,7 +878,9 @@ class BillingController extends Controller
         return DB::table('property_lists')
             ->join('lgas', 'property_lists.lga_id', '=', 'lgas.id')
             ->selectRaw('lgas.lga_name AS lgaName, COUNT(property_lists.id) AS totalProperties')
-            ->whereYear('property_lists.created_at', '=', $year )
+            ->when($year != 0, function ($query) use ($year) {
+                $query->whereYear('property_lists.created_at', $year);
+            })
             ->groupBy('lgaName')
             //->orderBy('month')
             ->orderBy('lgaName')
@@ -883,6 +1046,7 @@ class BillingController extends Controller
             $record->save();
         }
         if($request->action == 3){ //authorization
+            //approve instead of authorizing it
             $record->status = $request->action;
             $record->authorized_by = $request->actionedBy;
             $record->date_authorized = now();
@@ -1171,8 +1335,12 @@ class BillingController extends Controller
 
     public function showBillsForPrinting(Request $request){
         $lgaId = $request->lga;
+        $quantity = $request->quantity;
         $type = $request->type;
+        $classId = $request->classId;
         $billIds = PrintBillLog::pluck('bill_id')->toArray();
+        $user = User::find($request->actionedBy);
+        $propertyUse = explode(',', $user->sector);
         switch ($type){
             case 'lga':
                 $bills =  Billing::when($lgaId > 0, function($query) use ($lgaId) {
@@ -1181,6 +1349,10 @@ class BillingController extends Controller
                     ->whereNotIn('id', $billIds)
                     ->where('status', 4)
                     ->where('objection', 0)
+                    ->where('class_id', $classId)
+                    ->whereIn('property_use', $propertyUse)
+                    ->where('year', date('Y'))
+                    ->take($quantity)
                     ->orderBy('id', 'ASC')
                     ->get();
                 return response()->json(['data'=>OutstandingBillResource::collection($bills)],200);
@@ -1189,6 +1361,10 @@ class BillingController extends Controller
                     ->whereNotIn('id', $billIds)
                     ->where('status', 4)
                     ->where('objection', 0)
+                    ->where('class_id', $classId)
+                    ->whereIn('property_use', $propertyUse)
+                    ->where('year', date('Y'))
+                    ->take($quantity)
                     ->orderBy('id', 'ASC')
                     ->get();
                 return response()->json(['data'=>OutstandingBillResource::collection($bills)],200);
@@ -1197,9 +1373,27 @@ class BillingController extends Controller
                 ->whereNotIn('id', $billIds)
                 ->where('status', 4)
                     ->where('objection', 0)
+                    ->where('class_id', $classId)
+                    ->whereIn('property_use', $propertyUse)
+                    ->where('year', date('Y'))
+                    ->take($quantity)
                     ->orderBy('id', 'ASC')
                     ->get();
                 return response()->json(['data'=>OutstandingBillResource::collection($bills)],200);
+            case 'distributionCode':
+                $propertyIds = PropertyList::where('distribution_code', $lgaId)->pluck('building_code')->toArray();
+                $bills =  Billing::whereNotIn('id', $billIds)
+                ->whereIn('building_code', $propertyIds)
+                ->where('status', 4)
+                    ->where('objection', 0)
+                    ->where('class_id', $classId)
+                    ->whereIn('property_use', $propertyUse)
+                    ->where('year', date('Y'))
+                    ->take($quantity)
+                    ->orderBy('id', 'ASC')
+                    ->get();
+                return response()->json(['data'=>OutstandingBillResource::collection($bills)],200);
+
         }
 
     }
@@ -1288,6 +1482,8 @@ class BillingController extends Controller
                         'assessment_no'=>$billDetail->assessment_no ??'',
                         'printed_by'=>$request->printedBy,
                     ]);
+                    $billDetail->printed = 1;
+                    $billDetail->save();
                 }
 
             }
@@ -1419,6 +1615,10 @@ class BillingController extends Controller
             ->where('status', 4)
             ->where('paid', 0)
             ->first();
+        if(empty($bill)){
+            return response()->json(['message'=>'No record found'],404);
+        }
+        //return response()->json(['data'=>$bill],200);
         return new BillDetailResource($bill);
     }
 
@@ -1443,14 +1643,14 @@ class BillingController extends Controller
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
-        //$path = $request->file('proofOfPayment')->store('proofs', 'public');
-        /*$uploadDir = public_path('assets/drive/');
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
+        $receiptExists = ManualReceipt::where('receipt_no', $request->receiptNo)->first();
+        $billPaymentLogExists = BillPaymentLog::where('receipt_no', $request->receiptNo)->first();
+        if (!empty($receiptExists) || !empty($billPaymentLogExists)) {
+            return response()->json([
+                'errors' => 'Receipt number already exists.',
+                'message'=>'Existing record found!',
+                'detail'=>'There is an existing manual receipt with the receipt number you just entered. Please check and try again.'], 422);
         }
-        $file = $request->file('proofOfPayment');
-        $filename = uniqid() . '_' . $file->getClientOriginalName();
-        $file->move($uploadDir, $filename);*/
         $filename = null; // uniqid() . '_' . $file->getClientOriginalName();
         if ($request->hasFile('proofOfPayment') && $request->file('proofOfPayment')->isValid()) {
             $file = $request->file('proofOfPayment');
@@ -1582,12 +1782,19 @@ class BillingController extends Controller
             $actionedBy = User::find($bill->actioned_by);
             $actionUser = $actionedBy->name."($actionedBy->id_no)";
         }
+        $payments = DB::table('bill_payment_logs')
+            ->join('billings', 'billings.id','=', 'bill_payment_logs.bill_master')
+            ->where('bill_payment_logs.building_code', $bill->building_code)
+            ->select('bill_payment_logs.*')
+            ->orderBy('bill_payment_logs.id', 'DESC')
+            ->get();
 
         return response()->json([
             'receipt'=>new ReceiptResource($bill),
             'actionedBy'=> $actionUser ?? '',
             'dateActioned'=>date('d/m/Y', strtotime($bill->date_actioned)) ?? '',
             'bill'=>new  OutstandingBillResource($actualBill),
+            'payments'=>$payments
         ],200);
     }
 
@@ -1667,8 +1874,8 @@ class BillingController extends Controller
 
         switch ($action){
             case 'approve':
-                $this->__updateReceipt($record, 1, $request->actionedBy);
                 $this->__processPayment($bill, $record, $request->actionedBy);
+                $this->__updateReceipt($record, 1, $request->actionedBy);
             break;
             case 'discard':
                 $this->__updateReceipt($record, 2, $request->actionedBy);
@@ -1701,41 +1908,36 @@ class BillingController extends Controller
             ->orderBy('id', 'ASC')
             ->get();
         if(!empty($billList)){
-            $transAmount = $record->amount;
-            foreach ($billList as $item){
-                $balance = $item->bill_amount - $item->paid_amount;
-                $transBalance = $transAmount - $balance;
-                if($balance > 0){
-                    if($transAmount > $balance){
-                        $item->paid_amount += $balance;
-                        $item->payment_ref = $record->reference;
-                        $item->paid = 1;
-                        $item->date_paid = now();
-                        $item->paid_by = 1;
-                        $item->save();
-                        $this->_registerInPaymentLog($item->id, $actionedBy, $balance, $record->receipt_no, $record->reference,
-                            $record->assessment_no, $record->bank_name, $record->branch_name, 'MANUAL', $record->customer_name,
-                            $record->email, $record->kgtin, $record->reference, $record->entry_date, '234');
-                    }
-                    else{
-                        if($transAmount > 0){
-                            $item->paid_amount += $transAmount;
-                            $item->payment_ref = $record->reference;
-                            $item->save();
-                            if($item->paid_amount == $item->bill_amount){
-                                $item->paid = 1;
-                                $item->date_paid = now();
-                                $item->paid_by = 1;
-                                $item->save();
-                            }
-                            $this->_registerInPaymentLog($item->id, $actionedBy, $transAmount, $record->receipt_no, $record->reference,
-                                $record->assessment_no, $record->bank_name, $record->branch_name, 'MANUAL', $record->customer_name,
-                                $record->email, $record->kgtin, $record->reference, $record->entry_date, '234');
-                        }
-                    }
-                }
-                $transAmount = $transBalance;
-            }
+            $paymentCode = substr(sha1(time()),31,40);
+            $receiptNo = substr(sha1(time()),20,32);
+
+            $paymentData['payment_code'] = $paymentCode;
+            $paymentData['paid_by'] = $actionedBy;
+            $paymentData['receipt_no'] = $record->receipt_no ?? $receiptNo;
+            $paymentData['payment_ref']  = $record->receipt_no ?? $receiptNo;;
+            //$paymentData['assessment_no'] = $assessmentNo;
+            $paymentData['branch'] = 'Credo';
+            $paymentData['pay_mode'] = 'MANUAL';
+            $paymentData['customer_name'] = $record->customer_name;
+            $paymentData['email'] = $record->email;
+            $paymentData['kg_tin'] = $record->kgtin;
+            $paymentData['trans_ref'] = $record->receipt_no ?? $receiptNo;
+            $paymentData['reference'] = $record->receipt_no ?? $receiptNo;
+            $paymentData['trans_date'] = Carbon::parse(now())->format('Y-m-d');
+            //$paymentData['phone_number'] = $phoneNumber;
+            $paymentData['token'] = 'MANUAL_RECEIPT';
+            $paymentData['entry_date'] = $record->entry_date ?? now();
+            $paymentData['branch_name'] = $record->branch_name ?? 'N/A';
+            $paymentData['bank_name'] = $record->bank_name ?? 'N/A';
+
+
+            $this->handleBillPayment($bill->building_code, $record->amount,$paymentData);
+            $data = [
+                "name"=>$record->customer_name ?? '',
+                "receiptNo"=>$record->receipt_no ?? $receiptNo,
+                "amount"=>$record->amount
+            ];
+            if(isset($record->email)) $this->sendEmail($record->email, 'Payment Acknowledgement', 'emails.receipt', $data);
         }
     }
 
@@ -1743,12 +1945,22 @@ class BillingController extends Controller
                                            $assessmentNo, $bankName, $branchName, $payMode, $customerName,
                                            $email, $kgTin, $transRef, $transDate, $phoneNumber){
         $bill = Billing::find($billMasterId);
-        if($bill){
+        if (!$bill) {
+            return;
+        }
+
+        $existingLogsCount = BillPaymentLog::where('trans_ref', $transRef)->count();
+        $uniqueReceiptNo = $receiptNo;
+
+        if ($existingLogsCount > 0) {
+            $uniqueReceiptNo = $receiptNo . '_' . ($existingLogsCount + 1);
+        }
+        //if($bill){
             BillPaymentLog::create([
                 "bill_master"=>$billMasterId,
                 "paid_by"=>$paidBy,
                 "amount"=>$amount,
-                "receipt_no"=>$receiptNo,
+                "receipt_no"=>$uniqueReceiptNo,
                 "payment_code"=>$paymentCode,
                 "assessment_no"=>$assessmentNo,
 
@@ -1822,7 +2034,7 @@ class BillingController extends Controller
 
             NotifyKogiRemsJob::dispatch();
 
-        }
+        //}
 
     }
 
@@ -1871,5 +2083,48 @@ class BillingController extends Controller
         ],200);
     }
 
+
+    public function _getDistributionCode($propertyId){
+        return DB::connection('pgsql')->selectOne("
+    WITH intersected_cells AS (
+        SELECT
+            lp.prop_id,
+            ec.enum_cell_number,
+            lp.lga_abb,
+            lp.lga,
+            ST_Area(ec.geom) AS cell_area,
+            CASE
+                WHEN ec.enum_cell_number ILIKE '%' || lp.lga_abb || '%' THEN 1
+                WHEN ec.enum_cell_number ILIKE '%' || lp.lga || '%' THEN 2
+                ELSE 3
+            END AS match_rank
+        FROM
+            public.\"Land_Admin_New_Form\" lp
+        JOIN
+            public.enumeration_cells ec
+            ON ST_Intersects(lp.geom, ec.geom)
+        WHERE
+            lp.completeness_status = 'Complete'
+    ),
+    ranked_cells AS (
+        SELECT *,
+            ROW_NUMBER() OVER (PARTITION BY prop_id ORDER BY match_rank, cell_area ASC, enum_cell_number) AS rn
+        FROM intersected_cells
+    )
+    SELECT
+        prop_id,
+        enum_cell_number
+    FROM
+        ranked_cells
+    WHERE
+        rn = 1
+        AND prop_id = ?
+    ORDER BY
+        enum_cell_number
+", [$propertyId]);
+    }
+
 }
+
+
 

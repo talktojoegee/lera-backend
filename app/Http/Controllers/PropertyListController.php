@@ -267,10 +267,8 @@ class PropertyListController extends Controller
                     "errors" => "No record found"
                 ], 422);
             }
-            //return response()->json(['data'=>$property],200);
             $lgaName = trim($property->lga);
             $lgaOne = Lga::where('lga_name', 'LIKE', "%{$lgaName}%")->first();
-            //$propertyList = PropertyList::where("building_code", $property->prop_id)->first();
             $zoneChar = $this->_getZoneCharacter($property->zone) ?? 'Z';
 
             $propertyClassification = PropertyClassification::find($property->landuse);

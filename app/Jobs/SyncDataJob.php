@@ -171,6 +171,11 @@ class SyncDataJob implements ShouldQueue
                                 $exist->status = 1; //synchronized
                                 $exist->save();
                             }
+                            $distributionCode = null;
+                            $initDistributionCode = $this->_getDistributionCode($record->prop_id);
+                            if(!empty($initDistributionCode)){
+                                $distributionCode = $initDistributionCode->enum_cell_number ?? null;
+                            }
                             PropertyList::create([
                                 'address' => $record->street_nam,
                                 'area' => !empty($areaVal) ? str_replace("_sqm", "", $areaVal) : 0,
@@ -205,6 +210,7 @@ class SyncDataJob implements ShouldQueue
                                 'property_name' => $record->prop_name,
                                 'occupier' => $record->occupier_s,
                                 'property_address' => $record->prop_addre,
+                                'distribution_code' => $distributionCode,
                                 'dep_id' => !empty($dep) ? $dep->id : Depreciation::orderBy('id', 'ASC')->first()->id, //depreciation
                                 'ba' => $record->area_from_bfp ?? 200
                             ]);
@@ -395,75 +401,47 @@ class SyncDataJob implements ShouldQueue
             ->where('sync_word', $syncWord)
             ->first();
     }
+
+
+    private function _getDistributionCode($propertyId){
+        return DB::connection('pgsql')->selectOne("
+    WITH intersected_cells AS (
+        SELECT
+            lp.prop_id,
+            ec.enum_cell_number,
+            lp.lga_abb,
+            lp.lga,
+            ST_Area(ec.geom) AS cell_area,
+            CASE
+                WHEN ec.enum_cell_number ILIKE '%' || lp.lga_abb || '%' THEN 1
+                WHEN ec.enum_cell_number ILIKE '%' || lp.lga || '%' THEN 2
+                ELSE 3
+            END AS match_rank
+        FROM
+            public.\"Land_Admin_New_Form\" lp
+        JOIN
+            public.enumeration_cells ec
+            ON ST_Intersects(lp.geom, ec.geom)
+        WHERE
+            lp.completeness_status = 'Complete'
+    ),
+    ranked_cells AS (
+        SELECT *,
+            ROW_NUMBER() OVER (PARTITION BY prop_id ORDER BY match_rank, cell_area ASC, enum_cell_number) AS rn
+        FROM intersected_cells
+    )
+    SELECT
+        prop_id,
+        enum_cell_number
+    FROM
+        ranked_cells
+    WHERE
+        rn = 1
+        AND prop_id = ?
+    ORDER BY
+        enum_cell_number
+", [$propertyId]);
+    }
 }
 
-/*
 
-
-'Kg/MPA/1088095',
-'Kg/LKJ/767767',
-'Kg/LKJ/849936',
-'Kg/LKJ/088906',
-'Kg/ERE/612850',
-'Kg/KNE/690560',
-'Kg/AJA/771424',
-'Kg/KPA/1094138',
-'Kg/KAB/793490',
-'Kg/DKN/414357',
-'Kg/SAN/686291',
-'Kg/JMU/390511',
-'Kg/MPA/1088095',
-'Kg/LKJ/767767',
-'Kg/LKJ/849936',
-'Kg/LKJ/088906',
-'Kg/ERE/612850',
-'Kg/KNE/690560',
-'Kg/AJA/771424',
-'Kg/KPA/1094138',
-'Kg/KAB/793490',
-'Kg/DKN/414357',
-'Kg/SAN/686291',
-'Kg/JMU/390511',
-'Kg/LKJ/486273',
-'Kg/LKJ/764846',
-'Kg/DAH/446970',
-'Kg/LKJ/525254',
-'Kg/KAB/786485',
-'Kg/DKN/514604',
-'Kg/KNE/406130',
-'Kg/KPA/402360',
-'Kg/ERE/689188',
-'Kg/LKJ/940218',
-'Kg/AJA/422219',
-'Kg/LKJ/802626',
-'Kg/LKJ/574947',
-
-
-
-'Kg/MPA/1088095',
-'Kg/LKJ/767767',
-'Kg/LKJ/849936',
-'Kg/LKJ/088906',
-'Kg/ERE/612850',
-'Kg/KNE/690560',
-'Kg/AJA/771424',
-'Kg/KPA/1094138',
-'Kg/KAB/793490',
-'Kg/DKN/414357',
-'Kg/SAN/686291',
-'Kg/JMU/390511',
-'Kg/LKJ/486273',
-'Kg/LKJ/764846',
-'Kg/DAH/446970',
-'Kg/LKJ/525254',
-'Kg/KAB/786485',
-'Kg/DKN/514604',
-'Kg/KNE/406130',
-'Kg/KPA/402360',
-'Kg/ERE/689188',
-'Kg/LKJ/940218',
-'Kg/AJA/422219',
-'Kg/LKJ/802626',
-
-
-*/
