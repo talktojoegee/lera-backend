@@ -3,6 +3,8 @@
 namespace App\Traits;
 
 use App\Models\ChargeRate;
+use App\Models\Depreciation;
+use App\Models\Lga;
 use App\Models\PropertyAssessmentValue;
 use App\Models\PropertyClassification;
 use App\Models\PropertyList;
@@ -363,9 +365,7 @@ trait PropertySyncTrait
     /**
      * Get PAV code record
      *
-     * @param int $classId Property classification ID
-     * @param string $zone Zone character
-     * @param string|null $syncWord Property type sync word
+     * @param string $propertyType Property type to search for
      * @return PropertyAssessmentValue|null
      */
     private function _getPavCode($propertyType)
@@ -407,7 +407,6 @@ trait PropertySyncTrait
     public function updatePropertyFromRemote($buildingCode): array
     {
         try {
-            // Check if property exists locally
             $propertyDetail = PropertyList::where("building_code", $buildingCode)->first();
             if (empty($propertyDetail)) {
                 return [
@@ -416,13 +415,10 @@ trait PropertySyncTrait
                     'code' => 404
                 ];
             }
-
-            // Get property from remote database
             $record = DB::connection('pgsql')
                 ->table('lekki_enumeration')
                 ->where('property_id', $buildingCode)
                 ->first();
-
             if (empty($record)) {
                 return [
                     'success' => false,
@@ -430,21 +426,13 @@ trait PropertySyncTrait
                     'code' => 422
                 ];
             }
-
-            // Extract sync word from multiple possible fields
             $syncWord = $this->_extractSyncWord($record);
-
-            // Build update data using remote record
             $updateData = $this->_buildUpdateData($record, $syncWord);
-
-            // Update the property
             PropertyList::where('id', $propertyDetail->id)->update($updateData);
-
             Log::info('PropertySyncTrait: force sync successful', [
                 'building_code' => $buildingCode,
                 'property_id' => $propertyDetail->id
             ]);
-
             return [
                 'success' => true,
                 'message' => 'Property synchronized successfully',
@@ -592,4 +580,5 @@ trait PropertySyncTrait
 
         return $query->first();
     }
+}
 
