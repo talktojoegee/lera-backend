@@ -240,8 +240,6 @@ trait PropertySyncTrait
         try {
             $chargeRate = $this->_getChargeRate($record->business_name_1, $record->property_type) ?: ChargeRate::first();
             $areaVal = $this->convertToSqm('2000_Acre');
-
-            // Determine property classification
             $propertyClassification = ($chargeRate && $chargeRate->id == 7)
                 ? PropertyClassification::find(2)
                 : PropertyClassification::find(1);
@@ -252,8 +250,8 @@ trait PropertySyncTrait
             // Sync word is the property type string
             $syncWord = $record->property_type ?? 'Residential';
 
-            // Get PAV record
-            $pavRecord = $this->_getPavCode($record->property_type);
+            // Get PAV record - using property_type directly from AssessmentValue
+            $pavRecord = PropertyAssessmentValue::where("property_type", $syncWord)->first();
 
             Log::debug('PropertySyncTrait: building property data', [
                 'property_id' => $record->property_id,
@@ -367,17 +365,6 @@ trait PropertySyncTrait
         return 1;
     }
 
-    /**
-     * Get PAV code record
-     *
-     * @param string $propertyType Property type to search for
-     * @return PropertyAssessmentValue|null
-     */
-    private function _getPavCode($propertyType)
-    {
-        return PropertyAssessmentValue::where("property_type", $propertyType)
-            ->first();
-    }
 
     /**
      * Reset all counters
@@ -491,51 +478,75 @@ trait PropertySyncTrait
      */
     private function _buildUpdateData($record, $syncWord = null): array
     {
-        $chargeRate = $this->_getChargeRate($record->occupier_s ?? null, $record->landuse ?? null) ?: ChargeRate::first();
-        $areaVal = $this->convertToSqm($record->property_area ?? '2000_Acre');
-        $propertyClassification = PropertyClassification::find($record->landuse ?? 1);
-        $zoneChar = $this->_getZoneCharacterCode($record->zone ?? 'A');
-        $lgaName = trim($record->lga ?? '');
-        $lgaOne = Lga::where('lga_name', 'LIKE', "%{$lgaName}%")->first();
-        $lgaId = (!empty($lgaOne) && isset($lgaOne->id)) ? $lgaOne->id : 1;
-        $dep = Depreciation::where('range', $record->property_age ?? null)->first();
-        $depId = !empty($dep) ? $dep->id : Depreciation::orderBy('id', 'ASC')->first()->id;
-        $pavRecord = $this->_getPavCodeForUpdate($record->landuse ?? 1, $record->zone ?? 'A1', $syncWord);
-        $propertyUse = $syncWord ? PropertyAssessmentValue::where('sync_word', $syncWord)->first() : null;
+
+        $chargeRate = $this->_getChargeRate($record->business_name_1, $record->property_type) ?: ChargeRate::first();
+        $areaVal = $this->convertToSqm('2000_Acre');
+        $propertyClassification = ($chargeRate && $chargeRate->id == 7)
+            ? PropertyClassification::find(2)
+            : PropertyClassification::find(1);
+        $syncWord = $record->property_type ?? 'Residential';
+        $pavRecord = $this->_getPavCode($record->property_type);
+
+
+
+        //$chargeRate = $this->_getChargeRate($record->occupier_s ?? null, $record->landuse ?? null) ?: ChargeRate::first();
+        //$areaVal = $this->convertToSqm($record->property_area ?? '2000_Acre');
+        //$propertyClassification = PropertyClassification::find($record->landuse ?? 1);
+        $propertyUse = PropertyAssessmentValue::where('property_type', $record->property_type)->first();
 
         return [
-            'address' => $record->street_nam ?? '',
+            'address' => ($record->confirmed_house_number ?? '') . ' ' . ($record->street_name ?? ''),
             'area' => !empty($areaVal) ? str_replace("_sqm", "", $areaVal) : 0,
-            'borehole' => ($record->water ?? '') == 'Yes' ? 1 : 0,
-            'image' => $record->photo_link ?? null,
-            'owner_email' => $record->owner_emai ?? null,
-            'owner_gsm' => $record->owner_phon ?? null,
-            'owner_kgtin' => $record->kgtin ?? null,
-            'owner_name' => $record->prop_owner ?? null,
-            'title' => $record->land_status ?? null,
-            'pav_code' => $pavRecord->pav_code ?? null,
-            'power' => ($record->power ?? '') == 'Yes' ? 1 : 0,
+            'building_code' => $record->property_id,
+            'image' => $record->photo_front ?? null,
+            'owner_email' => $record->owner_email ?? null,
+            'owner_gsm' => $record->owner_phone ?? null,
+            'owner_name' => $record->owner_name ?? null,
+            'pav_code' => $propertyUse->pav_code ?? null,
+            'power' => 0,
             'storey' => '',
-            'water' => ($record->water ?? '') == 'Yes' ? 1 : 0,
-            'zone_name' => $zoneChar,
-            'sub_zone' => $record->zone ?? 'A1',
-            'ward' => $record->ward ?? 'A1',
-            'occupant' => $record->prop_owner ?? null,
-            'building_age' => $record->property_age ?? 0,
+            'water' => 0,
+            'zone_name' => $propertyUse->zones ?? 'A',
+            'sub_zone' => $propertyUse->zones ?? 'A1',
+            'ward' => $propertyUse->zones ?? 'A1',
+            'occupant' => $record->owner_name ?? null,
+            'building_age' => 0,
             'pay_status' => null,
-            'lga_id' => $lgaId,
+            'lga_id' => 1,
             'class_name' => $propertyClassification->class_name ?? '',
-            'class_id' => $record->landuse ?? 1,
+            'class_id' => 1,
             'sync_word' => $syncWord,
-            'property_use' => $propertyUse->property_use ?? $syncWord,
+            'property_use' => $syncWord,
             'cr' => $chargeRate->id ?? 1,
-            'actual_age' => $record->property_age ?? 0,
+            'actual_age' => 0,
             'longitude' => $record->longitude ?? null,
             'latitude' => $record->latitude ?? null,
-            'property_name' => $record->prop_name ?? 'N/A',
-            'occupier' => $record->occupier_s ?? null,
-            'property_address' => $record->prop_addre ?? '',
-            'dep_id' => $depId,
+            'property_name' => $record->business_name_1 ?? 'N/A',
+            'occupier' => $record->owner_name ?? null,
+            'property_address' => ($record->confirmed_house_number ?? '') . ' ' . ($record->street_name ?? ''),
+            'dep_id' => 1,
+            'ba' => $record->area_from_bfp ?? 200,
+            'property_type' => $record->property_type ?? 'Residential',
+            'business_type' => $record->business_type ?? 'Private',
+            'no_of_floors' => $record->no_of_floors ?? 1,
+            'no_of_units' => $record->no_of_units ?? 1,
+            'revenue_category' => $record->revenue_category ?? 'Residential',
+            'photo_gate' => $record->photo_gate ?? '',
+            'photo_signage' => $record->photo_signage ?? '',
+            'photo_street' => $record->photo_street ?? '',
+            'area_in_me' => $record->area_in_me ?? '',
+            'confidence' => $record->confidence ?? '',
+            'full_plus_' => $record->full_plus_ ?? '',
+            'contact_name' => $record->contact_name ?? '',
+            'contact_phone' => $record->contact_phone ?? '',
+            'contact_address' => $record->contact_address ?? '',
+            'contact_email' => $record->contact_email ?? '',
+            'confirmed_house_number' => $record->confirmed_house_number ?? '',
+            'assigned_house_number' => $record->assigned_house_number ?? '',
+            'business_name_1' => $record->business_name_1 ?? '',
+            'business_name_2' => $record->business_name_2 ?? '',
+            'business_name_3' => $record->business_name_3 ?? '',
+            'business_name_4' => $record->business_name_4 ?? '',
         ];
     }
 
