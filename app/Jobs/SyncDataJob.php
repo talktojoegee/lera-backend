@@ -14,6 +14,7 @@ use App\Models\SynchronizationLog;
 use App\Models\User;
 use App\Models\Zone;
 use App\Traits\UtilityTrait;
+use App\Traits\PropertySyncTrait;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Artisan;
@@ -24,14 +25,12 @@ use PHPUnit\Event\Code\Throwable;
 
 class SyncDataJob implements ShouldQueue
 {
-    use Queueable;
-    use UtilityTrait;
+    use Queueable, UtilityTrait, PropertySyncTrait;
+
     public $lgaId;
     public $userId;
     public $tries = 10;
     public $timeout = 3600;
-    public $synCounter;
-    public $exceptionCounter;
     public $counter = 0;
 
     /**
@@ -41,10 +40,28 @@ class SyncDataJob implements ShouldQueue
     {
         $this->lgaId = $lga;
         $this->userId = $userId;
-        $this->exceptionCounter = 0;
-        $this->synCounter = 0;
         $this->counter = 0;
+        $this->syncCounter = 0;
+        $this->exceptionCounter = 0;
+    }
 
+    /**
+     * Get zone character (wrapper for trait method)
+     */
+    private function _getZoneCharacter($char): string
+    {
+        return $this->_getZoneCharacterCode($char);
+    }
+
+    /**
+     * Get PAV code record (wrapper for trait method)
+     */
+    private function _getPavCode($classId, $zone, $syncWord)
+    {
+        return PropertyAssessmentValue::where("class_id", $classId)
+            ->where("zones", 'LIKE', '%' . $zone . '%')
+            ->where('sync_word', $syncWord)
+            ->first();
     }
 
     /**
@@ -331,76 +348,21 @@ class SyncDataJob implements ShouldQueue
         }
     }
 
-    public function _getChargeRate($landUse){
-        //$normalizedClassName = trim($occupier);
-        switch($landUse){
-            case 1:
-                return ChargeRate::first();
-                /*if ($normalizedClassName == 'Owner_3rd_Party') {
-                    return ChargeRate::whereRaw("occupancy LIKE ?", ['%Residential Property (Owner and 3rd Party)%'])->first();
-                }elseif ($normalizedClassName == 'Third_party') {
-                    return  ChargeRate::whereRaw("occupancy LIKE ?", ['%Residential Property (without Owner in residence)%'])->first();
+    /**
+     * Get charge rate by land use type
+     * Already defined in PropertySyncTrait - using trait version
+     */
 
-                } elseif ($normalizedClassName == 'Owner_occupier') {
-                    return  ChargeRate::whereRaw("occupancy LIKE ?", ['%Owner-occupied Residential Property%'])->first();
+    /**
+     * Get zone character from zone code
+     * Already defined in PropertySyncTrait - using trait version
+     */
 
-                } elseif ($normalizedClassName == 'Not_Known') {
-                    return ChargeRate::whereRaw("occupancy LIKE ?", ['%Owner-occupied Residential Property%'])->first();
+    /**
+     * Get PAV code record
+     * Already defined in PropertySyncTrait - using trait version
+     */
 
-                }*/
-                break;
-            case 2:
-            case 5:
-            case 6:
-                return ChargeRate::find(7);
-            case 3:
-                return ChargeRate::find(4);
-            case 4:
-            case 7:
-            case 8:
-            case 9:
-                return ChargeRate::find(3);
-            case 10:
-
-            case 11:
-                return ChargeRate::find(9);
-            case 12:
-                return ChargeRate::find(8);
-        }
-
-    }
-
-
-    private function _getZoneCharacter($char):string{
-        switch (substr($char,0,1)){
-            case 'A':
-                return 'A';
-            case 'B':
-                return 'B';
-            case 'C':
-                return 'C';
-            case 'D':
-                return 'D';
-            case 'E':
-                return 'E';
-            case 'F':
-                return 'F';
-            case 'G':
-                return 'G';
-            case 'H':
-                return 'H';
-            default:
-                return 'Z';
-
-        }
-    }
-
-    private function _getPavCode($classId, $zone, $syncWord){
-        return PropertyAssessmentValue::where("class_id",$classId)
-            ->where("zones",'LIKE', '%'.$zone.'%')
-            ->where('sync_word', $syncWord)
-            ->first();
-    }
 
 
     private function _getDistributionCode($propertyId){

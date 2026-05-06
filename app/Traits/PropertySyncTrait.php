@@ -556,7 +556,7 @@ trait PropertySyncTrait
      * @param string $char Zone code
      * @return string Zone character
      */
-    private function _getZoneCharacterCode($char): string
+    protected function _getZoneCharacterCode($char): string
     {
         return match (substr($char, 0, 1)) {
             'A' => 'A', 'B' => 'B', 'C' => 'C', 'D' => 'D',
