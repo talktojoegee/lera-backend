@@ -23,6 +23,7 @@ trait PropertySyncTrait
     protected $syncCounter = 0;
     protected $exceptionCounter = 0;
     protected $processedCounter = 0;
+    protected $updateRemoteSync = false;  // Set to true if remote table has bill_sync column
 
     /**
      * Synchronize property data for given property ID(s)
@@ -87,10 +88,12 @@ trait PropertySyncTrait
 
                     // Mark as exception in remote table
                     try {
-                        DB::connection('pgsql')
-                            ->table('lekki_enumeration')
-                            ->where('id', $record->id)
-                            ->update(['bill_sync' => 2]);
+                        if ($this->updateRemoteSync) {
+                            DB::connection('pgsql')
+                                ->table('lekki_enumeration')
+                                ->where('id', $record->id)
+                                ->update(['bill_sync' => 2]);
+                        }
                     } catch (\Exception $updateEx) {
                         Log::error('PropertySyncTrait: failed to mark record as exception', [
                             'message' => $updateEx->getMessage()
@@ -210,17 +213,19 @@ trait PropertySyncTrait
             }
         }
 
-        // Mark record as synced in remote table
-        try {
-            DB::connection('pgsql')
-                ->table('lekki_enumeration')
-                ->where('id', $record->id)
-                ->update(['bill_sync' => 1]);
-        } catch (\Exception $updateEx) {
-            Log::error('PropertySyncTrait: failed to mark record as synced', [
-                'message' => $updateEx->getMessage(),
-                'record_id' => $record->id
-            ]);
+        // Mark record as synced in remote table (only if enabled)
+        if ($this->updateRemoteSync) {
+            try {
+                DB::connection('pgsql')
+                    ->table('lekki_enumeration')
+                    ->where('id', $record->id)
+                    ->update(['bill_sync' => 1]);
+            } catch (\Exception $updateEx) {
+                Log::error('PropertySyncTrait: failed to mark record as synced', [
+                    'message' => $updateEx->getMessage(),
+                    'record_id' => $record->id
+                ]);
+            }
         }
     }
 
@@ -488,26 +493,14 @@ trait PropertySyncTrait
     {
         $chargeRate = $this->_getChargeRate($record->occupier_s ?? null, $record->landuse ?? null) ?: ChargeRate::first();
         $areaVal = $this->convertToSqm($record->property_area ?? '2000_Acre');
-
-        // Get property classification
         $propertyClassification = PropertyClassification::find($record->landuse ?? 1);
-
-        // Get zone character
         $zoneChar = $this->_getZoneCharacterCode($record->zone ?? 'A');
-
-        // Get LGA
         $lgaName = trim($record->lga ?? '');
         $lgaOne = Lga::where('lga_name', 'LIKE', "%{$lgaName}%")->first();
         $lgaId = (!empty($lgaOne) && isset($lgaOne->id)) ? $lgaOne->id : 1;
-
-        // Get depreciation
         $dep = Depreciation::where('range', $record->property_age ?? null)->first();
         $depId = !empty($dep) ? $dep->id : Depreciation::orderBy('id', 'ASC')->first()->id;
-
-        // Get PAV record
         $pavRecord = $this->_getPavCodeForUpdate($record->landuse ?? 1, $record->zone ?? 'A1', $syncWord);
-
-        // Get property use
         $propertyUse = $syncWord ? PropertyAssessmentValue::where('sync_word', $syncWord)->first() : null;
 
         return [
