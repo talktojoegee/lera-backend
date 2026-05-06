@@ -61,6 +61,7 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('/property-assessment-value/all/{limit}/{skip}', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'showAllPAVs']);
     Route::post('/property-assessment-value/update', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'updatePAV']);
     Route::get('/sectors/distinct', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'showDistinctSectors']);
+    Route::get('/property-types', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'getPropertyTypes']);
 
 
     Route::get('/luc/record', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'getLUC']);

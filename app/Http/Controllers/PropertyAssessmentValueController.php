@@ -100,10 +100,29 @@ class PropertyAssessmentValueController extends Controller
         $sectors = DB::table('property_assessment_values')
             ->select('property_type')
             ->distinct()
+            ->orderBy('property_type', 'ASC')
             ->get();
         return response()->json([
-            'data'=>$sectors
+            'data'=>$sectors,
+            'total' => count($sectors)
         ]);
+    }
+
+    /**
+     * Get property types from property_assessment_values table
+     * Returns distinct property types with count of each type
+     */
+    public function getPropertyTypes(){
+        $propertyTypes = DB::table('property_assessment_values')
+            ->select('property_type', DB::raw('count(*) as count'))
+            ->groupBy('property_type')
+            ->orderBy('property_type', 'ASC')
+            ->get();
+
+        return response()->json([
+            'data' => $propertyTypes,
+            'total' => count($propertyTypes)
+        ], 200);
     }
 
     public function storeLUC(Request $request){
