@@ -3,11 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\PAVResource;
-use App\Http\Resources\PropertyClassificationResource;
-use App\Http\Resources\SectorResource;
 use App\Models\MinimumLuc;
 use App\Models\PropertyAssessmentValue;
-use App\Models\PropertyClassification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -20,29 +17,17 @@ class PropertyAssessmentValueController extends Controller
 
     public function storePAV(Request $request){
         $validator = Validator::make($request->all(),[
-            "pav_code"=>"required",
-            //"assessed_amount"=>"required",
-            //"value_rate"=>"required",
-            "class_id"=>"required",
-            "zone"=>"required",
-            "ba"=>"required",
-            "br"=>"required",
-            "rr"=>"required",
-            "lr"=>"required",
-            "description"=>"required",
-            "syncWord"=>"required",
+            "pav_code"=>"required|unique:property_assessment_values,pav_code",
+            "zones"=>"required",
+            "property_type"=>"required",
+            "annual_due"=>"required|numeric",
         ],[
             "pav_code.required"=>"PAV Code is required",
-            //"assessed_amount.required"=>"Enter Assessed Amount",
-            //"value_rate.required"=>"Enter value rate",
-            "class_id.required"=>"Indicate property classification",
-            "zone.required"=>"Zone is required",
-            "description.required"=>"Enter a brief description",
-            "ba.required"=>"Enter BA value",
-            "br.required"=>"BR value is required",
-            "rr.required"=>"RR value is required",
-            "lr.required"=>"LR value is required",
-            "syncWord.required"=>"Sync word is required",
+            "pav_code.unique"=>"PAV Code already exists",
+            "zones.required"=>"Zone is required",
+            "property_type.required"=>"Property type is required",
+            "annual_due.required"=>"Annual due amount is required",
+            "annual_due.numeric"=>"Annual due must be a numeric value",
         ]);
         if($validator->fails() ){
             return response()->json([
@@ -50,17 +35,10 @@ class PropertyAssessmentValueController extends Controller
             ],422);
         }
         PropertyAssessmentValue::create([
-            //"assessed_amount"=>$request->assessed_amount,
-            //"value_rate"=>$request->value_rate,
-            "property_use"=>$request->description,
             "pav_code"=>$request->pav_code,
-            "zones"=>implode(", ",$request->zone),
-            "class_id"=>$request->class_id,
-            "lr"=>$request->lr,
-            "ba"=>$request->ba,
-            "rr"=>$request->rr,
-            "br"=>$request->br,
-            "sync_word"=>$request->syncWord ?? '',
+            "zones"=>$request->zones,
+            "property_type"=>$request->property_type,
+            "annual_due"=>$request->annual_due,
         ]);
         return response()->json(['message' => 'Success! PAV added.'], 201);
     }
@@ -69,31 +47,20 @@ class PropertyAssessmentValueController extends Controller
 
     public function updatePAV(Request $request){
         $validator = Validator::make($request->all(),[
-            "pav_code"=>"required",
-            //"assessed_amount"=>"required",
-            //"value_rate"=>"required",
-            "class_id"=>"required",
-            "zone"=>"required",
-            "ba"=>"required",
-            "br"=>"required",
-            "rr"=>"required",
-            "lr"=>"required",
-            "description"=>"required",
-            "id"=>"required",
-            "syncWord"=>"required",
+            "id"=>"required|exists:property_assessment_values,id",
+            "pav_code"=>"required|unique:property_assessment_values,pav_code,".$request->id,
+            "zones"=>"required",
+            "property_type"=>"required",
+            "annual_due"=>"required|numeric",
         ],[
+            "id.required"=>"ID is required",
+            "id.exists"=>"PAV record not found",
             "pav_code.required"=>"PAV Code is required",
-            //"assessed_amount.required"=>"Enter Assessed Amount",
-            //"value_rate.required"=>"Enter value rate",
-            "class_id.required"=>"Indicate property classification",
-            "zone.required"=>"Zone is required",
-            "description.required"=>"Enter a brief description",
-            "ba.required"=>"Enter BA value",
-            "br.required"=>"BR value is required",
-            "rr.required"=>"RR value is required",
-            "lr.required"=>"LR value is required",
-            "id.required"=>"",
-            "syncWord.required"=>"",
+            "pav_code.unique"=>"PAV Code already exists",
+            "zones.required"=>"Zone is required",
+            "property_type.required"=>"Property type is required",
+            "annual_due.required"=>"Annual due amount is required",
+            "annual_due.numeric"=>"Annual due must be a numeric value",
         ]);
         if($validator->fails() ){
             return response()->json([
@@ -101,19 +68,12 @@ class PropertyAssessmentValueController extends Controller
             ],422);
         }
 
-        $propertyAssessment = PropertyAssessmentValue::findOrFail($request->id); // Ensure $id is passed correctly
+        $propertyAssessment = PropertyAssessmentValue::findOrFail($request->id);
         $propertyAssessment->update([
-            //"assessed_amount" => $request->assessed_amount,
-            //"value_rate" => $request->value_rate,
-            "property_use" => $request->description,
             "pav_code" => $request->pav_code,
-            "zones" => isset($request->zone) ? implode(", ", $request->zone) : null,
-            "class_id" => $request->class_id,
-            "lr" => $request->lr,
-            "ba" => $request->ba,
-            "rr" => $request->rr,
-            "br" => $request->br,
-            "sync_word" => $request->syncWord ?? '',
+            "zones" => $request->zones,
+            "property_type" => $request->property_type,
+            "annual_due" => $request->annual_due,
         ]);
 
         return response()->json(['message' => 'Success! Changes saved'], 200);
@@ -122,26 +82,28 @@ class PropertyAssessmentValueController extends Controller
 
 
     public function showAllPAVs(Request $request){
+        $limit = $request->input('limit', 15);
+        $skip = $request->input('skip', 0);
+
         return response()->json([
-            'data'=>PAVResource::collection($this->getBillSetup($request->limit, $request->skip)),
+            'data'=>PAVResource::collection($this->getPAVs($limit, $skip)),
             'total'=>PropertyAssessmentValue::count()
         ]);
     }
 
-    private function getBillSetup($limit, $skip){
+    private function getPAVs($limit, $skip){
         return PropertyAssessmentValue::skip($skip)->take($limit)->orderBy('id', 'DESC')->get();
     }
 
 
     public function showDistinctSectors(){
         $sectors = DB::table('property_assessment_values')
-            ->select('property_use')
+            ->select('property_type')
             ->distinct()
             ->get();
         return response()->json([
-            'data'=>SectorResource::collection( $sectors)
+            'data'=>$sectors
         ]);
-        //skip($skip)->take($limit)->orderBy('id', 'DESC')->get();
     }
 
     public function storeLUC(Request $request){
