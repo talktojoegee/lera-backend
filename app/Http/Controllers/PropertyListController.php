@@ -20,6 +20,7 @@ use App\Models\PropertyList;
 use App\Models\User;
 use App\Models\Zone;
 use App\Traits\UtilityTrait;
+use App\Traits\PropertySyncTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -27,7 +28,7 @@ use Illuminate\Support\Facades\Validator;
 
 class PropertyListController extends Controller
 {
-    use UtilityTrait;
+    use UtilityTrait, PropertySyncTrait;
     //
 
     public function __construct(){
@@ -239,131 +240,43 @@ class PropertyListController extends Controller
     }
 
     public function forceSynchronizeProperty(Request $request){
+        // Validate request
         $validator = Validator::make($request->all(), [
             "buildingCode" => "required",
             "auth" => "required",
         ], [
             "buildingCode.required" => "Building Code is required",
-            "auth.required"=>""
+            "auth.required" => "Authentication required"
         ]);
+
         if ($validator->fails()) {
             return response()->json([
                 "errors" => $validator->messages()
             ], 422);
         }
 
-        $propertyDetail = PropertyList::where('building_code', $request->buildingCode)->first();
+        // Use PropertySyncTrait to update property from remote database
+        $result = $this->updatePropertyFromRemote($request->buildingCode);
 
-        //return response()->json(['data'=>$request->buildingCode],200);
-        //update GIS Server records
-        if(!empty($propertyDetail)){
-            $property = DB::connection('pgsql')
-                ->table('Land_Admin_New_Form')
-                ->where('prop_id', $request->buildingCode)
-                ->first();
-
-            if(empty($property)){
-                return response()->json([
-                    "errors" => "No record found"
-                ], 422);
-            }
-            $lgaName = trim($property->lga);
-            $lgaOne = Lga::where('lga_name', 'LIKE', "%{$lgaName}%")->first();
-            $zoneChar = $this->_getZoneCharacter($property->zone) ?? 'Z';
-
-            $propertyClassification = PropertyClassification::find($property->landuse);
-            $zoneOne = Zone::where("sub_zone", $property->zone)->first();
-            $lgaIds = Lga::pluck('id')->toArray();
-            $lgaID = in_array($lgaOne->id, $lgaIds) ? $lgaOne->id : 1;
-            $classIds = PropertyClassification::pluck('id')->toArray();
-            $lgaExist = Lga::find($lgaOne->id);
-
-            $chargeRate = $this->_getChargeRate($property->occupier_s, $property->landuse);
-            $dep = Depreciation::where('range', $property->property_age)->first();
-            $areaVal = $this->convertToSqm($property->property_area);
-            $syncWord = null;
-
-            if(!is_null($property->residentia)){
-                $syncWord = $property->residentia;
-            }else if(!is_null($property->commercial)){
-                $syncWord = $property->commercial;
-            }else if(!is_null($property->industrial)){
-                $syncWord = $property->industrial;
-            }else if(!is_null($property->industri_1)){
-                $syncWord = $property->industri_1;
-            }else if(!is_null($property->education)){
-                $syncWord = $property->education;
-            }else if(!is_null($property->agricultur)){
-                $syncWord = $property->agricultur;
-            }else if(!is_null($property->transport)){
-                $syncWord = $property->transport;
-            }else if(!is_null($property->utility)){
-                $syncWord = $property->utility;
-            }else if(!is_null($property->kgsg_publi)){
-                $syncWord = $property->kgsg_publi;
-            }else if(!is_null($property->fgn_public)){
-                $syncWord = $property->fgn_public;
-            }else if(!is_null($property->religious)){
-                $syncWord = $property->religious;
-            }else if(!is_null($property->others)){
-                $syncWord = $property->others;
-            }
-            $pavRecord = $this->_getPavCode($property->landuse, $property->zone, $syncWord);
-            $propertyUse = PropertyAssessmentValue::where('sync_word', $syncWord)->first();
-            //return response()->json(['data'=>$pavRecord],200);
-            if(!empty($pavRecord)){
-                //return response()->json(['data'=>$propertyDetail],200);
-                PropertyList::where('id', $propertyDetail->id)
-                ->update([
-                    'address' => $property->street_nam ?? '',
-                    'area' => !empty($areaVal) ? str_replace("_sqm", "", $areaVal) : 0,
-                    'borehole' => $property->water == 'Yes' ? 1 : 0,
-                    'image' => $property->photo_link,
-                    'owner_email' => $property->owner_emai,
-                    'owner_gsm' => $property->owner_phon,
-                    'owner_kgtin' => $property->kgtin,
-                    'owner_name' => $property->prop_owner,
-                    'title' => $property->land_status,
-                    'pav_code' => $pavRecord->pav_code ?? null,
-                    'power' => $property->power == 'Yes' ? 1 : 0,
-                    'storey' => '',
-                    'water' => $property->water == 'Yes' ? 1 : 0,
-                    'zone_name' => $zoneChar ?? 'A',
-                    'sub_zone' => $property->zone ?? 'A1',
-                    'ward' => $property->ward ?? 'A1',
-                    'occupant' => $property->prop_owner,
-                    'building_age' => $property->property_age,
-                    'pay_status' => null,
-                    'lga_id' => !empty($lgaOne) && isset($lgaOne->id) ? $lgaOne->id : 1,
-                    'class_name' => $propertyClassification->class_name ?? '',
-                    'class_id' => in_array($property->landuse, $classIds) ? $property->landuse : 1,
-                    'sync_word' => $syncWord,
-                    'property_use' => $propertyUse->property_use ?? null,
-                    'cr' => $chargeRate->id ?? 1,
-                    'actual_age' => $property->property_age,
-                    'longitude' => $property->longitude,
-                    'latitude' => $property->latitude,
-                    'property_name' => $property->prop_name,
-                    'occupier' => $property->occupier_s,
-                    'property_address' => $property->prop_addre,
-                    'dep_id' => !empty($dep) ? $dep->id : Depreciation::orderBy('id', 'ASC')->first()->id,
-                ]);
-                //log activity
-                $user = User::find($request->auth);
-                if(!empty($user)){
-                    $title = "Property Force Synchronization";
-                    $narration = "{$user->name} forcefully synchronized a property with the building code: {$propertyDetail->building_code}";
-                    ActivityLog::LogActivity($title, $narration , $user->id);
-                }
-
-                return response()->json(['data'=>"Property details updated!"],200);
-            }else{
-                return response()->json(['error'=>"Whoops! Something went wrong."],433);
-            }
-        }else{
-            return response()->json(['error'=>"Whoops! Record not found."],404);
+        // Handle result
+        if (!$result['success']) {
+            return response()->json([
+                "errors" => $result['message']
+            ], $result['code'] ?? 422);
         }
 
+        // Log activity
+        $user = User::find($request->auth);
+        if (!empty($user)) {
+            $title = "Property Force Synchronization";
+            $narration = "{$user->name} forcefully synchronized a property with the building code: {$request->buildingCode}";
+            ActivityLog::LogActivity($title, $narration, $user->id);
+        }
+
+        return response()->json([
+            "data" => "Property details updated successfully!",
+            "property" => $result['data']
+        ], 200);
     }
 
     public function bulkForceSynchronization(Request $request){

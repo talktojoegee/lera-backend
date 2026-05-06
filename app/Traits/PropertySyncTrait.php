@@ -397,5 +397,199 @@ trait PropertySyncTrait
             'total' => $this->processedCounter
         ];
     }
-}
+
+    /**
+     * Force synchronize an existing property from remote database
+     *
+     * @param string $buildingCode The building code/property ID
+     * @return array Result array with success/error info
+     */
+    public function updatePropertyFromRemote($buildingCode): array
+    {
+        try {
+            // Check if property exists locally
+            $propertyDetail = PropertyList::where("building_code", $buildingCode)->first();
+            if (empty($propertyDetail)) {
+                return [
+                    'success' => false,
+                    'message' => 'Property not found locally',
+                    'code' => 404
+                ];
+            }
+
+            // Get property from remote database
+            $record = DB::connection('pgsql')
+                ->table('lekki_enumeration')
+                ->where('property_id', $buildingCode)
+                ->first();
+
+            if (empty($record)) {
+                return [
+                    'success' => false,
+                    'message' => 'Property not found in remote database',
+                    'code' => 422
+                ];
+            }
+
+            // Extract sync word from multiple possible fields
+            $syncWord = $this->_extractSyncWord($record);
+
+            // Build update data using remote record
+            $updateData = $this->_buildUpdateData($record, $syncWord);
+
+            // Update the property
+            PropertyList::where('id', $propertyDetail->id)->update($updateData);
+
+            Log::info('PropertySyncTrait: force sync successful', [
+                'building_code' => $buildingCode,
+                'property_id' => $propertyDetail->id
+            ]);
+
+            return [
+                'success' => true,
+                'message' => 'Property synchronized successfully',
+                'data' => $propertyDetail->fresh()
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('PropertySyncTrait: force sync failed', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'building_code' => $buildingCode
+            ]);
+
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+                'code' => 500
+            ];
+        }
+    }
+
+    /**
+     * Extract sync word from remote record (checks multiple possible fields)
+     *
+     * @param object $record Remote database record
+     * @return string|null The sync word
+     */
+    private function _extractSyncWord($record): ?string
+    {
+        $syncWordFields = [
+            'residentia', 'commercial', 'industrial', 'industri_1', 'education',
+            'agricultur', 'transport', 'utility', 'kgsg_publi', 'fgn_public',
+            'religious', 'others'
+        ];
+
+        foreach ($syncWordFields as $field) {
+            if (!is_null($record->{$field} ?? null)) {
+                return $record->{$field};
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Build update data array from remote record
+     *
+     * @param object $record Remote enumeration record
+     * @param string|null $syncWord Property type sync word
+     * @return array Update data ready for database
+     */
+    private function _buildUpdateData($record, $syncWord = null): array
+    {
+        $chargeRate = $this->_getChargeRate($record->occupier_s ?? null, $record->landuse ?? null) ?: ChargeRate::first();
+        $areaVal = $this->convertToSqm($record->property_area ?? '2000_Acre');
+
+        // Get property classification
+        $propertyClassification = PropertyClassification::find($record->landuse ?? 1);
+
+        // Get zone character
+        $zoneChar = $this->_getZoneCharacterCode($record->zone ?? 'A');
+
+        // Get LGA
+        $lgaName = trim($record->lga ?? '');
+        $lgaOne = Lga::where('lga_name', 'LIKE', "%{$lgaName}%")->first();
+        $lgaId = (!empty($lgaOne) && isset($lgaOne->id)) ? $lgaOne->id : 1;
+
+        // Get depreciation
+        $dep = Depreciation::where('range', $record->property_age ?? null)->first();
+        $depId = !empty($dep) ? $dep->id : Depreciation::orderBy('id', 'ASC')->first()->id;
+
+        // Get PAV record
+        $pavRecord = $this->_getPavCodeForUpdate($record->landuse ?? 1, $record->zone ?? 'A1', $syncWord);
+
+        // Get property use
+        $propertyUse = $syncWord ? PropertyAssessmentValue::where('sync_word', $syncWord)->first() : null;
+
+        return [
+            'address' => $record->street_nam ?? '',
+            'area' => !empty($areaVal) ? str_replace("_sqm", "", $areaVal) : 0,
+            'borehole' => ($record->water ?? '') == 'Yes' ? 1 : 0,
+            'image' => $record->photo_link ?? null,
+            'owner_email' => $record->owner_emai ?? null,
+            'owner_gsm' => $record->owner_phon ?? null,
+            'owner_kgtin' => $record->kgtin ?? null,
+            'owner_name' => $record->prop_owner ?? null,
+            'title' => $record->land_status ?? null,
+            'pav_code' => $pavRecord->pav_code ?? null,
+            'power' => ($record->power ?? '') == 'Yes' ? 1 : 0,
+            'storey' => '',
+            'water' => ($record->water ?? '') == 'Yes' ? 1 : 0,
+            'zone_name' => $zoneChar,
+            'sub_zone' => $record->zone ?? 'A1',
+            'ward' => $record->ward ?? 'A1',
+            'occupant' => $record->prop_owner ?? null,
+            'building_age' => $record->property_age ?? 0,
+            'pay_status' => null,
+            'lga_id' => $lgaId,
+            'class_name' => $propertyClassification->class_name ?? '',
+            'class_id' => $record->landuse ?? 1,
+            'sync_word' => $syncWord,
+            'property_use' => $propertyUse->property_use ?? $syncWord,
+            'cr' => $chargeRate->id ?? 1,
+            'actual_age' => $record->property_age ?? 0,
+            'longitude' => $record->longitude ?? null,
+            'latitude' => $record->latitude ?? null,
+            'property_name' => $record->prop_name ?? 'N/A',
+            'occupier' => $record->occupier_s ?? null,
+            'property_address' => $record->prop_addre ?? '',
+            'dep_id' => $depId,
+        ];
+    }
+
+    /**
+     * Get zone character for update operations
+     *
+     * @param string $char Zone code
+     * @return string Zone character
+     */
+    private function _getZoneCharacterCode($char): string
+    {
+        return match (substr($char, 0, 1)) {
+            'A' => 'A', 'B' => 'B', 'C' => 'C', 'D' => 'D',
+            'E' => 'E', 'F' => 'F', 'G' => 'G', 'H' => 'H',
+            default => 'Z'
+        };
+    }
+
+    /**
+     * Get PAV code for update operations (uses class_id, zone, and sync_word)
+     *
+     * @param int $classId
+     * @param string $zone
+     * @param string|null $syncWord
+     * @return PropertyAssessmentValue|null
+     */
+    private function _getPavCodeForUpdate($classId, $zone, $syncWord = null)
+    {
+        $query = PropertyAssessmentValue::where("class_id", $classId)
+            ->where("zones", 'LIKE', '%' . $zone . '%');
+
+        if ($syncWord) {
+            $query->where('sync_word', $syncWord);
+        }
+
+        return $query->first();
+    }
 
