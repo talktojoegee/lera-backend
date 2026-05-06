@@ -6,13 +6,14 @@ use App\Models\ActivityLog;
 use App\Models\SynchronizationLog;
 use App\Models\User;
 use App\Traits\PropertySyncTrait;
+use App\Traits\UtilityTrait;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class SyncDataCommand extends Command
 {
-    use PropertySyncTrait;
+    use PropertySyncTrait, UtilityTrait;
 
     // Optional: Set these properties if logging sync activity to database
     public $lgaId = null;

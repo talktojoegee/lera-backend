@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Log;
  */
 trait PropertySyncTrait
 {
+    use UtilityTrait;
     protected $syncCounter = 0;
     protected $exceptionCounter = 0;
     protected $processedCounter = 0;
@@ -33,16 +34,20 @@ trait PropertySyncTrait
         $this->resetCounters();
 
         // Normalize input to array
-        $propertyIds = is_array($propertyIds) ? $propertyIds : [$propertyIds];
+        $propertyIds = is_array($propertyIds) ? $propertyIds : ($propertyIds ? [$propertyIds] : []);
 
         try {
             // Query remote enumeration table for given property IDs
             $query = DB::connection('pgsql')
                 ->table('lekki_enumeration')
-                ->where('completeness_status', 'Complete')
-                ->whereIn('property_id', $propertyIds)
-                ->orderBy('id', 'DESC');
+                ->where('completeness_status', 'Complete');
 
+            // Only apply whereIn filter if property IDs are provided
+            if (!empty($propertyIds)) {
+                $query->whereIn('property_id', $propertyIds);
+            }
+
+            $query->orderBy('id', 'DESC');
             $records = $query->cursor();
 
             foreach ($records as $record) {
@@ -58,7 +63,7 @@ trait PropertySyncTrait
 
                     // Output progress if callback provided
                     if ($outputCallback && is_callable($outputCallback)) {
-                        call_user_func($outputCallback, "[{$this->processedCounter}] Processing record id={$record->id} property_id={$record->property_id}");
+                        call_user_func($outputCallback, "[{$this->processedCounter}] Processing {$record->property_id}");
                     }
 
                     // Process the record
@@ -66,12 +71,17 @@ trait PropertySyncTrait
 
                 } catch (\Exception $ex) {
                     $this->exceptionCounter++;
-                    Log::error("PropertySyncTrait: failed to process record id={$record->id}", [
+                    Log::error("PropertySyncTrait: EXCEPTION processing record {$record->id}", [
                         'message' => $ex->getMessage(),
                         'trace' => $ex->getTraceAsString(),
                         'record_id' => $record->id,
                         'property_id' => $record->property_id
                     ]);
+
+                    // Show error in output
+                    if ($outputCallback && is_callable($outputCallback)) {
+                        call_user_func($outputCallback, "❌ ERROR [{$record->property_id}]: {$ex->getMessage()}");
+                    }
 
                     // Mark as exception in remote table
                     try {
@@ -110,7 +120,6 @@ trait PropertySyncTrait
      */
     private function _processPropertyRecord($record, $outputCallback = null)
     {
-        // Check if property already exists
         $propertyList = PropertyList::where("building_code", $record->property_id)->first();
 
         if (!$propertyList) {
@@ -118,52 +127,76 @@ trait PropertySyncTrait
             $propertyData = $this->_buildPropertyData($record);
 
             try {
+                // Log the data being inserted for debugging
+                Log::debug('PropertySyncTrait: attempting insert with data', [
+                    'building_code' => $propertyData['building_code'] ?? 'MISSING',
+                    'property_type' => $propertyData['property_type'] ?? 'MISSING',
+                    'data_count' => count($propertyData)
+                ]);
+
                 // Try creating via model
                 $new = PropertyList::create($propertyData);
 
                 if (!empty($new->id)) {
-                    Log::info('PropertySyncTrait: created PropertyList', [
+                    Log::info('PropertySyncTrait: created PropertyList via model', [
                         'id' => $new->id,
                         'building_code' => $new->building_code
                     ]);
 
                     if ($outputCallback && is_callable($outputCallback)) {
-                        call_user_func($outputCallback, "Created PropertyList id={$new->id} building_code={$new->building_code}");
+                        call_user_func($outputCallback, "✓ Created PropertyList id={$new->id}");
                     }
+
+                    $this->syncCounter++;
                 } else {
                     // Fallback: Use raw insert
-                    Log::warning('PropertySyncTrait: PropertyList created but id missing', [
+                    Log::warning('PropertySyncTrait: model create returned no ID, using fallback insert', [
                         'building_code' => $record->property_id
                     ]);
 
                     if ($outputCallback && is_callable($outputCallback)) {
-                        call_user_func($outputCallback, "⚠️ PropertyList created but id missing for building_code={$record->property_id}");
+                        call_user_func($outputCallback, "⚠️ Model create failed, attempting fallback insert for {$record->property_id}");
                     }
 
-                    $insertedId = DB::connection(config('database.default'))
-                        ->table('property_lists')
-                        ->insertGetId($propertyData);
+                    try {
+                        $insertedId = DB::connection(config('database.default'))
+                            ->table('property_lists')
+                            ->insertGetId($propertyData);
 
-                    Log::info('PropertySyncTrait: fallback inserted into property_lists', [
-                        'id' => $insertedId,
-                        'building_code' => $record->property_id
-                    ]);
+                        Log::info('PropertySyncTrait: fallback insert successful', [
+                            'id' => $insertedId,
+                            'building_code' => $record->property_id
+                        ]);
 
-                    if ($outputCallback && is_callable($outputCallback)) {
-                        call_user_func($outputCallback, "✓ Fallback insert id={$insertedId}");
+                        if ($outputCallback && is_callable($outputCallback)) {
+                            call_user_func($outputCallback, "✓ Fallback insert id={$insertedId}");
+                        }
+
+                        $this->syncCounter++;
+                    } catch (\Exception $fallbackEx) {
+                        Log::error('PropertySyncTrait: fallback insert also failed', [
+                            'message' => $fallbackEx->getMessage(),
+                            'trace' => $fallbackEx->getTraceAsString(),
+                            'building_code' => $record->property_id
+                        ]);
+
+                        if ($outputCallback && is_callable($outputCallback)) {
+                            call_user_func($outputCallback, "✗ Both model and raw insert failed: {$fallbackEx->getMessage()}");
+                        }
+
+                        throw $fallbackEx;
                     }
                 }
 
-                $this->syncCounter++;
-
             } catch (\Exception $fbEx) {
-                Log::error('PropertySyncTrait: insert failed', [
+                Log::error('PropertySyncTrait: insert operation failed completely', [
                     'message' => $fbEx->getMessage(),
-                    'trace' => $fbEx->getTraceAsString()
+                    'trace' => $fbEx->getTraceAsString(),
+                    'property_id' => $record->property_id
                 ]);
 
                 if ($outputCallback && is_callable($outputCallback)) {
-                    call_user_func($outputCallback, "✗ Insert failed: {$fbEx->getMessage()}");
+                    call_user_func($outputCallback, "✗ FAILED to insert: {$fbEx->getMessage()}");
                 }
 
                 throw $fbEx;
@@ -171,15 +204,22 @@ trait PropertySyncTrait
         } else {
             // Property already exists - just update sync status
             if ($outputCallback && is_callable($outputCallback)) {
-                call_user_func($outputCallback, "Property already exists: building_code={$record->property_id}");
+                call_user_func($outputCallback, "ⓘ Property already exists: {$record->property_id}");
             }
         }
 
         // Mark record as synced in remote table
-        DB::connection('pgsql')
-            ->table('lekki_enumeration')
-            ->where('id', $record->id)
-            ->update(['bill_sync' => 1]);
+        try {
+            DB::connection('pgsql')
+                ->table('lekki_enumeration')
+                ->where('id', $record->id)
+                ->update(['bill_sync' => 1]);
+        } catch (\Exception $updateEx) {
+            Log::error('PropertySyncTrait: failed to mark record as synced', [
+                'message' => $updateEx->getMessage(),
+                'record_id' => $record->id
+            ]);
+        }
     }
 
     /**
@@ -190,77 +230,96 @@ trait PropertySyncTrait
      */
     private function _buildPropertyData($record): array
     {
-        $chargeRate = $this->_getChargeRate($record->business_name_1, $record->property_type) ?: ChargeRate::first();
-        $areaVal = $this->convertToSqm('2000_Acre');
+        try {
+            $chargeRate = $this->_getChargeRate($record->business_name_1, $record->property_type) ?: ChargeRate::first();
+            $areaVal = $this->convertToSqm('2000_Acre');
 
-        // Determine property classification
-        $propertyClassification = ($chargeRate && $chargeRate->id == 7)
-            ? PropertyClassification::find(2)
-            : PropertyClassification::find(1);
+            // Determine property classification
+            $propertyClassification = ($chargeRate && $chargeRate->id == 7)
+                ? PropertyClassification::find(2)
+                : PropertyClassification::find(1);
 
-        // Detect landuse/class id
-        $landuse = $this->_isCommercial($record->business_name_1, $record->property_type);
+            // Detect landuse/class id
+            $landuse = $this->_isCommercial($record->business_name_1, $record->property_type);
 
-        // Sync word is the property type string
-        $syncWord = $record->property_type ?? 'Residential';
+            // Sync word is the property type string
+            $syncWord = $record->property_type ?? 'Residential';
 
-        // Get PAV record
-        $pavRecord = $this->_getPavCode($landuse, 'A1', $syncWord);
+            // Get PAV record
+            $pavRecord = $this->_getPavCode($record->property_type);
 
-        return [
-            'address' => ($record->confirmed_house_number ?? '') . ' ' . ($record->street_name ?? ''),
-            'area' => !empty($areaVal) ? str_replace("_sqm", "", $areaVal) : 0,
-            'building_code' => $record->property_id,
-            'image' => $record->photo_front ?? null,
-            'owner_email' => $record->owner_email ?? null,
-            'owner_gsm' => $record->owner_phone ?? null,
-            'owner_name' => $record->owner_name ?? null,
-            'pav_code' => $pavRecord->pav_code ?? null,
-            'power' => 0,
-            'storey' => '',
-            'water' => 0,
-            'zone_name' => 'A',
-            'sub_zone' => 'A1',
-            'ward' => 'A1',
-            'occupant' => $record->owner_name ?? null,
-            'building_age' => 0,
-            'pay_status' => null,
-            'lga_id' => 1,
-            'class_name' => $propertyClassification->class_name ?? '',
-            'class_id' => 1,
-            'sync_word' => $syncWord,
-            'property_use' => $syncWord,
-            'cr' => $chargeRate->id ?? 1,
-            'actual_age' => 0,
-            'longitude' => $record->longitude ?? null,
-            'latitude' => $record->latitude ?? null,
-            'property_name' => 'N/A',
-            'occupier' => $record->owner_name ?? null,
-            'property_address' => ($record->confirmed_house_number ?? '') . ' ' . ($record->street_name ?? ''),
-            'dep_id' => 1,
-            'ba' => $record->area_from_bfp ?? 200,
-            'property_type' => $record->property_type ?? 'Residential',
-            'business_type' => $record->business_type ?? 'Private',
-            'no_of_floors' => $record->no_of_floors ?? 1,
-            'no_of_units' => $record->no_of_units ?? 1,
-            'revenue_category' => $record->revenue_category ?? 'Residential',
-            'photo_gate' => $record->photo_gate ?? '',
-            'photo_signage' => $record->photo_signage ?? '',
-            'photo_street' => $record->photo_street ?? '',
-            'area_in_me' => $record->area_in_me ?? '',
-            'confidence' => $record->confidence ?? '',
-            'full_plus_' => $record->full_plus_ ?? '',
-            'contact_name' => $record->contact_name ?? '',
-            'contact_phone' => $record->contact_phone ?? '',
-            'contact_address' => $record->contact_address ?? '',
-            'contact_email' => $record->contact_email ?? '',
-            'confirmed_house_number' => $record->confirmed_house_number ?? '',
-            'assigned_house_number' => $record->assigned_house_number ?? '',
-            'business_name_1' => $record->business_name_1 ?? '',
-            'business_name_2' => $record->business_name_2 ?? '',
-            'business_name_3' => $record->business_name_3 ?? '',
-            'business_name_4' => $record->business_name_4 ?? '',
-        ];
+            Log::debug('PropertySyncTrait: building property data', [
+                'property_id' => $record->property_id,
+                'chargeRate' => $chargeRate?->id,
+                'propertyClassification' => $propertyClassification?->id,
+                'pavRecord' => $pavRecord?->pav_code,
+                'syncWord' => $syncWord
+            ]);
+
+            $data = [
+                'address' => ($record->confirmed_house_number ?? '') . ' ' . ($record->street_name ?? ''),
+                'area' => !empty($areaVal) ? str_replace("_sqm", "", $areaVal) : 0,
+                'building_code' => $record->property_id,
+                'image' => $record->photo_front ?? null,
+                'owner_email' => $record->owner_email ?? null,
+                'owner_gsm' => $record->owner_phone ?? null,
+                'owner_name' => $record->owner_name ?? null,
+                'pav_code' => $pavRecord->pav_code ?? null,
+                'power' => 0,
+                'storey' => '',
+                'water' => 0,
+                'zone_name' => $pavRecord->zones ?? 'A',
+                'sub_zone' => $pavRecord->zones ?? 'A1',
+                'ward' => $pavRecord->zones ?? 'A1',
+                'occupant' => $record->owner_name ?? null,
+                'building_age' => 0,
+                'pay_status' => null,
+                'lga_id' => 1,
+                'class_name' => $propertyClassification->class_name ?? '',
+                'class_id' => 1,
+                'sync_word' => $syncWord,
+                'property_use' => $syncWord,
+                'cr' => $chargeRate->id ?? 1,
+                'actual_age' => 0,
+                'longitude' => $record->longitude ?? null,
+                'latitude' => $record->latitude ?? null,
+                'property_name' => $record->business_name_1 ?? 'N/A',
+                'occupier' => $record->owner_name ?? null,
+                'property_address' => ($record->confirmed_house_number ?? '') . ' ' . ($record->street_name ?? ''),
+                'dep_id' => 1,
+                'ba' => $record->area_from_bfp ?? 200,
+                'property_type' => $record->property_type ?? 'Residential',
+                'business_type' => $record->business_type ?? 'Private',
+                'no_of_floors' => $record->no_of_floors ?? 1,
+                'no_of_units' => $record->no_of_units ?? 1,
+                'revenue_category' => $record->revenue_category ?? 'Residential',
+                'photo_gate' => $record->photo_gate ?? '',
+                'photo_signage' => $record->photo_signage ?? '',
+                'photo_street' => $record->photo_street ?? '',
+                'area_in_me' => $record->area_in_me ?? '',
+                'confidence' => $record->confidence ?? '',
+                'full_plus_' => $record->full_plus_ ?? '',
+                'contact_name' => $record->contact_name ?? '',
+                'contact_phone' => $record->contact_phone ?? '',
+                'contact_address' => $record->contact_address ?? '',
+                'contact_email' => $record->contact_email ?? '',
+                'confirmed_house_number' => $record->confirmed_house_number ?? '',
+                'assigned_house_number' => $record->assigned_house_number ?? '',
+                'business_name_1' => $record->business_name_1 ?? '',
+                'business_name_2' => $record->business_name_2 ?? '',
+                'business_name_3' => $record->business_name_3 ?? '',
+                'business_name_4' => $record->business_name_4 ?? '',
+            ];
+
+            return $data;
+        } catch (\Exception $e) {
+            Log::error('PropertySyncTrait: error building property data', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'property_id' => $record->property_id ?? 'UNKNOWN'
+            ]);
+            throw $e;
+        }
     }
 
     /**
@@ -309,10 +368,9 @@ trait PropertySyncTrait
      * @param string|null $syncWord Property type sync word
      * @return PropertyAssessmentValue|null
      */
-    private function _getPavCode($classId, $zone, $syncWord = null)
+    private function _getPavCode($propertyType)
     {
-        return PropertyAssessmentValue::where("class_id", $classId)
-            ->where("zones", 'LIKE', '%' . $zone . '%')
+        return PropertyAssessmentValue::where("property_type", $propertyType)
             ->first();
     }
 
