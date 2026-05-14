@@ -41,6 +41,15 @@ class PropertyListResource extends JsonResource
           "billExistCounter"=> !empty($bill) ? $bill->count() : 0,
           "lat"=>$this->latitude ?? '',
           "long"=>$this->longitude ?? '',
+
+            "propertyType"=>$this->property_type ?? '',
+            "businessName1"=>$this->business_name_1 ?? '',
+            "businessName2"=>$this->business_name_2 ?? '',
+            "confirmedHouseNo"=>$this->confirmed_house_number ?? '',
+            "contactEmail"=>$this->contact_email ?? '',
+            "contactAddress"=>$this->contact_address ?? '',
+            "contactPhone"=>$this->contact_phone ?? '',
+            "contactName"=>$this->contact_name ?? '',
         ];
     } //extension_dir => /usr/lib/php/20230831 => /usr/lib/php/20230831
 }

@@ -7,17 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 class PropertyAssessmentValue extends Model
 {
     protected $fillable = [
-      "assessed_amount",
-      "value_rate",
-      "property_use",
-      "pav_code",
-      "zones",
-      "class_id",
-      "lr",
-      "ba",
-      "rr",
-      "br",
-      "sync_word",
+      'pav_code',
+      'zones',
+      'property_type',
+      'annual_due',
     ];
 
     public function getClass(){
@@ -32,10 +25,10 @@ class PropertyAssessmentValue extends Model
     public static function getDistinctPropertyUses()
     {
         return PropertyAssessmentValue::query()
-            ->select('property_use')
-            ->whereNotNull('property_use')
-            ->groupBy('property_use')
-            ->orderBy('property_use')
+            ->select('property_type')
+            ->whereNotNull('property_type')
+            ->groupBy('property_type')
+            ->orderBy('property_type')
             ->get();
     }
 }

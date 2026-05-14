@@ -17,18 +17,12 @@ class PAVResource extends JsonResource
         //return parent::toArray($request);
         return [
             "id"=>$this->id,
-            //"assessedAmount"=>$this->assessed_amount,
-            //"valueRate"=>$this->value_rate,
-            "ba"=>$this->ba,
-            "rr"=>$this->rr,
-            "br"=>$this->br,
-            "lr"=>$this->lr,
-            "propertyUse"=>$this->property_use,
-            "occupancy"=>$this->property_use,
-            "pavCode"=>$this->pav_code,
-            "zones"=>$this->zones,
-            "className"=>$this->getClass->class_name ?? '',
-            "syncWord"=>$this->sync_word ?? '',
+            'pavCode' => $this->pav_code,
+            'zones' => $this->zones,
+            'propertyType' => $this->property_type ?? '',
+            'annualDue' => $this->annual_due ?? 0,
+            'createdAt' => $this->created_at?->toDateTimeString() ?? null,
+            'updatedAt' => $this->updated_at?->toDateTimeString() ?? null,
         ];
     }
 }

@@ -50,40 +50,17 @@ trait BillingProcessTrait
 
             foreach ($propertyLists as $list) {
                 try {
-                    // Check if bill already exists
                     if ($this->_billExists($list->building_code, $year)) {
                         $stats['skipped']++;
                         if ($callback) {
-                            call_user_func($callback, "⊘ Bill already exists for {$list->building_code}");
+                            call_user_func($callback, " Bill already exists for {$list->building_code}");
                         }
                         continue;
                     }
 
-                    // Get required related data
-                    $pav = PropertyAssessmentValue::where("pav_code", $list->pav_code)->first();
-                    $depreciation = Depreciation::find($list->dep_id);
-                    $chargeRate = ChargeRate::find($list->cr);
+                    $pav = PropertyAssessmentValue::where("property_type", $list->property_type)->first();
 
-                    // Validate required data exists
-                    if (!$pav || !$depreciation || !$chargeRate) {
-                        $stats['skipped']++;
-                        if ($callback) {
-                            call_user_func($callback, "⊘ Missing data for {$list->building_code}");
-                        }
-                        continue;
-                    }
-
-                    // Skip exempted properties (rate = 0)
-                    if ($chargeRate->rate <= 0) {
-                        $stats['skipped']++;
-                        if ($callback) {
-                            call_user_func($callback, "⊘ Exempted property {$list->building_code}");
-                        }
-                        continue;
-                    }
-
-                    // Create billing record
-                    $this->_createBillingRecord($list, $pav, $depreciation, $chargeRate, $year, $billedBy);
+                    $this->_createBillingRecord($list, $pav, $year, $billedBy);
                     $stats['created']++;
 
                     if ($callback) {
@@ -156,30 +133,27 @@ trait BillingProcessTrait
      * @param int $billedBy
      * @return Billing
      */
-    private function _createBillingRecord($property, $pav, $depreciation, $chargeRate, $year, $billedBy): Billing
+    private function _createBillingRecord($property, $pav, $year, $billedBy): Billing
     {
-        // Calculate billing amounts
-        $calculations = $this->_calculateBillingAmounts($property, $pav, $depreciation, $chargeRate);
-
         // Create billing record
         $billing = new Billing();
         $billing->building_code = $property->building_code;
         $billing->assessment_no = uniqid();
-        $billing->assessed_value = $calculations['assessed_value'];
-        $billing->bill_amount = $calculations['bill_amount'];
-        $billing->minimum_luc = $calculations['minimum_luc'];
+        $billing->assessed_value = 0;
+        $billing->bill_amount = $pav->annual_due ?? 0;
+        $billing->minimum_luc = MinimumLuc::first()->amount ?? 0;
         $billing->year = $year;
         $billing->entry_date = now();
         $billing->billed_by = $billedBy ?? 5;
 
         // Rate values
-        $billing->rr = $pav->rr ?? 0;
-        $billing->lr = $pav->lr ?? 0;
-        $billing->ba = $calculations['ba'];
-        $billing->br = $pav->br ?? 0;
-        $billing->dr = $depreciation->depreciation_rate ?? 0;
-        $billing->cr = $chargeRate->rate;
-        $billing->dr_value = $depreciation->depreciation_rate ?? 0;
+        $billing->rr =  0;
+        $billing->lr = 0;
+        $billing->ba = 0;
+        $billing->br = 0;
+        $billing->dr = 0;
+        $billing->cr = 0;
+        $billing->dr_value = 0;
 
         // Status
         $billing->paid_amount = 0;
@@ -188,88 +162,18 @@ trait BillingProcessTrait
         // Property info
         $billing->lga_id = $property->lga_id;
         $billing->property_id = $property->id;
-        $billing->bill_rate = $pav->value_rate ?? 0;
+        $billing->bill_rate = 0;
         $billing->pav_code = $pav->pav_code;
         $billing->zone_name = $property->sub_zone ?? '';
         $billing->url = uniqid() . mt_rand(1000, 9999);
         $billing->class_id = $property->class_id;
         $billing->property_use = $property->property_use;
         $billing->occupancy = $property->cr;
-        $billing->la = $calculations['la'];
+        $billing->la = 0;
         $billing->ward = $property->ward ?? '';
         $billing->property_name = $property->property_name ?? '';
-
         $billing->save();
         return $billing;
-    }
-
-    /**
-     * Calculate all billing amounts
-     *
-     * Formula: ((LA * LR) + (BA * BR * DR)) * RR * CR
-     * Where:
-     * - LA = Land Area
-     * - LR = Land Rate
-     * - BA = Building Area
-     * - BR = Building Rate
-     * - DR = Depreciation Rate
-     * - RR = Revenue Rate
-     * - CR = Charge Rate
-     *
-     * @param PropertyList $property
-     * @param PropertyAssessmentValue $pav
-     * @param Depreciation $depreciation
-     * @param ChargeRate $chargeRate
-     * @return array
-     */
-    private function _calculateBillingAmounts($property, $pav, $depreciation, $chargeRate): array
-    {
-        // Extract values
-        $la = (int)($property->area ?? 1);
-        $lr = $pav->lr ?? 1;
-        $ba = $property->ba ?? 0;
-        $br = $pav->br ?? 0;
-        $dr = ($depreciation->value ?? 0) * 0.01;
-        $rr = (100 - ($pav->rr ?? 0)) * 0.01;
-        $cr = ($chargeRate->rate ?? 0) * 0.01;
-
-        // Calculate assessed value (before charge rate)
-        $assessed_value = (($la * $lr) + ($ba * $br * $dr)) * $rr;
-
-        // Calculate LUC (with charge rate)
-        $luc = $assessed_value * $cr;
-        $billAmount = ceil($luc);
-
-        // Get minimum LUC
-        $minimumLuc = MinimumLuc::first();
-        $minimumAmount = $minimumLuc->amount ?? 0;
-
-        // Determine final bill amount and minimum LUC adjustment
-        $finalBillAmount = ($billAmount > $minimumAmount) ? $billAmount : $minimumAmount;
-        $minimumLucAdjustment = ($billAmount < $minimumAmount) ? $billAmount : 0;
-
-        Log::debug('BillingProcessTrait: Calculation details', [
-            'la' => $la,
-            'lr' => $lr,
-            'ba' => $ba,
-            'br' => $br,
-            'dr' => $dr,
-            'rr' => $rr,
-            'cr' => $cr,
-            'assessed_value' => $assessed_value,
-            'luc' => $luc,
-            'bill_amount' => $billAmount,
-            'minimum_luc' => $minimumAmount,
-            'final_bill_amount' => $finalBillAmount
-        ]);
-
-        return [
-            'la' => $la,
-            'ba' => $ba,
-            'assessed_value' => $assessed_value,
-            'bill_amount' => $finalBillAmount,
-            'minimum_luc' => $minimumLucAdjustment
-        ];
     }
 }
 

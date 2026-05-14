@@ -240,7 +240,6 @@ class PropertyListController extends Controller
     }
 
     public function forceSynchronizeProperty(Request $request){
-        // Validate request
         $validator = Validator::make($request->all(), [
             "buildingCode" => "required",
             "auth" => "required",
@@ -254,25 +253,18 @@ class PropertyListController extends Controller
                 "errors" => $validator->messages()
             ], 422);
         }
-
-        // Use PropertySyncTrait to update property from remote database
         $result = $this->updatePropertyFromRemote($request->buildingCode);
-
-        // Handle result
         if (!$result['success']) {
             return response()->json([
                 "errors" => $result['message']
             ], $result['code'] ?? 422);
         }
-
-        // Log activity
         $user = User::find($request->auth);
         if (!empty($user)) {
             $title = "Property Force Synchronization";
             $narration = "{$user->name} forcefully synchronized a property with the building code: {$request->buildingCode}";
             ActivityLog::LogActivity($title, $narration, $user->id);
         }
-
         return response()->json([
             "data" => "Property details updated successfully!",
             "property" => $result['data']
@@ -309,10 +301,8 @@ class PropertyListController extends Controller
 
     }
 
-    private function _getPavCode($classId, $zone, $syncWord){
-        return PropertyAssessmentValue::where("class_id",$classId)
-            ->where("zones",'LIKE', '%'.$zone.'%')
-            ->where('sync_word', $syncWord)
+    private function _getPavCode($propertyType){
+        return PropertyAssessmentValue::where("property_type",$propertyType)
             ->first();
     }
 

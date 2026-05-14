@@ -1,0 +1,55 @@
+talktojoegee@kslas:~$ cat /etc/supervisor/conf.d/*.conf
+[program:api-queue]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/api.kslas.ng/public/artisan queue:work --tries=5 --timeout=3600
+autostart=true
+autorestart=true
+numprocs=5
+redirect_stderr=true
+stdout_logfile=/var/log/supervisor/api-queue.log
+stderr_logfile=/var/log/supervisor/api-queue-error.log
+user=www-data
+[program:laravel-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/api.kslas.ng/public/artisan queue:work database --timeout=1800 --tries=3
+autostart=true
+autorestart=true
+user=www-data
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/var/www/api.kslas.ng/public/storage/logs/worker.log
+
+[program:mail_queue]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/api.kslas.ng/public/artisan queue:work --queue=mail_queue --daemon --tries=3  database --timeout=800
+autostart=true
+autorestart=true
+user=www-data
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/var/www/api.kslas.ng/public/storage/logs/mail_queue.log
+
+
+
+[program:data_sync_queue]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/api.kslas.ng/public/artisan queue:work --queue=data_sync_queue --daemon --tries=3  database --timeout=3600
+autostart=true
+autorestart=true
+user=www-data
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/var/www/api.kslas.ng/public/storage/logs/data_sync_queue.log
+
+
+
+[program:print_queue]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/api.kslas.ng/public/artisan queue:work --queue=print_queue --daemon --tries=3  database --timeout=1000
+autostart=true
+autorestart=true
+user=www-data
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/var/www/api.kslas.ng/public/storage/logs/print_queue.log
+talktojoegee@kslas:~$

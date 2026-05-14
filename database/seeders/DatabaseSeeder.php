@@ -19,5 +19,10 @@ class DatabaseSeeder extends Seeder
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+
+        // Seed PAV data from CSV
+        $this->call([
+            PavLoadDataSeeder::class,
+        ]);
     }
 }

@@ -3,25 +3,15 @@
 namespace App\Jobs;
 
 use App\Models\ActivityLog;
-use App\Models\ChargeRate;
-use App\Models\Depreciation;
-use App\Models\Lga;
-use App\Models\PropertyAssessmentValue;
-use App\Models\PropertyClassification;
-use App\Models\PropertyException;
-use App\Models\PropertyList;
 use App\Models\SynchronizationLog;
 use App\Models\User;
-use App\Models\Zone;
 use App\Traits\UtilityTrait;
 use App\Traits\PropertySyncTrait;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
-use PHPUnit\Event\Code\Throwable;
+use Throwable;
 
 class SyncDataJob implements ShouldQueue
 {
@@ -31,7 +21,6 @@ class SyncDataJob implements ShouldQueue
     public $userId;
     public $tries = 10;
     public $timeout = 3600;
-    public $counter = 0;
 
     /**
      * Create a new job instance.
@@ -40,370 +29,137 @@ class SyncDataJob implements ShouldQueue
     {
         $this->lgaId = $lga;
         $this->userId = $userId;
-        $this->counter = 0;
-        $this->syncCounter = 0;
-        $this->exceptionCounter = 0;
-    }
-
-    /**
-     * Get zone character (wrapper for trait method)
-     */
-    private function _getZoneCharacter($char): string
-    {
-        return $this->_getZoneCharacterCode($char);
-    }
-
-    /**
-     * Get PAV code record (wrapper for trait method)
-     */
-    private function _getPavCode($classId, $zone, $syncWord)
-    {
-        return PropertyAssessmentValue::where("class_id", $classId)
-            ->where("zones", 'LIKE', '%' . $zone . '%')
-            ->where('sync_word', $syncWord)
-            ->first();
     }
 
     /**
      * Execute the job.
+     * Uses PropertySyncTrait to handle all synchronization logic
      */
     public function handle(): void
     {
-        //$this->lgaId = 0;
-
-
         try {
-            $lgaName = '';
-            if($this->lgaId > 0){
-                $rec = Lga::find($this->lgaId);
-                $lgaName = $rec->lga_name;
-            }
+            // Get all property IDs from the remote source
+            $propertyIds = $this->_getPropertyIdsToSync();
 
-            DB::connection('pgsql')
-                ->table('Land_Admin_New_Form')
-                ->when($this->lgaId > 0, function($query) use ($lgaName) {
-                    return $query->where('lga', 'LIKE', "%{$lgaName}%");
-                    //return $query->where('lga_id', $this->lgaId);
-                })
-                ->where('completeness_status', 'Complete')
-                ->where('bill_sync', 0)
-                //->where('prop_id', 'Kg/JMU/1090863')
-                //->take(1000)
-                ->orderBy('landuse', 'ASC')
-                ->cursor()
-                ->each(function($record)  {
-                    $this->counter++;
-                    //$lgaName = trim($record->lga);
-                    //$lgaOne = Lga::where('lga_name', 'LIKE', "%{$lgaName}%")->first();
-                    $lgaName = trim($record->lga);
-                    $normalizedName = str_replace(['_', '/'], '', strtolower($lgaName));
-                    $lgaOne = Lga::get()->first(function($lga) use ($normalizedName) {
-                        return str_replace(['_', '/'], '', strtolower($lga->lga_name)) === $normalizedName;
-                    });
-                    $propertyList = PropertyList::where("building_code", $record->prop_id)->first();
-                    $zoneChar = $this->_getZoneCharacter($record->zone) ?? 'Z';
+            Log::info('SyncDataJob: Starting sync', [
+                'lga_id' => $this->lgaId,
+                'property_count' => count($propertyIds),
+                'user_id' => $this->userId
+            ]);
 
-                    $chargeRate = $this->_getChargeRate($record->landuse);
-                    //$chargeRate = $this->_getChargeRate($record->occupier_s, $record->landuse);
-                    $dep = Depreciation::where('range', $record->property_age)->first();
-                    $areaVal = $this->convertToSqm($record->property_area);
-
-                    //new property
-                    $propertyClassification = PropertyClassification::find($record->landuse);
-                    $zoneOne = Zone::where("sub_zone", $record->zone)->first();
-                    $lgaIds = Lga::pluck('id')->toArray();
-                    $lgaID = in_array($lgaOne->id, $lgaIds) ? $lgaOne->id : 1;
-                    $classIds = PropertyClassification::pluck('id')->toArray();
-                    //$classID = in_array($record->landuse, $classIds) ? $record->landuse : 1;
-                    $lgaExist = Lga::find($lgaOne->id);
-                    $reason = '';
-
-                    $syncWord = null;
-                    if(!is_null($record->residentia)){
-                        $syncWord = $record->residentia;
-
-
-                    }else if(!is_null($record->commercial)){
-                        $syncWord = $record->commercial;
-
-
-                    }else if(!is_null($record->industrial)){
-                        $syncWord = $record->industrial;
-
-
-                    }else if(!is_null($record->industri_1)){
-                        $syncWord = $record->industri_1;
-
-
-                    }else if(!is_null($record->education)){
-                        $syncWord = $record->education;
-
-
-                    }else if(!is_null($record->agricultur)){
-                        $syncWord = $record->agricultur;
-
-
-                    }else if(!is_null($record->transport)){
-                        $syncWord = $record->transport;
-
-
-                    }else if(!is_null($record->utility)){
-                        $syncWord = $record->utility;
-
-
-                    }else if(!is_null($record->kgsg_publi)){
-                        $syncWord = $record->kgsg_publi;
-
-
-                    }else if(!is_null($record->fgn_public)){
-                        $syncWord = $record->fgn_public;
-
-
-                    }else if(!is_null($record->religious)){
-                        $syncWord = $record->religious;
-
-
-                    }else if(!is_null($record->others)){
-                        $syncWord = $record->others;
-
-
-                    }
-
-                    $pavRecord = $this->_getPavCode($record->landuse, $record->zone, $syncWord);
-                    $propertyUse = PropertyAssessmentValue::where('sync_word', $syncWord)->first();
-
-                    if(empty($propertyList)){
-                        $ba = $record->area_from_bfp;
-                        $lgaReason = empty($lgaOne) ? 'LGA missing:: ' : $lgaName." ;";
-                        $zoneReason = empty($zoneOne) ? 'Zone missing:: ' : $record->zone." ;";
-                        $classReason = empty($propertyClassification) ? 'Prop. Class missing:: ' : ($propertyClassification->class_name ?? 'Unknown')." ;";
-                        $propUseReason = empty($propertyUse) ? 'Prop. Use missing:: ' : ($propertyUse->sync_word ?? 'Unknown')." ;";
-                        $baReason = !isset($ba) ? "BA missing:: " : $ba." ;";
-
-
-                        if(!empty($pavRecord) && isset($ba)){
-
-                            $exist = PropertyException::where('building_code', $record->prop_id)->first();
-                            if(!empty($exist)){
-                                $exist->status = 1; //synchronized
-                                $exist->save();
-                            }
-                            $distributionCode = null;
-                            $initDistributionCode = $this->_getDistributionCode($record->prop_id);
-                            if(!empty($initDistributionCode)){
-                                $distributionCode = $initDistributionCode->enum_cell_number ?? null;
-                            }
-                            PropertyList::create([
-                                'address' => $record->street_nam,
-                                'area' => !empty($areaVal) ? str_replace("_sqm", "", $areaVal) : 0,
-                                'borehole' => $record->water == 'Yes' ? 1 : 0,
-                                'building_code' => $record->prop_id,
-                                'image' => $record->photo_link,
-                                'owner_email' => $record->owner_emai,
-                                'owner_gsm' => $record->owner_phon,
-                                'owner_kgtin' => $record->kgtin,
-                                'owner_name' => $record->prop_owner,
-                                'title' => $record->land_status,
-                                'pav_code' => $pavRecord->pav_code ?? null,
-                                'power' => $record->power == 'Yes' ? 1 : 0,
-                                'storey' => '',
-                                'water' => $record->water == 'Yes' ? 1 : 0,
-                                'zone_name' => $zoneChar ?? 'A',
-                                'sub_zone' => $record->zone ?? 'A1',
-                                'ward' => $record->ward ?? 'A1',
-                                'occupant' => $record->prop_owner,
-                                'building_age' => $record->property_age,
-                                'pay_status' => null,
-                                'lga_id' => !empty($lgaOne) && isset($lgaOne->id) ? $lgaOne->id : 1,
-                                //'special'=>rand(0,1),
-                                'class_name' => $propertyClassification->class_name ?? '',
-                                'class_id' => in_array($record->landuse, $classIds) ? $record->landuse : 1,
-                                'sync_word' => $syncWord,
-                                'property_use' => $propertyUse->property_use ?? null,
-                                'cr' => $chargeRate->id ?? 1,
-                                'actual_age' => $record->property_age,
-                                'longitude' => $record->longitude,
-                                'latitude' => $record->latitude,
-                                'property_name' => $record->prop_name,
-                                'occupier' => $record->occupier_s,
-                                'property_address' => $record->prop_addre,
-                                'distribution_code' => $distributionCode,
-                                'dep_id' => !empty($dep) ? $dep->id : Depreciation::orderBy('id', 'ASC')->first()->id, //depreciation
-                                'ba' => $record->area_from_bfp ?? 200
-                            ]);
-                            DB::connection('pgsql')
-                                ->table('Land_Admin_New_Form')
-                                ->where('id', $record->id)
-                                ->update(['bill_sync' => 1]);
-                            $this->synCounter++;
-
-                        }
-                        else{
-                            $reason = $lgaReason." ".$zoneReason." ".$classReason." ".$propUseReason." ".$baReason;
-                            $exist = PropertyException::where('building_code', $record->prop_id)->first();
-                            if(empty($exist)){
-                                PropertyException::create([
-                                    'address'=>$record->street_nam ?? '',
-                                    'area'=>!empty($areaVal) ? str_replace("_sqm", "", $areaVal) : 0,
-                                    'borehole'=>$record->water == 'Yes' ? 1 : 0,
-                                    'building_code'=>$record->prop_id ?? '',
-                                    'image'=>$record->photo_link ?? '',
-                                    'owner_email'=>$record->owner_emai ?? '',
-                                    'owner_gsm'=>$record->owner_phon ?? '',
-                                    'owner_kgtin'=>$record->kgtin ?? '',
-                                    'owner_name'=>$record->prop_owner ?? '',
-                                    'title'=>$record->land_status ?? '',
-                                    'pav_code'=>  null,
-                                    'power'=>$record->power == 'Yes' ? 1 : 0,
-                                    'storey'=> '',
-                                    'water'=>$record->water == 'Yes' ? 1 : 0,
-                                    'zone_name'=>$zoneChar ?? 'A',
-                                    'sub_zone'=>$record->zone ?? 'A1',
-                                    'class_name'=> $propertyClassification->class_name ?? '' ,
-                                    'occupant'=>$record->prop_owner ?? '',
-                                    'building_age'=>$record->property_age ?? '',
-                                    'pay_status'=>null,
-                                    'lga_id'=>!empty($lgaExist) && isset($lgaExist->id) ? $lgaExist->id : 1,
-                                    'class_id'=> in_array($record->landuse, $classIds) ? $record->landuse : 1,
-                                    'cr'=>$chargeRate->id ?? 1,
-                                    'actual_age'=>$record->property_age ?? '',
-                                    'longitude'=>$record->longitude ?? '',
-                                    'latitude'=>$record->latitude ?? '',
-                                    'property_name'=>$record->prop_name ?? '',
-                                    'occupier'=>$record->occupier_s ?? '',
-                                    'property_address'=>$record->prop_addre ?? '',
-                                    'sync_word'=>$syncWord ?? '',
-                                    'property_use'=>$propertyUse->property_use ?? null,
-                                    'dep_id'=> !empty($dep) ? $dep->id : Depreciation::orderBy('id', 'ASC')->first()->id, //depreciation
-                                    'reason'=>$reason,
-                                ]);
-                                $this->exceptionCounter++;
-                            }
-                        }
-                        //}
-
-                    }else{
-                        DB::connection('pgsql')
-                            ->table('Land_Admin_New_Form')
-                            ->where('id', $record->id)
-                            ->update(['bill_sync' => 1]);
-                    }
-                });
-
-            //log activity
-            $this->_logActivity();
-
+            $stats = $this->syncPropertyData($propertyIds, function($message) {
+                Log::info('SyncDataJob: ' . $message);
+            });
+            $this->_logActivity($stats);
+            Log::info('SyncDataJob: Sync completed successfully', $stats);
 
         } catch (\Exception $e) {
-            echo "Line:: ".$e->getLine(). "Message:: ".$e->getMessage();
-            $this->_logActivity();
+            Log::error('SyncDataJob: Sync failed', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'lga_id' => $this->lgaId,
+                'user_id' => $this->userId
+            ]);
 
-        }
-
-
-    }
-
-    private function _logActivity(){
-        //log activity
-        $user = User::find($this->userId);
-        if(!empty($user)){
-            $total = $this->exceptionCounter + $this->synCounter;
-            $title = "Property synchronization";
-            $narration = "{$user->name} synchronized about  {$this->synCounter} properties. About {$this->exceptionCounter} went into exception. A total of
-                {$this->counter} properties were synchronized.";
-            ActivityLog::LogActivity($title, $narration , $user->id);
-            SynchronizationLog::logSyncReport($this->counter, $this->synCounter, now(), $this->lgaId);
+            // Still log activity even on failure
+            $this->_logActivity([
+                'synced' => $this->syncCounter ?? 0,
+                'exceptions' => $this->exceptionCounter ?? 0,
+                'total' => $this->processedCounter ?? 0
+            ]);
         }
     }
 
-
-    public function failed(Throwable $e)
+    /**
+     * Get property IDs from remote source to sync
+     * Can filter by LGA if specified
+     *
+     * @return array Array of property IDs
+     */
+    private function _getPropertyIdsToSync(): array
     {
-        $this->_logActivity();
-    }
+        try {
+            $query = DB::connection('pgsql')
+                ->table('lekki_enumeration')
+                ->where('completeness_status', 'Complete')
+                ->select('property_id');
+            if ($this->lgaId > 0) {
+                $lga = \App\Models\Lga::find($this->lgaId);
+                if ($lga) {
+                    $query->where('lga', 'LIKE', "%{$lga->lga_name}%");
+                }
+            }
+            return $query->pluck('property_id')->toArray();
 
-
-    public function _getClass($className){
-        $normalizedClassName = trim(strtolower($className));
-        if ($normalizedClassName == 'government') {
-            return PropertyClassification::where("class_name",  'Kogi State Govt.')->first();
-
-        }elseif ($normalizedClassName == 'residential') {
-            return PropertyClassification::where("class_name",  'Residential')->first();
-
-        } elseif (in_array($normalizedClassName, ['recreational', 'religious', 'commercial'])) {
-            return PropertyClassification::where("class_name",  'Commercial')->first();
-
-        } elseif ($normalizedClassName == 'educational') {
-            return PropertyClassification::where("class_name",  'Education (Private)')->first();
-
-        } elseif ($normalizedClassName == 'health') {
-            return PropertyClassification::where("class_name",  'Hospital')->first();
-
-        } elseif ($normalizedClassName == 'open land') {
-            return PropertyClassification::where("class_name",  'Vacant Properties & Open Land')->first();
-
-        }  else {
-            return null;
+        } catch (\Exception $e) {
+            Log::error('SyncDataJob: Failed to get property IDs', [
+                'message' => $e->getMessage(),
+                'lga_id' => $this->lgaId
+            ]);
+            return [];
         }
     }
 
     /**
-     * Get charge rate by land use type
-     * Already defined in PropertySyncTrait - using trait version
+     * Log synchronization activity
+     *
+     * @param array $stats Synchronization statistics
      */
+    private function _logActivity(array $stats = []): void
+    {
+        try {
+            $user = User::find($this->userId);
+            if (!$user) {
+                return;
+            }
+
+            $title = "Background Property Synchronization";
+            $narration = "{$user->name} completed background sync job. "
+                       . "Synced: {$stats['synced']} properties. "
+                       . "Exceptions: {$stats['exceptions']}. "
+                       . "Total processed: {$stats['total']}.";
+
+            ActivityLog::LogActivity($title, $narration, $user->id);
+
+            // Log sync report
+            SynchronizationLog::logSyncReport(
+                $stats['total'] ?? 0,
+                $stats['synced'] ?? 0,
+                now(),
+                $this->lgaId
+            );
+
+            Log::info('SyncDataJob: Activity logged', [
+                'user_id' => $user->id,
+                'stats' => $stats
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('SyncDataJob: Failed to log activity', [
+                'message' => $e->getMessage()
+            ]);
+        }
+    }
 
     /**
-     * Get zone character from zone code
-     * Already defined in PropertySyncTrait - using trait version
+     * Handle failed job
      */
+    public function failed(Throwable $e): void
+    {
+        Log::error('SyncDataJob: Job failed', [
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
 
-    /**
-     * Get PAV code record
-     * Already defined in PropertySyncTrait - using trait version
-     */
-
-
-
-    private function _getDistributionCode($propertyId){
-        return DB::connection('pgsql')->selectOne("
-    WITH intersected_cells AS (
-        SELECT
-            lp.prop_id,
-            ec.enum_cell_number,
-            lp.lga_abb,
-            lp.lga,
-            ST_Area(ec.geom) AS cell_area,
-            CASE
-                WHEN ec.enum_cell_number ILIKE '%' || lp.lga_abb || '%' THEN 1
-                WHEN ec.enum_cell_number ILIKE '%' || lp.lga || '%' THEN 2
-                ELSE 3
-            END AS match_rank
-        FROM
-            public.\"Land_Admin_New_Form\" lp
-        JOIN
-            public.enumeration_cells ec
-            ON ST_Intersects(lp.geom, ec.geom)
-        WHERE
-            lp.completeness_status = 'Complete'
-    ),
-    ranked_cells AS (
-        SELECT *,
-            ROW_NUMBER() OVER (PARTITION BY prop_id ORDER BY match_rank, cell_area ASC, enum_cell_number) AS rn
-        FROM intersected_cells
-    )
-    SELECT
-        prop_id,
-        enum_cell_number
-    FROM
-        ranked_cells
-    WHERE
-        rn = 1
-        AND prop_id = ?
-    ORDER BY
-        enum_cell_number
-", [$propertyId]);
+        $this->_logActivity([
+            'synced' => $this->syncCounter ?? 0,
+            'exceptions' => $this->exceptionCounter ?? 0,
+            'total' => $this->processedCounter ?? 0
+        ]);
     }
 }
+
+
+
 
 

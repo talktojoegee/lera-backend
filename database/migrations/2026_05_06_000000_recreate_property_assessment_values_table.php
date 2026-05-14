@@ -16,7 +16,6 @@ return new class extends Migration
      */
     public function up()
     {
-        // Drop the table if it exists to ensure only the requested columns remain
         if (Schema::hasTable('property_assessment_values')) {
             Schema::drop('property_assessment_values');
         }

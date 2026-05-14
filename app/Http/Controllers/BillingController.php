@@ -393,6 +393,7 @@ class BillingController extends Controller
         $selectedPropertyUse = $request->query('propertyUse');
         $zone = $request->query('zone');
         //$query = Billing::getBillsByStatus($limit, $skip, $status, $propertyUse);
+        //return response()->json(['status'=>$status],200);
         $query = Billing::query()
             ->where('status', $status)
             ->where('special', 0)

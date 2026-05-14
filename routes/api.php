@@ -21,6 +21,7 @@ Route::post('/logout', [\App\Http\Controllers\AuthenticationController::class, '
 })->middleware('auth:sanctum');*/
 
 Route::group(['middleware' => 'api'], function(){
+
     Route::post('/lga/new', [\App\Http\Controllers\LGAController::class, 'createLGA']);
     Route::get('/lga/all', [\App\Http\Controllers\LGAController::class, 'showAllLGAs']);
     Route::get('/distribution-code', [\App\Http\Controllers\LGAController::class, 'showDistributionCode']);
