@@ -370,9 +370,15 @@ class RoutePayQrService
 
         $resolvedLogoPath = $this->resolveMerchantLogoPath($merchantLogoAbsolutePath);
         if ($resolvedLogoPath === null) {
-            Log::warning('RoutePay QR: merchant logo not readable.', [
+            Log::error('RoutePay QR: FAILED - merchant logo not readable.', [
                 'configured' => $merchantLogoAbsolutePath,
+                'error_type' => 'logo_not_found',
                 'hint' => 'Use ROUTEPAY_MERCHANT_LOGO_PATH=assets/images/log.png or an absolute path to a PNG file.',
+                'request_params' => [
+                    'dynamicName' => $dynamicName,
+                    'amount' => $amount,
+                    'merchantReference' => $merchantReference,
+                ],
             ]);
 
             return ['qr_code_url' => null, 'transaction_reference' => null, 'raw' => null];
@@ -380,7 +386,18 @@ class RoutePayQrService
 
         $logoContents = @file_get_contents($resolvedLogoPath);
         if ($logoContents === false || $logoContents === '') {
-            Log::warning('RoutePay QR: could not read merchant logo file.', ['resolved' => $resolvedLogoPath]);
+            Log::error('RoutePay QR: FAILED - could not read merchant logo file.', [
+                'resolved' => $resolvedLogoPath,
+                'error_type' => 'logo_read_failed',
+                'file_exists' => file_exists($resolvedLogoPath),
+                'is_readable' => is_readable($resolvedLogoPath),
+                'file_size' => file_exists($resolvedLogoPath) ? filesize($resolvedLogoPath) : 'N/A',
+                'request_params' => [
+                    'dynamicName' => $dynamicName,
+                    'amount' => $amount,
+                    'merchantReference' => $merchantReference,
+                ],
+            ]);
 
             return ['qr_code_url' => null, 'transaction_reference' => null, 'raw' => null];
         }
@@ -400,66 +417,106 @@ class RoutePayQrService
         /** First explicit RoutePay isSuccess=false error (do not overwrite with redirect from a later candidate). */
         $routePayApiError = null;
         $lastTransportError = null;
+        $candidateFailures = [];
 
         foreach ($candidates as $url) {
-            $response = Http::withToken($accessToken)
-                ->withoutRedirecting()
-                ->acceptJson()
-                ->timeout(60)
-                ->attach('MerchantLogo', $logoContents, basename($resolvedLogoPath), [
-                    'Content-Type' => 'image/png',
-                ])
-                ->post($url, $form);
+            try {
+                $response = Http::withToken($accessToken)
+                    ->withoutRedirecting()
+                    ->acceptJson()
+                    ->timeout(60)
+                    ->attach('MerchantLogo', $logoContents, basename($resolvedLogoPath), [
+                        'Content-Type' => 'image/png',
+                    ])
+                    ->post($url, $form);
 
-            $this->logRoutePayQrHttpResponse($url, $response);
+                $this->logRoutePayQrHttpResponse($url, $response);
 
-            if ($response->status() >= 300 && $response->status() < 400) {
-                if ($routePayApiError === null) {
-                    Log::debug('RoutePay QR: HTTP redirect (not followed) — try another candidate.', [
+                if ($response->status() >= 300 && $response->status() < 400) {
+                    if ($routePayApiError === null) {
+                        Log::debug('RoutePay QR: HTTP redirect (not followed) — try another candidate.', [
+                            'request_url' => $url,
+                            'status' => $response->status(),
+                            'location' => $response->header('Location'),
+                        ]);
+                        $lastTransportError = 'redirect';
+                        $candidateFailures[] = [
+                            'url' => $url,
+                            'error_type' => 'http_redirect',
+                            'status' => $response->status(),
+                            'location' => $response->header('Location'),
+                        ];
+                    }
+
+                    continue;
+                }
+
+                if (! $response->successful()) {
+                    Log::error('RoutePay QR: candidate request failed with HTTP error.', [
                         'request_url' => $url,
                         'status' => $response->status(),
-                        'location' => $response->header('Location'),
+                        'body_preview' => mb_substr($response->body(), 0, 400),
+                        'headers' => $response->headers(),
                     ]);
-                    $lastTransportError = 'redirect';
+                    if ($routePayApiError === null) {
+                        $lastTransportError = 'http_'.$response->status();
+                        $candidateFailures[] = [
+                            'url' => $url,
+                            'error_type' => 'http_error',
+                            'status' => $response->status(),
+                            'body_preview' => mb_substr($response->body(), 0, 400),
+                        ];
+                    }
+
+                    continue;
                 }
 
-                continue;
-            }
+                $rawBody = $response->body();
+                $parsed = $this->parseSuccessfulQrJsonResponse($rawBody, $url);
+                if ($parsed['qr_code_url'] !== null) {
+                    Log::info('RoutePay QR: success.', ['request_url' => $url]);
 
-            if (! $response->successful()) {
-                Log::debug('RoutePay QR: candidate request failed.', [
+                    return [
+                        'qr_code_url' => $parsed['qr_code_url'],
+                        'transaction_reference' => $parsed['transaction_reference'],
+                        'raw' => $parsed['raw'],
+                    ];
+                }
+
+                if (! empty($parsed['api_rejection']) && is_array($parsed['raw'])) {
+                    $msg = $parsed['raw']['error'] ?? $parsed['raw']['message'] ?? null;
+                    if ($routePayApiError === null) {
+                        $routePayApiError = (is_string($msg) && $msg !== '')
+                            ? $msg
+                            : 'RoutePay rejected QR (isSuccess=false, no error text)';
+                        $candidateFailures[] = [
+                            'url' => $url,
+                            'error_type' => 'api_rejection',
+                            'response' => $parsed['raw'],
+                            'error_message' => $msg,
+                        ];
+                    }
+                } elseif ($routePayApiError === null) {
+                    $lastTransportError = $lastTransportError ?? 'not_json_or_not_success';
+                    $candidateFailures[] = [
+                        'url' => $url,
+                        'error_type' => 'invalid_json_or_not_success',
+                        'body_preview' => mb_substr($rawBody, 0, 400),
+                    ];
+                }
+            } catch (\Exception $e) {
+                Log::error('RoutePay QR: exception during candidate request.', [
                     'request_url' => $url,
-                    'status' => $response->status(),
-                    'body_preview' => mb_substr($response->body(), 0, 400),
+                    'exception_message' => $e->getMessage(),
+                    'exception_class' => get_class($e),
+                    'stack_trace' => $e->getTraceAsString(),
                 ]);
-                if ($routePayApiError === null) {
-                    $lastTransportError = 'http_'.$response->status();
-                }
-
-                continue;
-            }
-
-            $rawBody = $response->body();
-            $parsed = $this->parseSuccessfulQrJsonResponse($rawBody, $url);
-            if ($parsed['qr_code_url'] !== null) {
-                Log::info('RoutePay QR: success.', ['request_url' => $url]);
-
-                return [
-                    'qr_code_url' => $parsed['qr_code_url'],
-                    'transaction_reference' => $parsed['transaction_reference'],
-                    'raw' => $parsed['raw'],
+                $candidateFailures[] = [
+                    'url' => $url,
+                    'error_type' => 'exception',
+                    'exception' => get_class($e),
+                    'message' => $e->getMessage(),
                 ];
-            }
-
-            if (! empty($parsed['api_rejection']) && is_array($parsed['raw'])) {
-                $msg = $parsed['raw']['error'] ?? $parsed['raw']['message'] ?? null;
-                if ($routePayApiError === null) {
-                    $routePayApiError = (is_string($msg) && $msg !== '')
-                        ? $msg
-                        : 'RoutePay rejected QR (isSuccess=false, no error text)';
-                }
-            } elseif ($routePayApiError === null) {
-                $lastTransportError = $lastTransportError ?? 'not_json_or_not_success';
             }
         }
 
@@ -475,12 +532,26 @@ class RoutePayQrService
             $hints[] = 'Only transport failures seen (e.g. 301 to marketing site on legacy /api/v1 path). Set ROUTEPAY_QR_GENERATE_URL to the exact POST URL RoutePay provides.';
         }
 
-        Log::warning('RoutePay QR: all endpoint candidates failed.', [
+        Log::error('RoutePay QR: FAILED - all endpoint candidates failed.', [
             'ROUTEPAY_BASE_URL' => $baseUrl,
             'attempted_urls' => $candidates,
+            'total_candidates' => count($candidates),
             'route_pay_api_error' => $routePayApiError,
             'last_transport_error' => $lastTransportError,
+            'candidate_failures' => $candidateFailures,
+            'request_params' => [
+                'dynamicName' => $dynamicName,
+                'amount' => $amount,
+                'merchantReference' => $merchantReference,
+                'durationInSeconds' => $durationInSeconds,
+                'returnUrl' => $returnUrl,
+                'verifyMe' => $verifyMe,
+            ],
             'hints' => $hints,
+            'environment' => [
+                'app_env' => $appEnv,
+                'debug' => config('app.debug'),
+            ],
         ]);
 
         return ['qr_code_url' => null, 'transaction_reference' => null, 'raw' => null];
