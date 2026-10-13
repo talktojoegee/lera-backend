@@ -3,37 +3,30 @@
 namespace App\Exports;
 
 use App\Models\Billing;
-use App\Models\User;
+use App\Traits\ScopesBillsByUserSector;
 use Maatwebsite\Excel\Concerns\FromQuery;
-use Maatwebsite\Excel\Concerns\WithMapping;
-use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
-use Illuminate\Contracts\Support\Responsable;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithMapping;
 
-class BillingExport implements FromQuery, WithMapping, WithHeadings, WithChunkReading, Responsable
+class BillingExport implements FromQuery, WithChunkReading, WithHeadings, WithMapping
 {
+    use ScopesBillsByUserSector;
+
     public $type;
+
     public $userId;
 
     public function __construct($userId, $type)
     {
         $this->type = $type;
-        $this->userId = $userId;
+        $this->userId = (int) $userId;
     }
 
     public function query()
     {
-        $user = User::find($this->userId);
-
-        if (!$user) {
-            abort(404, 'Whoops! Something went wrong.');
-        }
-
-        $propertyUse = explode(',', $user->sector);
-
         $baseQuery = Billing::query()
             ->with([
-                'getPropertyClassification:id,class_name',
                 'getChargeRate:id,occupancy',
                 'getPropertyList:id,property_name',
             ])
@@ -41,25 +34,18 @@ class BillingExport implements FromQuery, WithMapping, WithHeadings, WithChunkRe
                 'id', 'assessment_no', 'building_code', 'year', 'pav_code', 'zone_name',
                 'class_id', 'occupancy', 'cr', 'assessed_value', 'bill_amount', 'ba',
                 'rr', 'dr', 'lr', 'la', 'br', 'property_use', 'property_id', 'return_reason',
-                'status', 'special', 'paid', 'returned'
+                'status', 'special', 'paid', 'returned', 'lga_id',
             ]);
 
-        switch ($this->type) {
-            case 'special-outstanding':
-                return $baseQuery->where('status', 4)->where('special', 1)->whereIn('property_use', $propertyUse)->orderByDesc('id');
-            case 'all-pending':
-                return $baseQuery->where('status', 0)->whereIn('property_use', $propertyUse)->orderByDesc('id');
-            case 'returned-normal':
-                return $baseQuery->where('returned', 1)->where('special', 0)->whereIn('property_use', $propertyUse)->orderByDesc('id');
-            case 'returned-special':
-                return $baseQuery->where('returned', 1)->where('special', 1)->whereIn('property_use', $propertyUse)->orderByDesc('id');
-            case 'paid-bills':
-                return $baseQuery->where('status', 4)->where('paid', 1)->where('special', 0)->whereIn('property_use', $propertyUse)->orderByDesc('id');
-            case 'si-paid-bills':
-                return $baseQuery->where('status', 4)->where('paid', 1)->where('special', 1)->whereIn('property_use', $propertyUse)->orderByDesc('id');
-            default:
-                abort(400, 'Invalid export type.');
-        }
+        $baseQuery = $this->applySectorScope($baseQuery, $this->userId);
+
+        return match ($this->type) {
+            'special-outstanding' => $baseQuery->where('status', 4)->where('special', 1)->orderByDesc('id'),
+            'returned-normal' => $baseQuery->where('returned', 1)->where('special', 0)->orderByDesc('id'),
+            'returned-special' => $baseQuery->where('returned', 1)->where('special', 1)->orderByDesc('id'),
+            'si-paid-bills' => $baseQuery->where('status', 4)->where('paid', 1)->where('special', 1)->orderByDesc('id'),
+            default => throw new \InvalidArgumentException('Invalid export type: '.$this->type),
+        };
     }
 
     public function map($bill): array
@@ -70,7 +56,7 @@ class BillingExport implements FromQuery, WithMapping, WithHeadings, WithChunkRe
             $bill->year,
             $bill->pav_code,
             $bill->zone_name ?? '',
-            $bill->getPropertyClassification->class_name ?? '',
+            $bill->property_use ?? '',
             $bill->getChargeRate->occupancy ?? '',
             $bill->cr,
             $bill->assessed_value ?? 0,
@@ -95,17 +81,12 @@ class BillingExport implements FromQuery, WithMapping, WithHeadings, WithChunkRe
             'Zone', 'Category', 'Occupancy', 'Charge Rate',
             'Assessed Mkt. Value', 'LUC', 'BA', 'RR',
             'DR', 'LR', 'LA', 'CR',
-            'BR', 'Property Use', 'Property Name', 'Reason'
+            'BR', 'Property Use', 'Property Name', 'Reason',
         ];
     }
 
     public function chunkSize(): int
     {
         return 500;
-    }
-
-    public function toResponse($request)
-    {
-        // TODO: Implement toResponse() method.
     }
 }

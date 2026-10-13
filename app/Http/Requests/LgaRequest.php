@@ -6,9 +6,6 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class LgaRequest extends FormRequest
 {
-
-
-
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -25,15 +22,18 @@ class LgaRequest extends FormRequest
     public function rules(): array
     {
         return [
-            "lgaName"=>"required|unique:lgas,lga_name"
-        ];
-    }
-    public function messages():array
-    {
-        return [
-            "lgaName.required"=>"LGA name is required",
-            "lgaName.unique"=>"LGA with this name already exists.",
+            'lgaName' => 'required|unique:lgas,lga_name',
+            'paymentGatewaySecretKey' => 'required|string|min:8',
         ];
     }
 
+    public function messages(): array
+    {
+        return [
+            'lgaName.required' => 'LGA name is required',
+            'lgaName.unique' => 'LGA with this name already exists.',
+            'paymentGatewaySecretKey.required' => 'Payment gateway secret key is required.',
+            'paymentGatewaySecretKey.min' => 'Payment gateway secret key must be at least 8 characters.',
+        ];
+    }
 }

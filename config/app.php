@@ -1,5 +1,7 @@
 <?php
+
 ini_set('memory_limit', '512M');
+
 return [
 
     /*
@@ -53,6 +55,18 @@ return [
     */
 
     'url' => env('APP_URL', 'http://localhost'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Frontend application URL (Angular admin / self-service)
+    |--------------------------------------------------------------------------
+    | Used for RoutePay returnUrl after hosted checkout and bill QR redirects.
+    | Set FRONTEND_URL in .env to your live admin site (e.g. https://admin.example.com).
+    */
+    'frontend_url' => rtrim((string) env('FRONTEND_URL', ''), '/'),
+
+    /** Public base URL for receipt links in payment confirmation emails (defaults to APP_URL). */
+    'bill_receipt_public_url' => env('BILL_RECEIPT_PUBLIC_URL', env('APP_URL', 'http://localhost')),
 
     /*
     |--------------------------------------------------------------------------

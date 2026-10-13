@@ -11,8 +11,16 @@
         $amtWords .= ' NAIRA';
     }
     $amtWords .= ' ONLY';
+
+    $lgaId = (int) ($record->lgaId ?? $record->lga_id ?? 0);
+    $leraBackground = match ($lgaId) {
+        1 => 'assets/images/bg_newwaves.png',
+        2 => 'assets/images/bg_alphacen.png',
+        default => 'assets/images/background-22.png',
+    };
+    $qrImageSrc = ! empty($record->qrImage) ? (string) $record->qrImage : '';
 @endphp
-<div class="lera-page">
+<div class="lera-page" style="background-image: url('{{ $leraBackground }}');">
     <div class="lera-overlay">
         {{--<div class="lera-year-suffix"> $yearLabel }}</div>--}}
 
@@ -31,11 +39,11 @@
             </tr>
             <tr>
                 <td class="lera-k">ADDRESS:</td>
-                <td class="lera-v"><span class="lera-val">{{ trim(($record->propertyAddress ?? '') . ' ' . ($record->address ?? '')) }}</span></td>
+                <td class="lera-v"><span class="lera-val">{{ trim(($record->propertyAddress ?? '')) }}</span></td>
             </tr>
             <tr>
                 <td class="lera-k">CATEGORY:</td>
-                <td class="lera-v"><span class="lera-val">{{ $record->className ?? '' }}</span></td>
+                <td class="lera-v"><span class="lera-val">{{ strtoupper($record->propertyUse ?? '') ?: '—' }}</span></td>
             </tr>
             <tr>
                 <td class="lera-k">DATE:</td>
@@ -43,12 +51,12 @@
             </tr>
         </table>
 
-        @if(!empty($record->qrImage))
+        @if($qrImageSrc !== '')
             <div class="lera-qr-wrap">
                 <table class="lera-qr-inner" width="100%" height="100%" cellspacing="0" cellpadding="0">
                     <tr>
                         <td>
-                            <img src="{!! $record->qrImage !!}" alt="" class="lera-qr-img"/>
+                            <img src="{{ $qrImageSrc }}" alt="" class="lera-qr-img"/>
                         </td>
                     </tr>
                 </table>
@@ -58,12 +66,12 @@
         <table class="lera-assess-row" cellspacing="0" cellpadding="0">
             <tr>
                 {{--<td class="lera-assess-date"><span class="lera-val"> $entryDate }}</span></td>--}}
-                <td class="lera-assess-cat"><span class="lera-val">{{ $record->className ?? '—' }}</span></td>
-                <td class="lera-assess-amt"><span class="lera-val">NGN {{ number_format((float) ($record->billAmount ?? 0), 2) }}</span></td>
+                <td class="lera-assess-cat"><span class="lera-val">{{ strtoupper($record->propertyUse ?? '') ?: '—' }}</span></td>
+                <td class="lera-assess-amt"><span class="lera-val"> NGN{{ number_format((float) ($record->billAmount ?? 0), 2) }}</span></td>
             </tr>
         </table>
 
-        <div class="lera-total-num"><span class="lera-val">NGN {{ number_format($totalPayable, 2) }}</span></div>
+        <div class="lera-total-num"><span class="lera-val"> {{ number_format($totalPayable, 2) }}</span></div>
         <div class="lera-total-words"><span class="lera-val">{{ $amtWords }}</span></div>
 
         <table class="lera-kv-table lera-pod-kv" cellspacing="0" cellpadding="0">

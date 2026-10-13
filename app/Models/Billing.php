@@ -45,6 +45,7 @@ class Billing extends Model
         'updated_at',
         'zone_name',
         'ward',
+        'street_name',
         'date_approved',
         'approved_by',
         'date_authorized',
@@ -62,176 +63,176 @@ class Billing extends Model
         'delivery_date',
         'acknowledgement',
         'printed',
-        'rollover'
+        'rollover',
     ];
+
     //
-  public $currentYear;
+    public $currentYear;
 
-
-
-  public function getBilledBy(){
-      return $this->belongsTo(User::class, 'billed_by');
-  }
-
-
-  public function getReturnedBy(){
-      return $this->belongsTo(User::class, 'returned_by');
-  }
-
-
-
-
-  public function getApprovedBy(){
-      return $this->belongsTo(User::class, 'approved_by');
-  }
-
-  public function getAuthorizedBy(){
-      return $this->belongsTo(User::class, 'authorized_by');
-  }
-
-  public function getVerifiedBy(){
-      return $this->belongsTo(User::class, 'actioned_by');
-  }
-
-  public function getReviewedBy(){
-      return $this->belongsTo(User::class, 'reviewed_by');
-  }
-
-  public function __construct(array $attributes = [])
-  {
-      $this->currentYear = Carbon::now()->year;
-  }
-
-
-    public function getPropertyClassification(){
-        return $this->belongsTo(PropertyClassification::class, "class_id");
+    public function getBilledBy()
+    {
+        return $this->belongsTo(User::class, 'billed_by');
     }
 
-    public function getChargeRate(){
-        return $this->belongsTo(ChargeRate::class, "occupancy");
+    public function getReturnedBy()
+    {
+        return $this->belongsTo(User::class, 'returned_by');
     }
 
-    public function getObjection(){
-        return $this->belongsTo(Objection::class, "bill_id");
+    public function getApprovedBy()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
+    public function getAuthorizedBy()
+    {
+        return $this->belongsTo(User::class, 'authorized_by');
+    }
 
-    public function getLGA(){
+    public function getVerifiedBy()
+    {
+        return $this->belongsTo(User::class, 'actioned_by');
+    }
+
+    public function getReviewedBy()
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function __construct(array $attributes = [])
+    {
+        $this->currentYear = Carbon::now()->year;
+    }
+
+    public function getPropertyClassification()
+    {
+        return $this->belongsTo(PropertyClassification::class, 'class_id');
+    }
+
+    public function getChargeRate()
+    {
+        return $this->belongsTo(ChargeRate::class, 'occupancy');
+    }
+
+    public function getObjection()
+    {
+        return $this->belongsTo(Objection::class, 'bill_id');
+    }
+
+    public function getLGA()
+    {
         return $this->belongsTo(Lga::class, 'lga_id');
     }
 
-
-    public function getPropertyList(){
+    public function getPropertyList()
+    {
         return $this->belongsTo(PropertyList::class, 'property_id');
     }
 
-    public static function findBillSummaryByYearAndLgaId($year, $lgaId){
+    public static function findBillSummaryByYearAndLgaId($year, $lgaId)
+    {
         return DB::table('billings')
             ->select('lga_id AS lgaId',
                 DB::raw('SUM(bill_amount) AS totalBillAmount'),
                 DB::raw('COUNT(*) AS totalBills'))
-            //->where('year', $year)
-            //->where('lga_id', $lgaId)
+            // ->where('year', $year)
+            // ->where('lga_id', $lgaId)
             ->groupBy('lga_id')
             ->get();
     }
-    public static function getBills($limit ,
-                                    $skip ,
-                                    $paid ,
-                                    $objection ,
-                                    $status ,
-                                    $propertyUse,
-    $special = [0]
-    )
-    {
+
+    public static function getBills($limit,
+        $skip,
+        $paid,
+        $objection,
+        $status,
+        $lgaIds,
+        $special = [0]
+    ) {
         return Billing::where('paid', $paid)
             ->where('objection', $objection)
             ->where('status', $status)
             ->whereIn('special', $special)
-            ->whereIn('property_use', $propertyUse)
-            //->orWhere('returned', $returned)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
+            // ->orWhere('returned', $returned)
             ->skip($skip)
             ->take($limit)
             ->orderBy('id', 'DESC')
             ->get();
     }
 
-    public static function getLGAChairBills($limit ,
-                                    $skip ,
-                                    $paid ,
-                                    $status ,
-                                    $lgaId
-    )
-    {
+    public static function getLGAChairBills($limit,
+        $skip,
+        $paid,
+        $status,
+        $lgaId
+    ) {
         return Billing::where('paid', $paid)
-            //->where('objection', $objection)
+            // ->where('objection', $objection)
             ->where('status', $status)
-            //->whereIn('special', $special)
+            // ->whereIn('special', $special)
             ->where('lga_id', $lgaId)
-            //->orWhere('returned', $returned)
+            // ->orWhere('returned', $returned)
             ->skip($skip)
             ->take($limit)
             ->orderBy('id', 'DESC')
             ->get();
     }
 
-
-    public static function getAllPaidBills($limit ,
-                                    $skip ,
-                                    $paid ,
-                                    $objection ,
-                                    $status ,
-    $propertyUse
-    )
-    {
+    public static function getAllPaidBills($limit,
+        $skip,
+        $paid,
+        $objection,
+        $status,
+        $lgaIds
+    ) {
         return Billing::where('paid', $paid)
             ->where('objection', $objection)
             ->where('status', $status)
-            ->whereIn('property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
             ->skip($skip)
             ->take($limit)
             ->orderBy('id', 'DESC')
             ->get();
     }
 
-    public static function getAllPartlyPaidBills($limit , $skip , $objection , $propertyUse)
+    public static function getAllPartlyPaidBills($limit, $skip, $objection, $lgaIds)
     {
         return Billing::where('paid_amount', '>', 0)
             ->where('objection', $objection)
-            ->whereIn('property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
             ->where('paid', 0)
             ->skip($skip)
             ->take($limit)
             ->orderBy('id', 'DESC')
             ->get();
     }
-    public static function getAllPaidSpecialInterestBills($limit ,
-                                    $skip ,
-                                    $paid ,
-                                    $objection ,
-                                    $status ,
-    $propertyUse
-    )
-    {
+
+    public static function getAllPaidSpecialInterestBills($limit,
+        $skip,
+        $paid,
+        $objection,
+        $status,
+        $lgaIds
+    ) {
         return Billing::where('paid', $paid)
             ->where('objection', $objection)
             ->where('status', $status)
             ->where('special', 1)
-            ->whereIn('property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
             ->skip($skip)
             ->take($limit)
             ->orderBy('id', 'DESC')
             ->get();
     }
 
-    public static function getBillsByStatus($limit ,
-                                            $skip ,
-                                            $status ,
-    $propertyUse
-    )
-    {
+    public static function getBillsByStatus($limit,
+        $skip,
+        $status,
+        $lgaIds
+    ) {
         return Billing::where('status', $status)
-            ->whereIn('property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
             ->where('special', 0)
             ->skip($skip)
             ->take($limit)
@@ -239,15 +240,14 @@ class Billing extends Model
             ->get();
     }
 
-    public static function getObjectedBillsByStatus($limit ,
-                                            $skip ,
-                                            $status ,
-    $propertyUse,
-    $objectionIds
-    )
-    {
+    public static function getObjectedBillsByStatus($limit,
+        $skip,
+        $status,
+        $lgaIds,
+        $objectionIds
+    ) {
         return Billing::where('status', $status)
-            ->whereIn('property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
             ->whereIn('id', $objectionIds)
             ->where('objection', 1)
             ->skip($skip)
@@ -256,30 +256,26 @@ class Billing extends Model
             ->get();
     }
 
-
-    public static function getAllPendingBillsByStatus($limit ,
-                                            $skip ,
-    $propertyUse
-    )
-    {
-        return Billing::whereIn('status', [0,1,2,3,5])
-            ->whereIn('property_use', $propertyUse)
+    public static function getAllPendingBillsByStatus($limit,
+        $skip,
+        $lgaIds
+    ) {
+        return Billing::whereIn('status', [0, 1, 2, 3, 5])
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
             ->skip($skip)
             ->take($limit)
             ->orderBy('id', 'DESC')
             ->get();
     }
 
-
-    public static function getSpecialInterestBillsByStatus($limit ,
-                                            $skip ,
-                                            $status ,
-    $propertyUse
-    )
-    {
+    public static function getSpecialInterestBillsByStatus($limit,
+        $skip,
+        $status,
+        $lgaIds
+    ) {
         return Billing::where('status', $status)
             ->where('special', 1)
-            ->whereIn('property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
             ->skip($skip)
             ->take($limit)
             ->orderBy('id', 'DESC')
@@ -298,6 +294,7 @@ class Billing extends Model
             ->orderBy('entry_date', 'ASC')
             ->get();
     }
+
     public static function getBillPrintReport($lga, $from, $to, $skip, $limit)
     {
         return Billing::when($lga != 0, function ($query) use ($lga) {
@@ -310,6 +307,7 @@ class Billing extends Model
             ->orderBy('entry_date', 'ASC')
             ->get();
     }
+
     public static function getBillDeliveryReportNoPagination($lga, $from, $to)
     {
         return Billing::when($lga != 0, function ($query) use ($lga) {
@@ -332,87 +330,85 @@ class Billing extends Model
             ->get();
     }
 
-
-
-    public static function getAllReturnedBills($limit ,
-                                            $skip ,
-    $propertyUse
-    )
-    {
+    public static function getAllReturnedBills($limit,
+        $skip,
+        $lgaIds
+    ) {
         return Billing::where('returned', 1)
             ->where('special', 0)
-            ->whereIn('property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
             ->skip($skip)
             ->take($limit)
             ->orderBy('date_returned', 'DESC')
             ->get();
     }
 
-    public static function getAllSpecialInterestReturnedBills($limit ,
-                                            $skip ,
-    $propertyUse
-    )
-    {
+    public static function getAllSpecialInterestReturnedBills($limit,
+        $skip,
+        $lgaIds
+    ) {
         return Billing::where('returned', 1)
             ->where('special', 1)
-            ->whereIn('property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
             ->skip($skip)
             ->take($limit)
             ->orderBy('id', 'DESC')
             ->get();
     }
 
-    public static function getAllBillsByParams($paid , $objection , $status, $propertyUse)
+    public static function getAllBillsByParams($paid, $objection, $status, $lgaIds)
     {
         return Billing::where('paid', $paid)
             ->where('objection', $objection)
             ->where('status', $status)
-            ->whereIn('property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
             ->get();
 
     }
 
-    public static function getAllBillsPaymentByParams( $objection , $status, $propertyUse)
+    public static function getAllBillsPaymentByParams($objection, $status, $lgaIds)
     {
         return Billing::where('objection', $objection)
             ->where('paid', 1)
             ->where('status', $status)
-            ->whereIn('property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
             ->get();
 
     }
-    public static function getGrossAllBillsByParams( $objection, $propertyUse)
+
+    public static function getGrossAllBillsByParams($objection, $lgaIds)
     {
         return Billing::where('objection', $objection)
-            ->whereIn('property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
             ->where('status', 4)
             ->get();
 
     }
-    public static function getAllSpecialInterestBillsByParams($paid , $objection , $status, $propertyUse)
+
+    public static function getAllSpecialInterestBillsByParams($paid, $objection, $status, $lgaIds)
     {
         return Billing::where('paid', $paid)
             ->where('objection', $objection)
             ->where('special', 1)
             ->where('status', $status)
-            ->whereIn('property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
             ->get();
 
     }
 
-    public static function getBillsByParams($paid , $objection , $status, $propertyUse, $special = [0])
+    public static function getBillsByParams($paid, $objection, $status, $lgaIds, $special = [0])
     {
         return Billing::where('paid', $paid)
             ->where('objection', $objection)
             ->where('status', $status)
             ->whereIn('special', $special)
-            ->whereIn('property_use', $propertyUse)
-            //->orWhere('returned', $returned)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
+            // ->orWhere('returned', $returned)
             ->get();
 
     }
 
-    public static function getLGAChairBillsByParams($paid , $status, $lgaId)
+    public static function getLGAChairBillsByParams($paid, $status, $lgaId)
     {
         return Billing::where('paid', $paid)
             ->where('status', $status)
@@ -421,56 +417,56 @@ class Billing extends Model
 
     }
 
-    public static function getBillsByParamsByStatus($status , $propertyUse)
+    public static function getBillsByParamsByStatus($status, $lgaIds)
     {
         return Billing::where('status', $status)
-            ->whereIn('property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
             ->get();
 
     }
-    public static function getObjectedBillsByParamsByStatus($status , $propertyUse)
+
+    public static function getObjectedBillsByParamsByStatus($status, $lgaIds)
     {
         return Billing::where('status', $status)->where('objection', 1)
-            ->whereIn('property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
             ->get();
 
     }
 
-    public static function getAllPendingBillsByParamsByStatus($propertyUse)
+    public static function getAllPendingBillsByParamsByStatus($lgaIds)
     {
-        return Billing::whereIn('status', [0,1,2,3,5])
-            ->whereIn('property_use', $propertyUse)
+        return Billing::whereIn('status', [0, 1, 2, 3, 5])
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
             ->get();
 
     }
 
-    public static function getSpecialInterestBillsByParamsByStatus($status, $propertyUse)
+    public static function getSpecialInterestBillsByParamsByStatus($status, $lgaIds)
     {
         return Billing::where('status', $status)
             ->where('special', 1)
-            ->where('property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
             ->get();
 
     }
 
-     public static function getAllReturnedBillsByParams($propertyUse)
-        {
-            return Billing::where('returned', 1)
-                ->where('special', 0)
-                ->whereIn('property_use', $propertyUse)
-                ->get();
+    public static function getAllReturnedBillsByParams($lgaIds)
+    {
+        return Billing::where('returned', 1)
+            ->where('special', 0)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
+            ->get();
 
-        }
+    }
 
-     public static function getAllSpecialInterestReturnedBillsByParams($propertyUse)
-        {
-            return Billing::where('returned', 1)
-                ->where('special', 1)
-                ->whereIn('property_use', $propertyUse)
-                ->get();
+    public static function getAllSpecialInterestReturnedBillsByParams($lgaIds)
+    {
+        return Billing::where('returned', 1)
+            ->where('special', 1)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
+            ->get();
 
-        }
-
+    }
 
     /*public static function getOutstandingBills(){
         return Billing::where('paid', 0)
@@ -479,12 +475,13 @@ class Billing extends Model
             ->get();
     }*/
 
-
-    public static function getPaidBills(){
+    public static function getPaidBills()
+    {
         return Billing::where('paid', 1)->where('objection', 0)->orderBy('id', 'DESC')->get();
     }
 
-    public static function getCurrentYearMonthlyBillAmount($year){
+    public static function getCurrentYearMonthlyBillAmount($year)
+    {
 
         $monthlyBills = Billing::select(
             DB::raw('MONTH(entry_date) as month'),
@@ -501,19 +498,22 @@ class Billing extends Model
             $monthIndex = $bill->month - 1;
             $billAmountsByMonth[$monthIndex] = $bill->total_bill_amount;
         }
-        return  $billAmountsByMonth;
+
+        return $billAmountsByMonth;
 
     }
-    public static function getLGAChairCurrentYearMonthlyBillAmount($year, $lgaId){
+
+    public static function getLGAChairCurrentYearMonthlyBillAmount($year, $lgaId)
+    {
 
         $monthlyBills = Billing::select(
             DB::raw('MONTH(entry_date) as month'),
             DB::raw('SUM(bill_amount) as total_bill_amount')
         )->when($year != 0, function ($query) use ($year) {
-                $query->whereYear('entry_date', $year);
-            })
+            $query->whereYear('entry_date', $year);
+        })
             ->where('lga_id', $lgaId)
-            ->where('status', 4)//approved
+            ->where('status', 4)// approved
             ->groupBy(DB::raw('MONTH(entry_date)'))
             ->orderBy(DB::raw('MONTH(entry_date)'))
             ->get();
@@ -522,11 +522,13 @@ class Billing extends Model
             $monthIndex = $bill->month - 1;
             $billAmountsByMonth[$monthIndex] = $bill->total_bill_amount;
         }
-        return  $billAmountsByMonth;
+
+        return $billAmountsByMonth;
 
     }
 
-    public static function getCurrentYearMonthlyAmountPaid($year){
+    public static function getCurrentYearMonthlyAmountPaid($year)
+    {
         $monthlyBills = Billing::select(
             DB::raw('MONTH(entry_date) as month'),
             DB::raw('SUM(paid_amount) as total_bill_amount')
@@ -542,18 +544,21 @@ class Billing extends Model
             $monthIndex = $bill->month - 1;
             $billAmountsByMonth[$monthIndex] = $bill->total_bill_amount;
         }
-        return  $billAmountsByMonth;
+
+        return $billAmountsByMonth;
 
     }
-    public static function getLGAChairCurrentYearMonthlyAmountPaid($year, $lgaId){
+
+    public static function getLGAChairCurrentYearMonthlyAmountPaid($year, $lgaId)
+    {
         $monthlyBills = Billing::select(
             DB::raw('MONTH(entry_date) as month'),
             DB::raw('SUM(paid_amount) as total_bill_amount')
         )->when($year != 0, function ($query) use ($year) {
-                $query->whereYear('entry_date', $year);
-            })
+            $query->whereYear('entry_date', $year);
+        })
             ->where('lga_id', $lgaId)
-            ->where('status', 4)//approved
+            ->where('status', 4)// approved
             ->groupBy(DB::raw('MONTH(entry_date)'))
             ->orderBy(DB::raw('MONTH(entry_date)'))
             ->get();
@@ -562,10 +567,13 @@ class Billing extends Model
             $monthIndex = $bill->month - 1;
             $billAmountsByMonth[$monthIndex] = $bill->total_bill_amount;
         }
-        return  $billAmountsByMonth;
+
+        return $billAmountsByMonth;
 
     }
-    public static function getCurrentYearBillsByZone($year){
+
+    public static function getCurrentYearBillsByZone($year)
+    {
         return DB::table('billings')
             ->join('zones', 'billings.zone_name', '=', 'zones.sub_zone')
             ->select('zones.sub_zone', DB::raw('SUM(billings.bill_amount) as total_bills'))
@@ -579,23 +587,26 @@ class Billing extends Model
             ->get();
 
     }
-    public static function getLGAChairCurrentYearBillsByZone($year, $lgaId){
+
+    public static function getLGAChairCurrentYearBillsByZone($year, $lgaId)
+    {
         return DB::table('billings')
             ->join('zones', 'billings.zone_name', '=', 'zones.sub_zone')
             ->select('zones.sub_zone', DB::raw('SUM(billings.bill_amount) as total_bills'))
             ->when($year != 0, function ($query) use ($year) {
                 $query->whereYear('billings.entry_date', $year);
             })
-            //->whereYear('billings.entry_date', $year)
+            // ->whereYear('billings.entry_date', $year)
             ->where('billings.lga_id', $lgaId)
-            ->where('billings.status', 4)//approved
+            ->where('billings.status', 4)// approved
             ->groupBy('zones.sub_zone')
             ->orderBy('zones.sub_zone', 'ASC')
             ->get();
 
     }
 
-    public static function getCurrentYearBillsByLGA($year){
+    public static function getCurrentYearBillsByLGA($year)
+    {
 
         return DB::table('billings')
             ->join('lgas', 'billings.lga_id', '=', 'lgas.id')
@@ -603,16 +614,16 @@ class Billing extends Model
             ->when($year != 0, function ($query) use ($year) {
                 $query->whereYear('billings.entry_date', $year);
             })
-            //->whereYear('billings.entry_date', $year)
+            // ->whereYear('billings.entry_date', $year)
             ->where('billings.status', 4)
             ->groupBy('lgas.lga_name')
             ->orderBy('lgas.lga_name', 'ASC')
             ->get();
 
-
     }
 
-    public static function getLGAChairCurrentYearBillsByLGA($year, $lgaId){
+    public static function getLGAChairCurrentYearBillsByLGA($year, $lgaId)
+    {
 
         return DB::table('billings')
             ->join('lgas', 'billings.lga_id', '=', 'lgas.id')
@@ -620,16 +631,17 @@ class Billing extends Model
             ->when($year != 0, function ($query) use ($year) {
                 $query->whereYear('billings.entry_date', $year);
             })
-            //->whereYear('billings.entry_date', $year)
+            // ->whereYear('billings.entry_date', $year)
             ->where('billings.lga_id', $lgaId)
-            ->where('billings.status', 4)//approved
+            ->where('billings.status', 4)// approved
             ->groupBy('lgas.lga_name')
             ->orderBy('lgas.lga_name', 'ASC')
             ->get();
 
-
     }
-    public static function getCurrentYearPaymentByLGA($year){
+
+    public static function getCurrentYearPaymentByLGA($year)
+    {
 
         return DB::table('billings')
             ->join('lgas', 'billings.lga_id', '=', 'lgas.id')
@@ -637,16 +649,16 @@ class Billing extends Model
             ->when($year != 0, function ($query) use ($year) {
                 $query->whereYear('billings.entry_date', $year);
             })
-            //->whereYear('billings.entry_date', $year)
+            // ->whereYear('billings.entry_date', $year)
             ->where('billings.status', 4)
             ->groupBy('lgas.lga_name')
             ->orderBy('lgas.lga_name', 'ASC')
             ->get();
 
-
     }
 
-    public static function getLGAChairCurrentYearPaymentByLGA($year, $lgaId){
+    public static function getLGAChairCurrentYearPaymentByLGA($year, $lgaId)
+    {
 
         return DB::table('billings')
             ->join('lgas', 'billings.lga_id', '=', 'lgas.id')
@@ -654,34 +666,40 @@ class Billing extends Model
             ->when($year != 0, function ($query) use ($year) {
                 $query->whereYear('billings.entry_date', $year);
             })
-            //->whereYear('billings.entry_date', $year)
+            // ->whereYear('billings.entry_date', $year)
             ->where('billings.lga_id', $lgaId)
-            ->where('billings.status', 4)//approved
+            ->where('billings.status', 4)// approved
             ->groupBy('lgas.lga_name')
             ->orderBy('lgas.lga_name', 'ASC')
             ->get();
 
-
     }
 
-    public static function getBillByYearLgaId($year, $lgaId){
+    public static function getBillByYearLgaId($year, $lgaId)
+    {
         return Billing::where('lga_id', $lgaId)->where('year', $year)->first();
     }
 
-    public static function getBillByYearBuildingCode($year, $code){
+    public static function getBillByYearBuildingCode($year, $code)
+    {
         return Billing::where('building_code', $code)->where('year', $year)->first();
     }
 
-    public function balanceBroughtForward($year,$buildingCode){
+    public function balanceBroughtForward($year, $buildingCode)
+    {
         return Billing::whereYear('year', '<', $year)->where('building_code', $buildingCode)
             ->where('paid', 0)
             ->sum('bill_amount') - Billing::whereYear('year', '<', $year)->where('building_code', $buildingCode)
-                ->where('paid', 0)
-                ->sum('paid_amount');
+            ->where('paid', 0)
+            ->sum('paid_amount');
 
     }
 
-    public static function searchBills($keyword, $propertyUse, $status, $special){
+    /**
+     * @param  list<int>  $lgaIds
+     */
+    public static function searchBills($keyword, $lgaIds, $status, $special)
+    {
         return DB::table('billings')
             ->leftJoin('property_lists', 'billings.property_id', '=', 'property_lists.id')
             ->select(
@@ -714,7 +732,7 @@ class Billing extends Model
             )
             ->where('billings.status', $status)
             ->where('billings.special', $special)
-            ->whereIn('billings.property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('billings.lga_id', $lgaIds))
             ->where(function ($query) use ($keyword) {
                 $query->where('billings.assessment_no', 'LIKE', "%{$keyword}%")
                     ->orWhere('billings.building_code', 'LIKE', "%{$keyword}%")
@@ -725,7 +743,11 @@ class Billing extends Model
             ->get();
     }
 
-    public static function searchReturnedBills($keyword, $propertyUse, $special){
+    /**
+     * @param  list<int>  $lgaIds
+     */
+    public static function searchReturnedBills($keyword, $lgaIds, $special)
+    {
         return DB::table('billings')
             ->leftJoin('property_lists', 'billings.property_id', '=', 'property_lists.id')
             ->select(
@@ -757,7 +779,7 @@ class Billing extends Model
             )
             ->where('billings.returned', 1)
             ->where('billings.special', $special)
-            ->whereIn('billings.property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('billings.lga_id', $lgaIds))
             ->where(function ($query) use ($keyword) {
                 $query->where('billings.assessment_no', 'LIKE', "%{$keyword}%")
                     ->orWhere('billings.building_code', 'LIKE', "%{$keyword}%")
@@ -767,7 +789,12 @@ class Billing extends Model
             ->distinct()
             ->get();
     }
-    public static function searchAllPendingBills($keyword, $propertyUse, $special){
+
+    /**
+     * @param  list<int>  $lgaIds
+     */
+    public static function searchAllPendingBills($keyword, $lgaIds, $special)
+    {
         return DB::table('billings')
             ->leftJoin('property_lists', 'billings.property_id', '=', 'property_lists.id')
             ->select(
@@ -797,9 +824,9 @@ class Billing extends Model
                 'billings.property_id',
                 'billings.cr',
             )
-            ->where('billings.status','!=', 4) //approved
+            ->where('billings.status', '!=', 4) // approved
             ->where('billings.special', $special)
-            ->whereIn('billings.property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('billings.lga_id', $lgaIds))
             ->where(function ($query) use ($keyword) {
                 $query->where('billings.assessment_no', 'LIKE', "%{$keyword}%")
                     ->orWhere('billings.building_code', 'LIKE', "%{$keyword}%")
@@ -809,17 +836,22 @@ class Billing extends Model
             ->distinct()
             ->get();
     }
-    public static function searchOutstandingBills($keyword, $propertyUse, $status, $special,$objection, $paid){
+
+    /**
+     * @param  list<int>  $lgaIds
+     */
+    public static function searchOutstandingBills($keyword, $lgaIds, $status, $special, $objection, $paid)
+    {
         return DB::table('billings')
             ->leftJoin('property_lists', 'billings.property_id', '=', 'property_lists.id')
             ->select('billings.id as billId', 'billings.building_code as buildingCode', 'billings.*', 'property_lists.property_name', 'property_lists.building_code')
-            ->where(function ($query) use ($keyword, $propertyUse, $status, $special, $objection, $paid) {
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('billings.lga_id', $lgaIds))
+            ->where('billings.status', $status)
+            ->where('billings.special', $special)
+            ->where('billings.objection', $objection)
+            ->where('billings.paid', $paid)
+            ->where(function ($query) use ($keyword) {
                 $query->where('billings.assessment_no', 'LIKE', "%{$keyword}%")
-                    ->where('billings.status', $status)
-                    ->where('billings.special', $special)
-                    ->where('billings.objection', $objection)
-                    ->where('billings.paid', $paid)
-                    ->whereIn('billings.property_use', $propertyUse)
                     ->orWhere('billings.building_code', 'LIKE', "%{$keyword}%")
                     ->orWhere('property_lists.property_name', 'LIKE', "%{$keyword}%")
                     ->orWhere('property_lists.building_code', 'LIKE', "%{$keyword}%");
@@ -828,24 +860,26 @@ class Billing extends Model
             ->get();
     }
 
-
-    public static function getCustomerStatementByKgtinDate($buildingCode, $from, $to){
-        return Billing::where('building_code', $buildingCode)->whereBetween('entry_date',[$from, $to])->get();
+    public static function getCustomerStatementByKgtinDate($buildingCode, $from, $to)
+    {
+        return Billing::where('building_code', $buildingCode)->whereBetween('entry_date', [$from, $to])->get();
     }
 
-  /*  public static function generateWorkflowReport($from, $to){
-        return Billing::whereBetween('entry_date',[$from, $to] )
-            ->orderBy('id', 'ASC')
-            ->get();
-    }*/
+    /*  public static function generateWorkflowReport($from, $to){
+          return Billing::whereBetween('entry_date',[$from, $to] )
+              ->orderBy('id', 'ASC')
+              ->get();
+      }*/
 
     public static function generateWorkflowReport($year)
     {
         $billings = Billing::where('year', $year)->get();
         $users = User::where('role', 5)->get();
+
         return $billings->groupBy('property_use')->map(function ($bills, $sector) use ($users) {
             $matchedUsers = $users->filter(function ($user) use ($sector) {
                 $userSectors = array_map('trim', explode(',', $user->sector));
+
                 return in_array($sector, $userSectors);
             })->values();
 
@@ -859,13 +893,16 @@ class Billing extends Model
             ];
         })->values();
     }
+
     public static function generatePerformanceReport($from, $to)
     {
         $billings = Billing::whereBetween('entry_date', [$from, $to])->get();
         $users = User::where('role', 5)->get();
+
         return $billings->groupBy('property_use')->map(function ($bills, $sector) use ($users) {
             $matchedUsers = $users->filter(function ($user) use ($sector) {
                 $userSectors = array_map('trim', explode(',', $user->sector));
+
                 return in_array($sector, $userSectors);
             })->values();
 
@@ -882,7 +919,7 @@ class Billing extends Model
 
     public static function generatePerformanceReportByUsers($from, $to)
     {
-        //$billings = Billing::whereBetween('date_reviewed', [$from, $to])->get();
+        // $billings = Billing::whereBetween('date_reviewed', [$from, $to])->get();
         $users = User::where('role', 5)->get();
 
         $report = [];
@@ -908,36 +945,38 @@ class Billing extends Model
         return collect($report);
     }
 
-    private function reviewCounter($userId, $from, $to){
+    private function reviewCounter($userId, $from, $to)
+    {
         $reviewedCount = DB::selectOne(
             'SELECT COUNT(*) as count FROM billings WHERE reviewed_by = ? AND date_reviewed BETWEEN ? AND ?',
             [$userId, $from, $to]
         )->count;
     }
 
-
-    public static function getDistinctWardByLgaId($lgId){
+    public static function getDistinctWardByLgaId($lgId)
+    {
         return DB::table('billings')
             ->where('lga_id', $lgId)
             ->distinct()
             ->pluck('ward');
     }
-    public static function getDistinctZonesByWard($ward){
+
+    public static function getDistinctZonesByWard($ward)
+    {
         return DB::table('billings')
             ->where('ward', $ward)
             ->distinct()
             ->pluck('zone_name');
     }
 
-    public static function getFilteredBillsByStatus($limit ,
-                                            $skip ,
-                                            $status ,
-                                            $propertyUse,
-    $lga,$zone,$ward
-    )
-    {
+    public static function getFilteredBillsByStatus($limit,
+        $skip,
+        $status,
+        $lgaIds,
+        $lga, $zone, $ward
+    ) {
         return Billing::where('status', $status)
-            ->whereIn('property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
             ->where('zone_name', $zone)
             ->where('lga_id', $lga)
             ->where('ward', $ward)
@@ -947,16 +986,15 @@ class Billing extends Model
             ->orderBy('id', 'DESC')
             ->get();
     }
-    public static function getFilteredBillsByParamsByStatus($status , $propertyUse, $lga,$zone,$ward)
+
+    public static function getFilteredBillsByParamsByStatus($status, $lgaIds, $lga, $zone, $ward)
     {
         return Billing::where('status', $status)
-            ->whereIn('property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('lga_id', $lgaIds))
             ->where('zone_name', $zone)
             ->where('lga_id', $lga)
             ->where('ward', $ward)
             ->get();
 
     }
-
-
 }

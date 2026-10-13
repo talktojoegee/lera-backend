@@ -3,26 +3,29 @@
 use App\Http\Controllers\PaymentValidationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-//use Tymon\JWTAuth\Http\Middleware\Check as JWTMiddleware;
 
+// use Tymon\JWTAuth\Http\Middleware\Check as JWTMiddleware;
 
 Route::options('{any}', function () {
     return response()->json(['status' => 'OK'], 200);
 })->where('any', '.*');
 
-Route::post('/register',[\App\Http\Controllers\AuthenticationController::class, 'register']);
-Route::post('/authenticate',[\App\Http\Controllers\AuthenticationController::class, 'authenticate']);
-Route::post('/user-login',[\App\Http\Controllers\AuthenticationController::class, 'loginUser']);
+Route::post('/register', [\App\Http\Controllers\AuthenticationController::class, 'register']);
+Route::post('/authenticate', [\App\Http\Controllers\AuthenticationController::class, 'authenticate']);
+Route::post('/user-login', [\App\Http\Controllers\AuthenticationController::class, 'loginUser']);
 Route::post('/logout', [\App\Http\Controllers\AuthenticationController::class, 'logout']);
 
+Route::post('/routepay/webhook', [\App\Http\Controllers\RoutePayWebhookController::class, 'handle']);
 
 /*Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');*/
 
-Route::group(['middleware' => 'api'], function(){
+Route::group(['middleware' => 'api'], function () {
 
     Route::post('/lga/new', [\App\Http\Controllers\LGAController::class, 'createLGA']);
+    Route::post('/lga/update', [\App\Http\Controllers\LGAController::class, 'updateLGA']);
+    Route::post('/lga/edit', [\App\Http\Controllers\LGAController::class, 'updateLGA']);
     Route::get('/lga/all', [\App\Http\Controllers\LGAController::class, 'showAllLGAs']);
     Route::get('/distribution-code', [\App\Http\Controllers\LGAController::class, 'showDistributionCode']);
 
@@ -30,70 +33,64 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('/use/property-use', [\App\Http\Controllers\ZoneController::class, 'showAllPropertyUse']);
     Route::get('/zone/all', [\App\Http\Controllers\ZoneController::class, 'showAllZones']);
 
-    #Relief settings
+    // Relief settings
     Route::post('/relief/new', [\App\Http\Controllers\ReliefController::class, 'storeReliefSettings']);
     Route::post('/relief/edit', [\App\Http\Controllers\ReliefController::class, 'editReliefSettings']);
     Route::get('/relief/all', [\App\Http\Controllers\ReliefController::class, 'showReliefSetup']);
     Route::get('/relief/all/{type}', [\App\Http\Controllers\ReliefController::class, 'showReliefSetupByType']);
 
-    #Property title settings
+    // Property title settings
     Route::post('/property-title/new', [\App\Http\Controllers\PropertyTitleController::class, 'storePropertyTitle']);
     Route::get('/property-title/all', [\App\Http\Controllers\PropertyTitleController::class, 'showAllPropertyTitles']);
 
-    #area-office settings
+    // area-office settings
     Route::post('/area-office/new', [\App\Http\Controllers\AreaOfficeController::class, 'storeAreaOffice']);
     Route::get('/area-office/all', [\App\Http\Controllers\AreaOfficeController::class, 'showAllAreaOffices']);
 
-    #Property classification settings
+    // Property classification settings
     Route::post('/property-classification/new', [\App\Http\Controllers\PropertyClassificationController::class, 'storeClass']);
     Route::get('/property-classification/all', [\App\Http\Controllers\PropertyClassificationController::class, 'showAllPropertyClassifications']);
 
-    #Depreciation
+    // Depreciation
     Route::post('/depreciation/new', [\App\Http\Controllers\DepreciationController::class, 'createDepreciation']);
     Route::get('/depreciation/all', [\App\Http\Controllers\DepreciationController::class, 'showAllDepreciations']);
 
-    #Charge rate
+    // Charge rate
     Route::post('/charge-rate/new', [\App\Http\Controllers\ChargeRateController::class, 'createChargeRate']);
     Route::post('/charge-rate/edit', [\App\Http\Controllers\ChargeRateController::class, 'editChargeRate']);
     Route::get('/charge-rate/all', [\App\Http\Controllers\ChargeRateController::class, 'showAllChargeRates']);
 
-    #PAV
+    // PAV
     Route::post('/property-assessment-value/new', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'storePAV']);
     Route::get('/property-assessment-value/all/{limit}/{skip}', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'showAllPAVs']);
     Route::post('/property-assessment-value/update', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'updatePAV']);
     Route::get('/sectors/distinct', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'showDistinctSectors']);
     Route::get('/property-types', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'getPropertyTypes']);
 
-
     Route::get('/luc/record', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'getLUC']);
     Route::post('/luc/record', [\App\Http\Controllers\PropertyAssessmentValueController::class, 'storeLUC']);
 
-    #Owners
+    // Owners
     Route::post('/owners/new', [\App\Http\Controllers\OwnersController::class, 'storeOwner']);
     Route::get('/owners/all', [\App\Http\Controllers\OwnersController::class, 'showAllOwners']);
     Route::get('/owners/{kgtin}', [\App\Http\Controllers\OwnersController::class, 'showOwnerByKGTin']);
     Route::post('/owners/save-changes', [\App\Http\Controllers\OwnersController::class, 'saveOwnerChanges']);
 
-
-
     Route::get('/sync-data/{lgaId}/{user}', [\App\Http\Controllers\RemoteController::class, 'showBuildingsByLGAId']);
     Route::get('/synchronization-report/{limit}/{skip}', [\App\Http\Controllers\RemoteController::class, 'showSyncReport']);
-
 
     Route::post('/billing/retrieve', [\App\Http\Controllers\BillingController::class, 'retrieveBills']);
     Route::post('/billing/process', [\App\Http\Controllers\BillingController::class, 'processBill']);
 
     Route::post('/billing/make-payment', [\App\Http\Controllers\PaymentController::class, 'handlePaymentRequest']);
+    Route::post('/billing/routepay/initiate', [\App\Http\Controllers\PaymentController::class, 'initiateRoutePayPayment']);
     Route::post('/process-payment', [\App\Http\Controllers\PaymentController::class, 'handlePaymentRequestByAssessmentNo']);
 
-
     Route::get('/property/distribution', [\App\Http\Controllers\BillingController::class, 'showPropertyDistributionByLGA']);
-
 
     Route::get('/billing/outstanding-bills/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showOutstandingBills']);
 
     Route::get('/billing/objection-requests/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showAllOutstandingBills']);
-
 
     Route::get('/billing/outstanding-special-interest-bills/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showOutstandingSpecialInterestBills']);
 
@@ -106,7 +103,7 @@ Route::group(['middleware' => 'api'], function(){
 
     Route::get('/billing/returned-bills/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showReturnedBills']);
     Route::get('/billing/returned-special-interest-bills/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showSpecialInterestReturnedBills']);
-    //Route::get('/billing/outstanding-bills', [\App\Http\Controllers\BillingController::class, 'showOutstandingBills']);
+    // Route::get('/billing/outstanding-bills', [\App\Http\Controllers\BillingController::class, 'showOutstandingBills']);
 
     Route::get('/billing/paid/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showPaidBills']);
     Route::get('/billing/partly-paid/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showPartlyPaidBills']);
@@ -124,32 +121,39 @@ Route::group(['middleware' => 'api'], function(){
     Route::post('billing/search-outstanding', [\App\Http\Controllers\BillingController::class, 'searchOutstandingBills']);
     Route::get('billing/print/{actionedBy}/{type}/{lga}/{classId}/{quantity}', [\App\Http\Controllers\BillingController::class, 'showBillsForPrinting']);
 
-
-
     Route::post('billing/delete-bill', [\App\Http\Controllers\BillingController::class, 'deleteBill']);
     Route::post('billing/initiate-printing-request', [\App\Http\Controllers\BillingController::class, 'initiatePrintingRequest']);
 
     Route::get('billing/print-by-batch/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'getPrintByBatch']);
+    Route::get('billing/print-batch-pdf-status/{batchCode}', [\App\Http\Controllers\BillingController::class, 'getPrintBatchPdfStatus']);
+    Route::post('billing/regenerate-print-batch-pdf/{batchCode}', [\App\Http\Controllers\BillingController::class, 'regeneratePrintBatchPdf']);
     Route::get('billing/print-by-bills/view/{batch}', [\App\Http\Controllers\BillingController::class, 'viewBatchPrinting']);
     Route::post('billing/search-bill-batch', [\App\Http\Controllers\BillingController::class, 'searchBillByAssessment']);
     Route::get('manual-receipt/{url}/{user}', [\App\Http\Controllers\BillingController::class, 'showReceiptDetail']);
-    Route::get('/download/proof-of-payment/{slug}', [App\Http\Controllers\BillingController::class, 'downloadProofOfPayment'] );
-    Route::post('/action-receipt', [App\Http\Controllers\BillingController::class, 'actionReceipt'] );
+    Route::get('/download/proof-of-payment/{slug}', [App\Http\Controllers\BillingController::class, 'downloadProofOfPayment']);
+    Route::post('/action-receipt', [App\Http\Controllers\BillingController::class, 'actionReceipt']);
 
     Route::get('billing/wards', [\App\Http\Controllers\BillingController::class, 'getWards']);
     Route::get('billing/zones', [\App\Http\Controllers\BillingController::class, 'getZones']);
+    Route::get('billing/street-names', [\App\Http\Controllers\BillingController::class, 'getStreetNames']);
     Route::post('billing/bill-check', [\App\Http\Controllers\BillingController::class, 'checkBillExists']);
     Route::post('billing/store-receipt', [\App\Http\Controllers\BillingController::class, 'storeReceipt']);
     Route::get('billing/receipts/{user}/{limit}/{skip}/', [\App\Http\Controllers\BillingController::class, 'getManualReceipts']);
 
-
-
     Route::post('/property-list/search-all-properties', [\App\Http\Controllers\PropertyListController::class, 'searchAllProperties']);
     Route::post('/property-list/search-property-exception', [\App\Http\Controllers\PropertyListController::class, 'searchAllPropertyException']);
+    Route::get('/property-list/exempted-properties/{user}/{limit}/{skip}', [\App\Http\Controllers\PropertyListController::class, 'showExemptedProperties']);
+    // Backward-compatible route (requires ?user=ID)
     Route::get('/property-list/exempted-properties/{limit}/{skip}', [\App\Http\Controllers\PropertyListController::class, 'showExemptedProperties']);
 
+    Route::get('/property-list/all/{user}/{limit}/{skip}', [\App\Http\Controllers\PropertyListController::class, 'getPropertyList']);
+    // Backward-compatible route (requires ?user=ID)
     Route::get('/property-list/all/{limit}/{skip}', [\App\Http\Controllers\PropertyListController::class, 'getPropertyList']);
+    Route::get('/property-exception/all/{user}/{limit}/{skip}', [\App\Http\Controllers\PropertyListController::class, 'getPropertyExceptionList']);
+    // Backward-compatible route (requires ?user=ID)
     Route::get('/property-exception/all/{limit}/{skip}', [\App\Http\Controllers\PropertyListController::class, 'getPropertyExceptionList']);
+    Route::get('/property/{id}/{user}', [\App\Http\Controllers\PropertyListController::class, 'showPropertyDetail']);
+    // Backward-compatible route (requires ?user=ID)
     Route::get('/property/{id}', [\App\Http\Controllers\PropertyListController::class, 'showPropertyDetail']);
     Route::post('/save-property-changes', [\App\Http\Controllers\PropertyListController::class, 'savePropertyChanges']);
     Route::post('/force-synchronize-property', [\App\Http\Controllers\PropertyListController::class, 'forceSynchronizeProperty']);
@@ -157,11 +161,7 @@ Route::group(['middleware' => 'api'], function(){
 
     Route::post('property-list/delete-property', [\App\Http\Controllers\PropertyListController::class, 'deleteProperty']);
 
-
-
-
-
-    Route::get('/download/attachment/{slug}', [App\Http\Controllers\ObjectionController::class, 'downloadAttachment'] );
+    Route::get('/download/attachment/{slug}', [App\Http\Controllers\ObjectionController::class, 'downloadAttachment']);
 
     Route::post('/objection/new', [\App\Http\Controllers\ObjectionController::class, 'handleNewObjection']);
     Route::get('/objection/detail/{requestId}', [\App\Http\Controllers\ObjectionController::class, 'showObjectionDetail']);
@@ -171,10 +171,7 @@ Route::group(['middleware' => 'api'], function(){
 
     Route::post('objection/action-objection', [\App\Http\Controllers\ObjectionController::class, 'actionObjection']);
 
-
-
-
-    #Export operations
+    // Export operations
     Route::get('/export-download/{id}', function ($id) {
         $record = \App\Models\ExportRecord::findOrFail($id);
 
@@ -184,7 +181,7 @@ Route::group(['middleware' => 'api'], function(){
 
         $filePath = "public/{$record->file_path}";
 
-        if (!Storage::exists($filePath)) {
+        if (! Storage::exists($filePath)) {
             return response()->json(['error' => 'File not found'], 404);
         }
 
@@ -196,7 +193,9 @@ Route::group(['middleware' => 'api'], function(){
     });
     Route::get('/export-bills/{user}/{type}', [\App\Http\Controllers\ExportController::class, 'exportExcel']);
     Route::get('/export-status/{exportId}', [\App\Http\Controllers\ExportController::class, 'getExportStatus']);
-    Route::get('/paid-bills-export/{user}/{type}', [\App\Http\Controllers\ExportController::class, 'exportPaidBills']);
+    Route::get('/paid-bills-export/{user}/{type?}', [\App\Http\Controllers\ExportController::class, 'exportPaidBills']);
+    Route::get('/partly-paid-bills-export/{user}', [\App\Http\Controllers\ExportController::class, 'exportPartlyPaidBills']);
+    Route::get('/pending-bills-export/{user}', [\App\Http\Controllers\ExportController::class, 'exportPendingBills']);
     Route::post('/export-customer-report', [\App\Http\Controllers\ExportController::class, 'exportCustomerReport']);
     Route::post('/export-bill-delivery-report', [\App\Http\Controllers\ExportController::class, 'exportBillDeliveryReport']);
     Route::post('/export-bill-print-report', [\App\Http\Controllers\ExportController::class, 'exportBillPrintReport']);
@@ -217,40 +216,36 @@ Route::group(['middleware' => 'api'], function(){
     Route::post('export-reconciliation-report', [\App\Http\Controllers\ExportController::class, 'exportReconciliationReport']);
     Route::post('export-unreconciled-report', [\App\Http\Controllers\ExportController::class, 'exportUnreconciledReport']);
 
-
-    #Users
+    // Users
     Route::get('/users/all/{type}/{limit}/{skip}', [\App\Http\Controllers\UserController::class, 'showAllUsers']);
     Route::post('add-new-user', [\App\Http\Controllers\UserController::class, 'storeUser']);
     Route::post('update-user-account', [\App\Http\Controllers\UserController::class, 'updateUser']);
     Route::post('change-password', [\App\Http\Controllers\UserController::class, 'changePassword']);
     Route::post('reset-password-default', [\App\Http\Controllers\UserController::class, 'resetPassword']);
 
-    #Roles
+    // Roles
     Route::post('/access/permissions/new', [\App\Http\Controllers\RolePermissionController::class, 'createPermission']);
     Route::get('/access/permissions/all', [\App\Http\Controllers\RolePermissionController::class, 'showAllPermissions']);
 
-    #Role-permission assignment
+    // Role-permission assignment
     Route::post('/access/roles-permission/new', [\App\Http\Controllers\RolePermissionController::class, 'assignPermissionToRole']);
     Route::get('/access/roles-permission/all', [\App\Http\Controllers\RolePermissionController::class, 'showAllRolePermissions']);
     Route::post('/access/update-roles-permission', [\App\Http\Controllers\RolePermissionController::class, 'updatePermissionToRole']);
 
-
-    #Permission
+    // Permission
     Route::post('/access/roles/new', [\App\Http\Controllers\RolePermissionController::class, 'createRole']);
     Route::post('/access/roles/update', [\App\Http\Controllers\RolePermissionController::class, 'updateRole']);
     Route::get('/access/roles/all', [\App\Http\Controllers\RolePermissionController::class, 'showAllRoles']);
 
-    //Route::get('/access/all', [\App\Http\Controllers\LGAController::class, 'showAllLGAs']);
+    // Route::get('/access/all', [\App\Http\Controllers\LGAController::class, 'showAllLGAs']);
 
-
-    #General dashboard
+    // General dashboard
     Route::get('/dashboard/statistics/{year}', [\App\Http\Controllers\BillingController::class, 'showDashboardStatistics']);
     Route::get('/billing/property-distribution/{year}', [\App\Http\Controllers\BillingController::class, 'showPropertyDistributionByZones']);
     Route::get('/billing/chart-summary/{year}', [\App\Http\Controllers\BillingController::class, 'showBillDataOnDashboard']);
     Route::get('/chart-record/{year}', [\App\Http\Controllers\BillingController::class, 'chartTest']);
 
-
-    #LGA Chair dashboard
+    // LGA Chair dashboard
     Route::get('/dashboard/statistics/{user}/{year}', [\App\Http\Controllers\BillingController::class, 'showLGAChairDashboardStatistics']);
     Route::get('/billing/property-distribution/{user}/{year}', [\App\Http\Controllers\BillingController::class, 'showLGAChairPropertyDistributionByZones']);
     Route::get('/billing/chart-summary/{user}/{year}', [\App\Http\Controllers\BillingController::class, 'showLGAChairBillDataOnDashboard']);
@@ -259,12 +254,9 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('/billing/lga-outstanding-bills/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showLGAChairOutstandingBills']);
     Route::get('/billing/lga-bill-payment/{user}/{limit}/{skip}', [\App\Http\Controllers\BillingController::class, 'showLGAChairBillPayment']);
 
+    // Route::get('/sync-test/{lga}', [\App\Http\Controllers\RemoteController::class, 'syncTest']);
 
-    //Route::get('/sync-test/{lga}', [\App\Http\Controllers\RemoteController::class, 'syncTest']);
-
-
-
-    Route::group(['prefix'=>'reports'], function(){
+    Route::group(['prefix' => 'reports'], function () {
         Route::post('/customer-statement', [\App\Http\Controllers\ReportController::class, 'handleCustomerStatementReport']);
         Route::post('/bill-delivery-report', [\App\Http\Controllers\ReportController::class, 'handleBillDeliveryReport']);
         Route::post('/bill-print-report', [\App\Http\Controllers\ReportController::class, 'handleBillPrintReport']);
@@ -272,16 +264,13 @@ Route::group(['middleware' => 'api'], function(){
         Route::post('/workflow', [\App\Http\Controllers\ReportController::class, 'workflowReport']);
         Route::post('/performance', [\App\Http\Controllers\ReportController::class, 'performanceReport']);
 
-        //Route::post('/payment-report', [\App\Http\Controllers\ReportController::class, 'handlePaymentReportGeneration']);
+        // Route::post('/payment-report', [\App\Http\Controllers\ReportController::class, 'handlePaymentReportGeneration']);
     });
-
 
     Route::get('/generate-pdf/{batchCode}', [\App\Http\Controllers\PDFController::class, 'generateDomPdf']);
     Route::get('/download-pdf/{assessmentNo}', [\App\Http\Controllers\PDFController::class, 'generatePDFByAssessmentNo']);
     Route::get('receipt/{receipt}', [\App\Http\Controllers\PDFController::class, 'downloadReceipt']);
     Route::post('/generate-customer-statement-report', [\App\Http\Controllers\PDFController::class, 'generateCustomerStatementReportPDF']);
-
-
 
     /*
      * Frontend Endpoints
@@ -290,31 +279,19 @@ Route::group(['middleware' => 'api'], function(){
     Route::get('/get-bill-by/assessment-no/{assessmentNo}', [\App\Http\Controllers\Frontend\BillingController::class, 'handleBillPaymentRequest']);
     Route::get('/my-profile/{uuid}', [\App\Http\Controllers\Frontend\UserController::class, 'myProfile']);
 
-
     Route::get('/etz/validation', [PaymentValidationController::class, 'validatePayment']);
     Route::any('/etz/notification', [PaymentValidationController::class, 'notifyETranzact']);
 
-
     Route::post('/bill/delivery', [\App\Http\Controllers\BillingController::class, 'updateDelivery']);
-
 
     Route::get('/settlement-setup', [\App\Http\Controllers\SettlementController::class, 'getSettings']);
     Route::post('/settlement-setup', [\App\Http\Controllers\SettlementController::class, 'storeSettlementSetup']);
     Route::post('/settlement-report', [\App\Http\Controllers\SettlementController::class, 'generateSettlementReport']);
 
-    //Filter
+    // Filter
     Route::post('/get-wards', [\App\Http\Controllers\BillingController::class, 'fetchWards']);
     Route::post('/get-zones', [\App\Http\Controllers\BillingController::class, 'fetchZones']);
     Route::get('/billing/bills/{user}/{limit}/{skip}/{status}/{zone}/{ward}/{lga}', [\App\Http\Controllers\BillingController::class, 'filterReviewBills']);
 
-
-
-
 });
-Route::middleware([\App\Http\Middleware\JsonApiMiddleware::class])->group( function(){
-
-
-});
-
-//$2y$12$6lQC0.n2/jCfF3/8UTkmoePWBAvIxrlHESDLZyV76V0cuBMbFR1Ay
-//$2y$12$zWH60bThyvAkQHSuhkrdx.xSk9kMdJ5QEChoFPmfAVrrIMPVNOEum
+Route::middleware([\App\Http\Middleware\JsonApiMiddleware::class])->group(function () {});

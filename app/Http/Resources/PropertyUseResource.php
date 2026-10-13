@@ -14,9 +14,12 @@ class PropertyUseResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $type = $this->property_type ?? $this->property_use ?? '';
+
         return [
-            'id'=>$this->property_use,
-            'propertyUse'=>$this->property_use,
+            'id' => $type,
+            'propertyUse' => $type,
+            'label' => $type !== '' ? ucwords(str_replace('_', ' ', $type)) : '',
         ];
     }
 }

@@ -1,0 +1,8 @@
+@include('proposals.partials.edo.cover')
+@include('proposals.partials.edo.executive-summary')
+@include('proposals.partials.edo.table-of-contents')
+@include('proposals.partials.edo.chapters-1-4')
+@include('proposals.partials.edo.chapters-5-8')
+@include('proposals.partials.edo.chapters-9-12')
+@include('proposals.partials.edo.chapters-13-16')
+@include('proposals.partials.edo.appendix')

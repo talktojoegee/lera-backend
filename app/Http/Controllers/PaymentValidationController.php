@@ -16,26 +16,28 @@ use Illuminate\Support\Facades\DB;
 class PaymentValidationController extends Controller
 {
     use UtilityTrait;
-    public $eTranzactToken = "ytw6h351ec7897wef89300d240u87n";
+
+    public $eTranzactToken = 'ytw6h351ec7897wef89300d240u87n';
+
     public function validatePayment(Request $request)
     {
         $payeeId = $request->query('PAYEE_ID');
-        //$paymentType = $request->query('PAYMENT_TYPE');
+        // $paymentType = $request->query('PAYMENT_TYPE');
         if (empty($payeeId)) {
-            return  response("PAYEE_ID=$payeeId&~PAYMENT_TYPE=LUC&~FeeStatus=PAYEE ID is Empty", 400);
+            return response("PAYEE_ID=$payeeId&~PAYMENT_TYPE=LUC&~FeeStatus=PAYEE ID is Empty", 400);
         }
         $bill = Billing::where('assessment_no', $payeeId)
             ->where('objection', 0)
-            ->where('status', 4) //approved
-            //->where('paid', 0)
+            ->where('status', 4) // approved
+            // ->where('paid', 0)
             ->first();
-        if(empty($bill)){
+        if (empty($bill)) {
             return response()->json([
-                "FeeRequest" => [
-                    "PayeeID" => $payeeId,
-                    "FeeStatus" => "Invalid Payee ID "
-                ]
-            ],400);
+                'FeeRequest' => [
+                    'PayeeID' => $payeeId,
+                    'FeeStatus' => 'Invalid Payee ID ',
+                ],
+            ], 400);
         }
 
         /* if ($bill->status != 4) { //approved
@@ -47,21 +49,20 @@ class PaymentValidationController extends Controller
              ]);
          }*/
 
-
-
         if ($bill->paid == 1) {
             return response()->json([
-                "FeeRequest" => [
-                    "PayeeName" => $bill->getPropertyList->owner_name ?? 'Owner Name',
-                    "PayeeID" => $bill->assessment_no,
-                    "Amount" => number_format($bill->bill_amount,2, '.',''),
-                    "FeeStatus" => "Assessment Already Paid",
-                    "Email" => $bill->email ?? '',
-                    "PhoneNumber" => $bill->getPropertyList->owner_gsm ?? '',
-                    "KG_TIN"=>$bill->getPropertyList->owner_kgtin ?? '',
-                    "ADDRESS"=>$bill->getPropertyList->property_address ?? '',
-                    "PropertyImage"=>$bill->getPropertyList->image ?? '',
-                ]
+                'FeeRequest' => [
+                    'PayeeName' => $bill->getPropertyList->owner_name ?? 'Owner Name',
+                    'PayeeID' => $bill->assessment_no,
+                    'Amount' => number_format($bill->bill_amount, 2, '.', ''),
+                    'FeeStatus' => 'Assessment Already Paid',
+                    'Email' => $bill->email ?? '',
+                    'PhoneNumber' => $bill->getPropertyList->owner_gsm ?? '',
+                    'Agency' => $bill->getLGA->lga_name ?? '',
+                    // "KG_TIN"=>$bill->getPropertyList->owner_kgtin ?? '',
+                    'ADDRESS' => $bill->getPropertyList->property_address ?? '',
+                    'PropertyImage' => $bill->getPropertyList->image ?? '',
+                ],
             ]);
         }
         /*
@@ -70,23 +71,25 @@ class PaymentValidationController extends Controller
         $billAmount = ($bill->bill_amount - $bill->paid_amount);
         $bbf = $this->balanceBroughtForward($bill->year, $bill->building_code) ?? 0;
         $grandTotal = $bbf + $billAmount;
+
         return response()->json([
-            "FeeRequest" => [
-                "PayeeName" => $bill->getPropertyList->owner_name ?? '',
-                "PayeeID" => $bill->assessment_no,
-                "Amount" => number_format($grandTotal,2, '.',''),
-                "FeeStatus" => "Fee has not yet been paid",
-                "Email" => $bill->email ?? '',
-                "PhoneNumber" => $bill->getPropertyList->owner_gsm ?? '',
-                "KG_TIN"=>$bill->getPropertyList->owner_kgtin ?? '',
-                "ADDRESS"=>$bill->getPropertyList->property_address ?? '',
-                "PropertyImage"=>$bill->getPropertyList->image ?? '',
-            ]
+            'FeeRequest' => [
+                'PayeeName' => $bill->getPropertyList->owner_name ?? '',
+                'PayeeID' => $bill->assessment_no,
+                'Amount' => number_format($grandTotal, 2, '.', ''),
+                'FeeStatus' => 'Fee has not yet been paid',
+                'Email' => $bill->email ?? '',
+                'PhoneNumber' => $bill->getPropertyList->owner_gsm ?? '',
+                // "KG_TIN"=>$bill->getPropertyList->owner_kgtin ?? '',
+                'Agency' => $bill->getLGA->lga_name ?? '',
+                'ADDRESS' => $bill->getPropertyList->property_address ?? '',
+                'PropertyImage' => $bill->getPropertyList->image ?? '',
+            ],
         ]);
     }
 
-
-    public function notifyETranzact(Request $request){
+    public function notifyETranzact(Request $request)
+    {
         try {
             DB::beginTransaction();
             $clientIp = $request->ip();
@@ -96,12 +99,12 @@ class PaymentValidationController extends Controller
                 '197.255.244.5',
                 '197.255.244.54',
 
-                //'192.168.1.10',
-                //'203.0.113.45',
-                '127.0.0.1'
+                // '192.168.1.10',
+                // '203.0.113.45',
+                '127.0.0.1',
             ];
-            if (!in_array($clientIp, $allowedIps)) {
-                return response("false -1", 403);
+            if (! in_array($clientIp, $allowedIps)) {
+                return response('false -1', 403);
             }
 
             $receiptNo = $request->RECEIPT_NO;
@@ -113,34 +116,32 @@ class PaymentValidationController extends Controller
             $transDate = $request->TRANS_DATE ?? now();
             $currentYear = date('Y');
 
-
-
-            //return response()->json(['token'=>$transAmount],200);
-            if (empty($receiptNo)  || empty($transAmount) || empty($assessmentNo)) {
-                return  response("false 2");
+            // return response()->json(['token'=>$transAmount],200);
+            if (empty($receiptNo) || empty($transAmount) || empty($assessmentNo)) {
+                return response('false 2');
             }
             $bankName = $request->BANK_NAME;
             $branch = $request->BRANCH_NAME;
-            $payMode = "eTranzact";
+            $payMode = 'eTranzact';
             $phoneNumber = $request->CUSTOMER_PHONE_NUMBER;
             $customerName = $request->CUSTOMER_NAME;
             $customerAddress = $request->CUSTOMER_ADDRESS ?? 'N/A';
             $email = $request->CUSTOMER_EMAIL ?? 'placeholder@email.com';
             $kgTin = $request->COL7;
-            if(!is_numeric($transAmount)){
-                return  response("false 4");
+            if (! is_numeric($transAmount)) {
+                return response('false 4');
             }
-            if(!isset($token)){
-                return response("Provide token");
+            if (! isset($token)) {
+                return response('Provide token');
             }
-            if(isset($token)){
-                if($token != $this->eTranzactToken){
-                    return response("Invalid token");
+            if (isset($token)) {
+                if ($token != $this->eTranzactToken) {
+                    return response('Invalid token');
                 }
             }
             $payment = BillPaymentLog::where('receipt_no', $receiptNo)->first();
-            if(!empty($payment)){
-                return  response("false 1");
+            if (! empty($payment)) {
+                return response('false 1');
             }
 
             $bill = Billing::where('assessment_no', $assessmentNo)
@@ -148,16 +149,16 @@ class PaymentValidationController extends Controller
                 ->first();
             if (empty($bill)) {
                 return response()->json([
-                    "FeeRequest" => [
-                        "Customer ID" => $assessmentNo,
-                        "FeeStatus" => "Invalid Customer ID "
-                    ]
+                    'FeeRequest' => [
+                        'Customer ID' => $assessmentNo,
+                        'FeeStatus' => 'Invalid Customer ID ',
+                    ],
                 ]);
-            }else{
+            } else {
                 $paymentData['payment_code'] = $paymentCode;
                 $paymentData['paid_by'] = 5;
                 $paymentData['receipt_no'] = $receiptNo;
-                $paymentData['payment_ref']  = $paymentCode;
+                $paymentData['payment_ref'] = $paymentCode;
                 $paymentData['assessment_no'] = $assessmentNo;
                 $paymentData['bank_name'] = $bankName;
                 $paymentData['branch'] = $branch;
@@ -173,19 +174,21 @@ class PaymentValidationController extends Controller
                 $this->handleBillPayment($bill->building_code, $transAmount, $paymentData);
             }
             DB::commit();
-            return  response("true");
-        }catch (\Exception $e){
+
+            return response('true');
+        } catch (\Exception $e) {
             DB::rollBack();
-            return  response("false $e");
+
+            return response("false $e");
         }
     }
 
-
     private function _registerInPaymentLog($billMasterId, $paidBy, $amount, $receiptNo, $paymentCode,
-                                           $assessmentNo, $bankName, $branchName, $payMode, $customerName,
-                                           $email, $kgTin, $transRef, $transDate, $phoneNumber){
+        $assessmentNo, $bankName, $branchName, $payMode, $customerName,
+        $email, $kgTin, $transRef, $transDate, $phoneNumber)
+    {
         $bill = Billing::find($billMasterId);
-        if (!$bill) {
+        if (! $bill) {
             return;
         }
 
@@ -193,88 +196,86 @@ class PaymentValidationController extends Controller
         $uniqueReceiptNo = $receiptNo;
 
         if ($existingLogsCount > 0) {
-            $uniqueReceiptNo = $receiptNo . '_' . ($existingLogsCount + 1);
+            $uniqueReceiptNo = $receiptNo.'_'.($existingLogsCount + 1);
         }
-        //if($bill){
-            BillPaymentLog::create([
-                "bill_master"=>$billMasterId,
-                "paid_by"=>$paidBy,
-                "amount"=>$amount,
-                "receipt_no"=>$uniqueReceiptNo,
-                "payment_code"=>$paymentCode,
-                "assessment_no"=>$assessmentNo,
+        // if($bill){
+        BillPaymentLog::create([
+            'bill_master' => $billMasterId,
+            'paid_by' => $paidBy,
+            'amount' => $amount,
+            'receipt_no' => $uniqueReceiptNo,
+            'payment_code' => $paymentCode,
+            'assessment_no' => $assessmentNo,
 
-                "building_code"=>!empty($bill) ? $bill->building_code : '',
-                "lga_id"=>!empty($bill) ? $bill->lga_id : '',
-                "ward"=> $bill->ward ?? '',
-                "zone"=> $bill->zone_name ?? '',
+            'building_code' => ! empty($bill) ? $bill->building_code : '',
+            'lga_id' => ! empty($bill) ? $bill->lga_id : '',
+            'ward' => $bill->ward ?? '',
+            'zone' => $bill->zone_name ?? '',
 
-                "bank_name"=>$bankName,
-                "branch_name"=>$branchName,
-                "pay_mode"=>$payMode,
-                "customer_name"=>$customerName,
-                "email"=>$email,
-                "kgtin"=>$kgTin,
-                "entry_date"=>Carbon::parse($transDate)->format('Y-m-d'),
-                "token"=>$this->eTranzactToken,
-                "trans_ref"=>$transRef,
-                "reference"=>$transRef,
+            'bank_name' => $bankName,
+            'branch_name' => $branchName,
+            'pay_mode' => $payMode,
+            'customer_name' => $customerName,
+            'email' => $email,
+            'kgtin' => $kgTin,
+            'entry_date' => Carbon::parse($transDate)->format('Y-m-d'),
+            'token' => $this->eTranzactToken,
+            'trans_ref' => $transRef,
+            'reference' => $transRef,
 
-            ]);
+        ]);
 
-
-
-            //update property
-            $property = PropertyList::where('building_code', $bill->building_code)->first();
-            if(!empty($property)){
-                $property->owner_email = $email;
-                $property->owner_name = $customerName;
-                $property->owner_gsm = $phoneNumber;
-                $property->owner_kgtin = $kgTin ?? null;
-                $property->save();
+        // update property
+        $property = PropertyList::where('building_code', $bill->building_code)->first();
+        if (! empty($property)) {
+            $property->owner_email = $email;
+            $property->owner_name = $customerName;
+            $property->owner_gsm = $phoneNumber;
+            $property->owner_kgtin = $kgTin ?? null;
+            $property->save();
+        }
+        // update owner
+        if (! empty($property) && ! empty($bill)) {
+            $owner = Owner::where('kgtin', $kgTin)->first();
+            if (empty($owner)) {
+                Owner::create([
+                    'email' => $email,
+                    'kgtin' => $kgTin,
+                    'name' => $customerName,
+                    'telephone' => $phoneNumber,
+                    'lga_id' => $bill->lga_id,
+                    'added_by' => $paidBy,
+                    'res_address' => $property->address ?? 'N/A',
+                ]);
+            } else {
+                $owner->email = $email;
+                $owner->kgtin = $kgTin;
+                $owner->name = $customerName;
+                $owner->telephone = $phoneNumber;
+                $owner->lga_id = $bill->lga_id;
+                $owner->res_address = $property->address ?? 'N/A';
+                $owner->save();
             }
-            //update owner
-            if(!empty($property) && !empty($bill)){
-                $owner = Owner::where('kgtin', $kgTin)->first();
-                if(empty($owner)){
-                    Owner::create([
-                        "email"=>$email,
-                        "kgtin"=>$kgTin,
-                        "name"=>$customerName,
-                        "telephone"=>$phoneNumber,
-                        "lga_id"=>$bill->lga_id,
-                        "added_by"=>$paidBy,
-                        "res_address"=>$property->address ?? 'N/A'
-                    ]);
-                }else{
-                    $owner->email = $email;
-                    $owner->kgtin = $kgTin;
-                    $owner->name = $customerName;
-                    $owner->telephone = $phoneNumber;
-                    $owner->lga_id = $bill->lga_id;
-                    $owner->res_address = $property->address ?? 'N/A';
-                    $owner->save();
-                }
-            }
-            //Kogi rems notification register
-            KogiRemsNotification::create([
-                "assessmentno"=>$bill->assessment_no,
-                "buildingcode"=>$bill->building_code,
-                "kgtin"=>$kgTin ?? null,
-                "name"=>$customerName,
-                "amount"=>$amount,
-                "phone"=>$phoneNumber,
-                "email"=>$email,
-                "transdate"=>Carbon::parse($transDate)->format('Y-m-d') ?? now(),
-                "transRef"=>$transRef,
-                "paymode"=>"eTranzact",
-                "bank_name"=>$bankName ?? '',
-                "luc_amount"=>$bill->bill_amount,
-            ]);
+        }
+        // Kogi rems notification register
+        KogiRemsNotification::create([
+            'assessmentno' => $bill->assessment_no,
+            'buildingcode' => $bill->building_code,
+            'kgtin' => $kgTin ?? null,
+            'name' => $customerName,
+            'amount' => $amount,
+            'phone' => $phoneNumber,
+            'email' => $email,
+            'transdate' => Carbon::parse($transDate)->format('Y-m-d') ?? now(),
+            'transRef' => $transRef,
+            'paymode' => 'eTranzact',
+            'bank_name' => $bankName ?? '',
+            'luc_amount' => $bill->bill_amount,
+        ]);
 
-            NotifyKogiRemsJob::dispatch();
+        NotifyKogiRemsJob::dispatch();
 
-        //}
+        // }
 
     }
 
@@ -290,14 +291,13 @@ class PaymentValidationController extends Controller
             ->value('balance') ?? 0.0;
     }
 
-
     public function createPayment(Request $request)
     {
 
         $response = Http::withHeaders([
             'clientId' => env('ROUTEPAY_CLIENT_ID'),
             'secretKey' => env('ROUTEPAY_SECRET_KEY'),
-            'Content-Type' => 'application/json'
+            'Content-Type' => 'application/json',
         ])->post('https://apidev.routepay.com/api/payment/initiate', [
 
             'amount' => $request->amount,
@@ -312,7 +312,7 @@ class PaymentValidationController extends Controller
 
             'callbackUrl' => route('payment.callback'),
 
-            'redirectUrl' => route('payment.success')
+            'redirectUrl' => route('payment.success'),
         ]);
 
         return response()->json($response->json());
@@ -340,6 +340,4 @@ class PaymentValidationController extends Controller
             // Payment failed
         }
     }
-
 }
-

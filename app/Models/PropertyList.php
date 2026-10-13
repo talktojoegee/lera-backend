@@ -64,6 +64,7 @@ class PropertyList extends Model
         'contact_address',
         'contact_email',
         'confirmed_house_number',
+        'street_name',
         'assigned_house_number',
         'business_name_1',
         'business_name_2',
@@ -71,15 +72,37 @@ class PropertyList extends Model
         'business_name_4',
     ];
 
-
-    public function getLGA(){
-        return $this->belongsTo(Lga::class, "lga_id");
-    }
-    public function getPropertyClassification(){
-        return $this->belongsTo(PropertyClassification::class, "class_id");
+    public function getLGA()
+    {
+        return $this->belongsTo(Lga::class, 'lga_id');
     }
 
-    public static function searchAllProperties($keyword, $propertyUse){
+    public function getPropertyClassification()
+    {
+        return $this->belongsTo(PropertyClassification::class, 'class_id');
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
+     * @param  list<int>  $lgaIds
+     * @return \Illuminate\Database\Eloquent\Builder<static>
+     */
+    public function scopeForAllowedLgas($query, array $lgaIds)
+    {
+        if ($lgaIds !== []) {
+            $query->whereIn('lga_id', $lgaIds);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Search properties scoped to allowed LGAs.
+     *
+     * @param  list<int>  $lgaIds
+     */
+    public static function searchAllProperties($keyword, $lgaIds)
+    {
         return DB::table('property_lists')
             ->leftJoin('property_classifications', 'property_lists.class_id', '=', 'property_classifications.id')
             ->leftJoin('lgas', 'lgas.id', '=', 'property_lists.lga_id')
@@ -111,7 +134,7 @@ class PropertyList extends Model
                 'lgas.lga_name',
                 'property_classifications.class_name',
             )
-            ->whereIn('property_lists.property_use', $propertyUse)
+            ->when(! empty($lgaIds), fn ($q) => $q->whereIn('property_lists.lga_id', $lgaIds))
             ->where(function ($query) use ($keyword) {
                 $query->where('property_lists.building_code', 'LIKE', "%{$keyword}%")
                     ->orWhere('property_lists.pav_code', 'LIKE', "%{$keyword}%")

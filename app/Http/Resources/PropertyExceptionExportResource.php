@@ -16,17 +16,18 @@ class PropertyExceptionExportResource extends JsonResource
     {
 
         return [
-            "buildingCode"=>$this->building_code,
-            "owner"=>$this->owner_name ?? '',
-            "pavCode"=>$this->pav_code,
-            "zoneName"=>$this->sub_zone ?? '',
-            "lgaName"=>$this->getLGA->lga_name ?? '',
-            "class"=>$this->class_name ?? '',
-            "propertyUse"=>$this->sync_word ?? '',
-            "occupancy"=>$this->occupant ?? '',
-            "propertyName"=>$this->property_name ?? '',
-            "status"=>$this->status == 0 ? 'Not sync' : 'Sync',
-            "reason"=>$this->reason ?? '',
+            'buildingCode' => $this->building_code,
+            'owner' => $this->owner_name ?? '',
+            'pavCode' => $this->pav_code,
+            'zoneName' => $this->sub_zone ?? '',
+            'lgaName' => $this->getLGA->lga_name ?? '',
+            'class' => $this->property_use ?? '',
+            'className' => $this->getPropertyClassification->class_name ?? $this->class_name ?? '',
+            'propertyUse' => $this->property_use ?? '',
+            'occupancy' => $this->occupant ?? '',
+            'propertyName' => $this->property_name ?? '',
+            'status' => $this->status == 0 ? 'Not sync' : 'Sync',
+            'reason' => $this->reason ?? '',
         ];
     }
 }

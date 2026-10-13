@@ -9,6 +9,7 @@ use App\Models\Lga;
 use App\Models\MinimumLuc;
 use App\Models\PropertyAssessmentValue;
 use App\Models\PropertyList;
+use App\Support\PropertyTypeMapper;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -22,10 +23,10 @@ trait BillingProcessTrait
     /**
      * Process billing for properties
      *
-     * @param int $lgaId LGA ID (0 for all)
-     * @param int $year Billing year
-     * @param int $billedBy User ID of who billed
-     * @param callable|null $callback Optional progress callback
+     * @param  int  $lgaId  LGA ID (0 for all)
+     * @param  int  $year  Billing year
+     * @param  int  $billedBy  User ID of who billed
+     * @param  callable|null  $callback  Optional progress callback
      * @return array Statistics array
      */
     public function processBilling($lgaId, $year, $billedBy, $callback = null)
@@ -34,7 +35,7 @@ trait BillingProcessTrait
             'total' => 0,
             'created' => 0,
             'skipped' => 0,
-            'errors' => 0
+            'errors' => 0,
         ];
 
         try {
@@ -45,7 +46,7 @@ trait BillingProcessTrait
             Log::info('BillingProcessTrait: Starting billing process', [
                 'lga_id' => $lgaId,
                 'year' => $year,
-                'property_count' => $stats['total']
+                'property_count' => $stats['total'],
             ]);
 
             foreach ($propertyLists as $list) {
@@ -55,10 +56,31 @@ trait BillingProcessTrait
                         if ($callback) {
                             call_user_func($callback, " Bill already exists for {$list->building_code}");
                         }
+
                         continue;
                     }
 
-                    $pav = PropertyAssessmentValue::where("property_type", $list->property_type)->first();
+                    $pav = PropertyTypeMapper::findPavForProperty($list);
+
+                    if ($pav === null) {
+                        $stats['skipped']++;
+                        $hint = PropertyTypeMapper::pavTableEmpty()
+                            ? 'property_assessment_values table is empty — run php artisan pav:import on the server'
+                            : 'no matching property_type in property_assessment_values — run php artisan properties:backfill-pav after pav:import';
+                        Log::warning('BillingProcessTrait: no PAV match for property — bill skipped', [
+                            'building_code' => $list->building_code,
+                            'property_type' => $list->property_type,
+                            'sync_word' => $list->sync_word,
+                            'property_use' => $list->property_use,
+                            'pav_code' => $list->pav_code,
+                            'hint' => $hint,
+                        ]);
+                        if ($callback) {
+                            call_user_func($callback, "Skipped {$list->building_code} — no PAV match ({$hint})");
+                        }
+
+                        continue;
+                    }
 
                     $this->_createBillingRecord($list, $pav, $year, $billedBy);
                     $stats['created']++;
@@ -71,7 +93,7 @@ trait BillingProcessTrait
                     $stats['errors']++;
                     Log::error('BillingProcessTrait: Error processing property', [
                         'building_code' => $list->building_code,
-                        'message' => $e->getMessage()
+                        'message' => $e->getMessage(),
                     ]);
                     if ($callback) {
                         call_user_func($callback, "✗ Error processing {$list->building_code}: {$e->getMessage()}");
@@ -80,13 +102,15 @@ trait BillingProcessTrait
             }
 
             Log::info('BillingProcessTrait: Billing process completed', $stats);
+
             return $stats;
 
         } catch (\Exception $e) {
             Log::error('BillingProcessTrait: Billing process failed', [
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return $stats;
         }
     }
@@ -94,7 +118,7 @@ trait BillingProcessTrait
     /**
      * Get properties to bill
      *
-     * @param int $lgaId LGA ID (0 for all)
+     * @param  int  $lgaId  LGA ID (0 for all)
      * @return \Illuminate\Database\Eloquent\Collection
      */
     private function _getPropertiesToBill($lgaId)
@@ -111,9 +135,8 @@ trait BillingProcessTrait
     /**
      * Check if bill already exists
      *
-     * @param string $buildingCode
-     * @param int $year
-     * @return bool
+     * @param  string  $buildingCode
+     * @param  int  $year
      */
     private function _billExists($buildingCode, $year): bool
     {
@@ -125,35 +148,34 @@ trait BillingProcessTrait
     /**
      * Create billing record with calculations
      *
-     * @param PropertyList $property
-     * @param PropertyAssessmentValue $pav
-     * @param Depreciation $depreciation
-     * @param ChargeRate $chargeRate
-     * @param int $year
-     * @param int $billedBy
-     * @return Billing
+     * @param  PropertyList  $property
+     * @param  Depreciation  $depreciation
+     * @param  ChargeRate  $chargeRate
+     * @param  int  $year
+     * @param  int  $billedBy
      */
-    private function _createBillingRecord($property, $pav, $year, $billedBy): Billing
+    private function _createBillingRecord($property, ?PropertyAssessmentValue $pav, $year, $billedBy): Billing
     {
         // Create billing record
-        $billing = new Billing();
+        $billing = new Billing;
         $billing->building_code = $property->building_code;
         $billing->assessment_no = uniqid();
         $billing->assessed_value = 0;
-        $billing->bill_amount = $pav->annual_due ?? 0;
+        $billing->bill_amount = $pav?->annual_due ?? 0;
         $billing->minimum_luc = MinimumLuc::first()->amount ?? 0;
         $billing->year = $year;
         $billing->entry_date = now();
         $billing->billed_by = $billedBy ?? 5;
 
         // Rate values
-        $billing->rr =  0;
+        $billing->rr = 0;
         $billing->lr = 0;
         $billing->ba = 0;
         $billing->br = 0;
         $billing->dr = 0;
         $billing->cr = 0;
         $billing->dr_value = 0;
+        $billing->status = 3;
 
         // Status
         $billing->paid_amount = 0;
@@ -163,17 +185,18 @@ trait BillingProcessTrait
         $billing->lga_id = $property->lga_id;
         $billing->property_id = $property->id;
         $billing->bill_rate = 0;
-        $billing->pav_code = $pav->pav_code;
+        $billing->pav_code = $pav?->pav_code;
         $billing->zone_name = $property->sub_zone ?? '';
-        $billing->url = uniqid() . mt_rand(1000, 9999);
+        $billing->url = uniqid().mt_rand(1000, 9999);
         $billing->class_id = $property->class_id;
         $billing->property_use = $property->property_use;
         $billing->occupancy = $property->cr;
         $billing->la = 0;
         $billing->ward = $property->ward ?? '';
+        $billing->street_name = $property->street_name ?? '';
         $billing->property_name = $property->property_name ?? '';
         $billing->save();
+
         return $billing;
     }
 }
-

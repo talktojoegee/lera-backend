@@ -15,12 +15,16 @@ use Illuminate\Support\Facades\Log;
  */
 class ProcessBillingJob implements ShouldQueue
 {
-    use Queueable, BillingProcessTrait;
+    use BillingProcessTrait, Queueable;
 
     public $lgaId;
+
     public $year;
+
     public $billedBy;
+
     public $tries = 3;
+
     public $timeout = 3600;
 
     /**
@@ -31,6 +35,10 @@ class ProcessBillingJob implements ShouldQueue
         $this->lgaId = $lgaId;
         $this->year = $year;
         $this->billedBy = $billedBy;
+
+        // Always use database queue (not QUEUE_CONNECTION=sync).
+        $this->onConnection('database');
+        $this->onQueue('data_sync_queue');
     }
 
     /**
@@ -43,7 +51,7 @@ class ProcessBillingJob implements ShouldQueue
             Log::info('ProcessBillingJob: Starting', [
                 'lga_id' => $this->lgaId,
                 'year' => $this->year,
-                'billed_by' => $this->billedBy
+                'billed_by' => $this->billedBy,
             ]);
 
             // Use trait to process all billing
@@ -52,7 +60,7 @@ class ProcessBillingJob implements ShouldQueue
                 $this->year,
                 $this->billedBy,
                 function ($message) {
-                    Log::info('ProcessBillingJob: ' . $message);
+                    Log::info('ProcessBillingJob: '.$message);
                 }
             );
 
@@ -61,7 +69,7 @@ class ProcessBillingJob implements ShouldQueue
         } catch (\Exception $e) {
             Log::error('ProcessBillingJob: Job failed', [
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
             throw $e;
         }
@@ -76,7 +84,7 @@ class ProcessBillingJob implements ShouldQueue
             'message' => $exception->getMessage(),
             'trace' => $exception->getTraceAsString(),
             'lga_id' => $this->lgaId,
-            'year' => $this->year
+            'year' => $this->year,
         ]);
     }
 }

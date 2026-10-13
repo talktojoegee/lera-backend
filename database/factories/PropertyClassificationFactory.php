@@ -1,5 +1,8 @@
 <?php
 
+namespace Database\Factories;
+
+use App\Models\PropertyClassification;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class PropertyClassificationFactory extends Factory
@@ -13,6 +16,3 @@ class PropertyClassificationFactory extends Factory
         ];
     }
 }
-
-
-?>

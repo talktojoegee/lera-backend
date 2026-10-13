@@ -2,14 +2,14 @@
 
 namespace Database\Seeders;
 
+use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
-use Carbon\Carbon;
 
 class PavLoadDataSeeder extends Seeder
 {
+    public ?string $csvPath = null;
+
     /**
      * Run the database seeds.
      * Reads pav_load_data.csv located at the project root (base_path('pav_load_data.csv'))
@@ -19,15 +19,17 @@ class PavLoadDataSeeder extends Seeder
      */
     public function run()
     {
-        $csvPath = base_path('pav_load_data.csv');
+        $csvPath = $this->csvPath ?: base_path('pav_load_data.csv');
 
-        if (!file_exists($csvPath)) {
+        if (! file_exists($csvPath)) {
             $this->command->error("CSV file not found: {$csvPath}");
+
             return;
         }
 
         if (($handle = fopen($csvPath, 'r')) === false) {
             $this->command->error("Unable to open CSV file: {$csvPath}");
+
             return;
         }
 
@@ -48,7 +50,7 @@ class PavLoadDataSeeder extends Seeder
             $createdRaw = isset($row[5]) ? trim($row[5]) : null;
             $updatedRaw = isset($row[6]) ? trim($row[6]) : null;
 
-            if (!$pavCode) {
+            if (! $pavCode) {
                 // skip rows without a key
                 continue;
             }
@@ -94,12 +96,12 @@ class PavLoadDataSeeder extends Seeder
     /**
      * Try to parse various date formats used in the CSV. Returns Y-m-d H:i:s or null.
      *
-     * @param string|null $value
+     * @param  string|null  $value
      * @return string|null
      */
     protected function parseDate($value)
     {
-        if (!$value) {
+        if (! $value) {
             return null;
         }
 
@@ -118,4 +120,3 @@ class PavLoadDataSeeder extends Seeder
         }
     }
 }
-

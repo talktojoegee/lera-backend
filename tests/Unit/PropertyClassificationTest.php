@@ -2,9 +2,9 @@
 
 namespace Tests\Unit;
 
-use Tests\TestCase;
 use App\Models\PropertyClassification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
 class PropertyClassificationTest extends TestCase
 {
@@ -24,7 +24,7 @@ class PropertyClassificationTest extends TestCase
         PropertyClassification::factory()->create(['class_name' => 'Residential']);
 
         // Create an instance of the class where _getClass is defined
-        $instance = new \App\Services\PropertyService(); // Adjust based on where _getClass is defined
+        $instance = new \App\Http\Controllers\RemoteController;
 
         // Test for "government"
         $result = $instance->_getClass('government');

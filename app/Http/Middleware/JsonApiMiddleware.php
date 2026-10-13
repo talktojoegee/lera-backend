@@ -9,7 +9,7 @@ use Symfony\Component\HttpFoundation\Response;
 class JsonApiMiddleware
 {
     const PARSED_METHODS = [
-        'POST', 'PUT', 'PATCH'
+        'POST', 'PUT', 'PATCH',
     ];
 
     /**
@@ -19,8 +19,14 @@ class JsonApiMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (in_array($request->getMethod(), self::PARSED_METHODS)) {
-            $request->merge((array)json_decode($request->getContent()));
+        if (in_array($request->getMethod(), self::PARSED_METHODS, true)) {
+            $content = $request->getContent();
+            if ($content !== '') {
+                $decoded = json_decode($content, true);
+                if (is_array($decoded)) {
+                    $request->merge($decoded);
+                }
+            }
         }
 
         return $next($request);

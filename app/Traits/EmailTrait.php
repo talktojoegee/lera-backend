@@ -2,17 +2,23 @@
 
 namespace App\Traits;
 
+use App\Jobs\SendBillPaymentReceiptEmailJob;
+use App\Models\BillPaymentLog;
 use Illuminate\Support\Facades\Mail;
 
 trait EmailTrait
 {
     /**
-     * Send an email.
+     * Queue payment confirmation email (mail_queue connection).
+     */
+    protected function queueBillPaymentReceiptEmail(BillPaymentLog $paymentLog): void
+    {
+        SendBillPaymentReceiptEmailJob::dispatch($paymentLog->id);
+    }
+
+    /**
+     * Send an email synchronously (legacy helpers).
      *
-     * @param  string  $to
-     * @param  string  $subject
-     * @param  string  $view
-     * @param  array   $data
      * @return void
      */
     public function sendEmail(string $to, string $subject, string $view, array $data = [])

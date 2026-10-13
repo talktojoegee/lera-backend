@@ -17,22 +17,23 @@ class PaidBillResource extends JsonResource
     {
         $payment = BillPaymentLog::where('bill_master', $this->id)->sum('amount') ?? 0;
         $billPayment = BillPaymentLog::where('bill_master', $this->id)->first();
-        return [
-            'billId'=>$this->id,
-            'assessmentNo'=>$this->assessment_no,
-            'buildingCode'=>$this->building_code,
-            'datePaid'=> isset($billPayment->created_at) ? date('d/m/Y', strtotime($billPayment->created_at)) : '',
-            'year'=>$this->year,
-            'zoneName'=>$this->getPropertyList->zone_name ?? '',
-            'categoryName'=>$this->getPropertyList->getPropertyClassification->class_name ?? '',
-            'owner'=>$this->getPropertyList->owner_name ?? '',
 
-            'kgTin'=>$this->getPropertyList->owner_kgtin ?? '-',
-            'billAmount'=>$this->bill_amount,
-            'balance'=>($this->bill_amount  - $payment),
-            'lgaName'=>$this->getLGA->lga_name ?? 'N/A',
-            'url'=>$this->url,
-            'payment'=>$payment
+        return [
+            'billId' => $this->id,
+            'assessmentNo' => $this->assessment_no,
+            'buildingCode' => $this->building_code,
+            'datePaid' => isset($billPayment->created_at) ? date('d/m/Y', strtotime($billPayment->created_at)) : '',
+            'year' => $this->year,
+            'zoneName' => $this->getPropertyList->zone_name ?? '',
+            'categoryName' => $this->getPropertyList->class_name ?? '',
+            'owner' => $this->getPropertyList->owner_name ?? '',
+
+            'kgTin' => $this->getPropertyList->owner_kgtin ?? '-',
+            'billAmount' => $this->bill_amount,
+            'balance' => ($this->bill_amount - $payment),
+            'lgaName' => $this->getLGA->lga_name ?? 'N/A',
+            'url' => $this->url,
+            'payment' => $payment,
         ];
     }
 }

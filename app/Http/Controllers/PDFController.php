@@ -4,14 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Billing;
 use App\Models\BillPaymentLog;
-use App\Models\PrintBillLog;
 use App\Models\PropertyList;
-use App\Services\RoutePayQrService;
+use App\Models\User;
+use App\Services\BatchBillPdfService;
+use App\Services\BillPaymentQrService;
 use App\Traits\UtilityTrait;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -19,53 +19,11 @@ class PDFController extends Controller
 {
     use UtilityTrait;
 
-    public function generateDomPdf(Request $request)
+    public function generateDomPdf(Request $request, BatchBillPdfService $batchBillPdfService)
     {
-        $batchCode = $request->batchCode ?? '';
-        $printLogIds = PrintBillLog::where('batch_code', $batchCode)->pluck('bill_id')->toArray();
-        $records = DB::table('billings')
-            ->join('property_lists', 'billings.property_id', '=', 'property_lists.id')
-            ->join('property_classifications', 'billings.class_id', '=', 'property_classifications.id')
-            ->select([
-                'property_lists.property_name as propertyName',
-                'property_lists.owner_kgtin as kgTin',
-                'property_lists.owner_gsm as mobileNo',
-                'property_lists.property_address as propertyAddress',
-                'property_lists.address as address',
-                'billings.cr as chargeRate',
-                'billings.class_id as class_id',
-                'billings.building_code as buildingCode',
-                'billings.entry_date as entryDate',
-                'billings.assessment_no as assessmentNo',
-                'billings.year as year',
-                'billings.assessed_value as assessedValue',
-                'billings.bill_amount as billAmount',
-                'billings.paid_amount as paidAmount',
-                'property_classifications.class_name as className',
-            ])
-            ->whereIn('billings.id', $printLogIds)
-            ->get();
-        foreach ($records as $record) {
-            $record->bbf = $this->balanceBroughtForward(
-                $record->year,
-                $record->buildingCode
-            );
-            $paidAmount = (float) ($record->paidAmount ?? 0);
-            $currentYearDue = max(0.0, (float) $record->billAmount - $paidAmount);
-            $record->totalPayable = max(0.0, (float) $record->bbf + $currentYearDue);
-        }
-        $pdf = Pdf::loadView('pdf.bill', compact('records'))
-            ->setPaper('A4', 'portrait')
-            ->setOptions([
-                'isHtml5ParserEnabled' => true,
-                'isRemoteEnabled' => true,
-                'defaultFont' => 'Arial',
-            ]);
+        $batchCode = $request->route('batchCode', $request->batchCode ?? '');
 
-        return response($pdf->output(), Response::HTTP_OK, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="document.pdf"',
-        ]);
+        return $batchBillPdfService->resolveDownloadResponse($batchCode);
     }
 
     public function generatePDFByAssessmentNo(Request $request)
@@ -87,56 +45,30 @@ class PDFController extends Controller
                 'billings.entry_date as entryDate',
                 'billings.assessment_no as assessmentNo',
                 'billings.year as year',
+                'billings.lga_id as lgaId',
                 'billings.assessed_value as assessedValue',
                 'billings.bill_amount as billAmount',
                 'billings.paid_amount as paidAmount',
                 'property_classifications.class_name as className',
+                'property_lists.property_use as propertyUse',
             ])
             ->where('billings.assessment_no', $assessmentNo)
             ->first();
         if (empty($record)) {
             return \response()->json(['error' => 'No record found'], 404);
         }
-        $bbf = $this->balanceBroughtForward($record->year, $record->buildingCode);
-        $record->bbf = $bbf;
-        $paidAmount = (float) ($record->paidAmount ?? 0);
-        $currentYearDue = max(0.0, (float) $record->billAmount - $paidAmount);
-        $totalPayable = max(0.0, $bbf + $currentYearDue);
-        $record->totalPayable = $totalPayable;
-        $qr = app(RoutePayQrService::class)->buildBillQrImageForPdf(
-            mb_substr((string) ($record->propertyName ?? $record->assessmentNo ?? 'Bill'), 0, 120),
-            $totalPayable,
-            RoutePayQrService::merchantReferenceForBill((string) ($record->assessmentNo ?? 'NA'), $record->year ?? null)
-        );
-        $record->qrImage = $qr['src'];
-        $qrTempPath = $qr['temp_path'];
 
-        if ($record->qrImage === null && $totalPayable > 0) {
-            $fallbackUrl = $this->resolveBillPaymentQrFallbackUrl($record, $totalPayable);
-            if ($fallbackUrl !== null) {
-                $record->qrImage = $this->generateQRCode($fallbackUrl, 180);
-            } else {
-                Log::warning('Bill PDF: no payment QR — RoutePay did not return a QR image. Configure ROUTEPAY_* (see RoutePay guide) or set BILL_PAYMENT_QR_FALLBACK_URL to a public payment page.', [
-                    'assessment_no' => $record->assessmentNo ?? null,
-                    'total_payable' => $totalPayable,
-                ]);
-            }
-        }
+        $this->applyBillTotals($record);
+        $this->attachRoutePayQrToBillRecord($record);
 
-        try {
-            $pdf = Pdf::loadView('pdf.bill-single', compact('record'))
-                ->setPaper('A4', 'portrait')
-                ->setOptions([
-                    'isHtml5ParserEnabled' => true,
-                    'isRemoteEnabled' => true,
-                    'defaultFont' => 'Arial',
-                ]);
-            $output = $pdf->output();
-        } finally {
-            if ($qrTempPath !== null && is_file($qrTempPath)) {
-                @unlink($qrTempPath);
-            }
-        }
+        $bill = Billing::query()->where('assessment_no', $assessmentNo)->first();
+        $pdfService = app(BatchBillPdfService::class);
+        $record->qrImage = $pdfService->embedQrImageForPdf($record->qrImage ?? null, $bill?->id);
+
+        $pdf = Pdf::loadView('pdf.bill-single', compact('record'))
+            ->setPaper('A4', 'portrait')
+            ->setOptions($pdfService->dompdfOptions());
+        $output = $pdf->output();
 
         return response($output, Response::HTTP_OK, [
             'Content-Type' => 'application/pdf',
@@ -179,32 +111,32 @@ class PDFController extends Controller
 
     public function generateQRCode($text, $size = 150)
     {
-        $encodedText = urlencode($text);
-
-        return "https://quickchart.io/qr?text={$encodedText}&size={$size}";
+        return app(BillPaymentQrService::class)->qrImageUrlForText($text, $size);
     }
 
     public function getPdf(mixed $receiptNo, $receipt): \Barryvdh\DomPDF\PDF
     {
-        $qr = $this->generateQRCode("http://api.kslas.ng/receipt/{$receiptNo}");
+        $receiptBase = rtrim((string) config('app.url'), '/');
+        $qr = $this->generateQRCode("{$receiptBase}/receipt/{$receiptNo}");
         $data = [
             'payer_id' => $receipt->getBill->getPropertyList->owner_kgtin ?? '', // $receipt->kgtin ?? '',
             'paid_by' => $receipt->customer_name ?? '',
+            'lga' => $receipt->getBill->getLGA->lga_name ?? '',
             'address' => $receipt->getBill->getPropertyList->property_address ?? '',
             'assessmentNo' => $receipt->assessment_no ?? '',
             'propertyId' => $receipt->building_code ?? '',
             'amount' => 'NGN'.number_format(round($receipt->amount) ?? 0),
             'amount_words' => $this->numberToWords(round($receipt->amount) ?? 0),
-            'payment_purpose' => "Payment for Land Use Charge (Revenue Code: 12020908) {$receipt->getBill->year}",
+            'payment_purpose' => "Payment for Estate Dues (Revenue Code: 12020908) {$receipt->getBill->year}",
             'receipt_no' => $receipt->receipt_no ?? '',
             'invoice_no' => 'AST91574/34512/P1/2/2025',
             'swift_code' => $receipt->reference ?? '',
             'payment_date' => date('d/m/Y', strtotime($receipt->entry_date)),
-            'agency' => 'KOGI STATE INTERNAL REVENUE SERVICE (KGIRS)',
+            'agency' => 'LEKKI PENINSULA PHASE 1 RESIDENCE ASSOCIATION',
             'tax_station' => $receipt->ward ?? '',
             'pay_mode' => $receipt->pay_mode ?? '',
             'authorized_signatory' => 'Sule Saliu Enehe',
-            'designation' => 'Executive Chairman (KGIRS)',
+            'designation' => 'Executive Chairman',
             'qr' => $qr,
             'bankName' => $receipt->bank_name ?? '',
             'background' => asset('/assets/images/receipt.png'),
@@ -231,10 +163,12 @@ class PDFController extends Controller
             'buildingCode' => 'required',
             'from' => 'required',
             'to' => 'required',
+            'user' => 'required',
         ], [
             'buildingCode.required' => 'Building code is required',
             'from.required' => 'Set a start date',
             'to.required' => 'Set an end date',
+            'user.required' => 'User is required',
         ]);
         if ($validator->fails()) {
             return response()->json([
@@ -245,7 +179,12 @@ class PDFController extends Controller
         $buildingCode = $request->buildingCode;
         $from = $request->from;
         $to = $request->to;
-        $bills = BillPaymentLog::getCustomerStatementByKgtinDate($buildingCode, $from, $to);
+        $user = User::find($request->user);
+        if (empty($user)) {
+            return response()->json(['errors' => 'No record found.'], 404);
+        }
+        $allowedLgaIds = $user->sectorLgaIds();
+        $bills = BillPaymentLog::getCustomerStatementByKgtinDate($buildingCode, $from, $to, $allowedLgaIds);
         $records = [];
 
         foreach ($bills as $index => $billing) {
@@ -290,17 +229,36 @@ class PDFController extends Controller
      */
     protected function resolveBillPaymentQrFallbackUrl(object $record, float $totalPayable): ?string
     {
-        $template = config('billing.payment_qr_fallback_url');
-        if (! is_string($template) || trim($template) === '') {
-            return null;
-        }
+        return app(BillPaymentQrService::class)->paymentUrlForRecord($record);
+    }
 
-        return strtr($template, [
-            '{assessment_no}' => rawurlencode((string) ($record->assessmentNo ?? '')),
-            '{building_code}' => rawurlencode((string) ($record->buildingCode ?? '')),
-            '{amount}' => rawurlencode(number_format($totalPayable, 2, '.', '')),
-            '{year}' => rawurlencode((string) ($record->year ?? '')),
-        ]);
+    protected function applyBillTotals(object $record): void
+    {
+        if (! isset($record->bbf)) {
+            $record->bbf = $this->balanceBroughtForward($record->year, $record->buildingCode);
+        }
+        $paidAmount = (float) ($record->paidAmount ?? 0);
+        $currentYearDue = max(0.0, (float) $record->billAmount - $paidAmount);
+        $record->totalPayable = max(0.0, (float) $record->bbf + $currentYearDue);
+    }
+
+    /**
+     * Assessment payment QR for one bill row (single or batch PDF).
+     *
+     * @return string|null Temp file path to delete after PDF render, if any
+     */
+    protected function attachRoutePayQrToBillRecord(object $record, ?Billing $bill = null): ?string
+    {
+        return app(BatchBillPdfService::class)->attachRoutePayQrToBillRecord($record, $bill);
+    }
+
+    protected function cleanupQrTempPaths(array $paths): void
+    {
+        foreach ($paths as $path) {
+            if ($path !== null && is_file($path)) {
+                @unlink($path);
+            }
+        }
     }
 
     public function balanceBroughtForward(int $year, string $buildingCode): float

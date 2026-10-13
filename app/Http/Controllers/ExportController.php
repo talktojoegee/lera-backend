@@ -12,11 +12,7 @@ use App\Exports\PropertyExceptionExport;
 use App\Exports\ReconciliationReportExport;
 use App\Exports\SettlementReportExport;
 use App\Exports\UnreconciledReportExport;
-use App\Http\Resources\CustomerStatementResource;
-use App\Http\Resources\LGAResource;
-use App\Http\Resources\SettlementReportResource;
 use App\Jobs\BulkExportBillByTypeJob;
-use App\Jobs\ExportBillingJob;
 use App\Models\Billing;
 use App\Models\BillPaymentLog;
 use App\Models\ExportRecord;
@@ -24,30 +20,49 @@ use App\Models\Lga;
 use App\Models\Reconciliation;
 use App\Models\ReconciliationMaster;
 use App\Models\SettlementReportSetup;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
 
-
 class ExportController extends Controller
 {
-/*    public function exportExcel(Request $request)
-    {
+    /*    public function exportExcel(Request $request)
+        {
 
 
-        $type = $request->type ;
-        $userId = $request->user ;
-        if($type == 'normal-outstanding'){
-            return Excel::download(new PaidBillExport($userId,$type), 'billings.xlsx');
-        }
-        return Excel::download(new BillingExport($userId,$type), 'billings.xlsx');
-    }*/
+            $type = $request->type ;
+            $userId = $request->user ;
+            if($type == 'normal-outstanding'){
+                return Excel::download(new PaidBillExport($userId,$type), 'billings.xlsx');
+            }
+            return Excel::download(new BillingExport($userId,$type), 'billings.xlsx');
+        }*/
     public function exportExcel(Request $request)
     {
-        $type = $request->type;
-        $userId = $request->user;
-        $fileName = 'billings_' . now()->format('Y_m_d_His') . '.xlsx';
+        $validator = Validator::make($request->route()->parameters() + $request->all(), [
+            'user' => 'required|integer|exists:users,id',
+            'type' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->messages()], 422);
+        }
+
+        $type = (string) $request->type;
+        $userId = (int) $request->user;
+
+        $allowedTypes = [
+            'special-outstanding', 'all-pending', 'pending-bills', 'returned-normal', 'returned-special',
+            'paid-bills', 'si-paid-bills', 'normal-outstanding', 'partly-paid-bills',
+        ];
+
+        if (! in_array($type, $allowedTypes, true)) {
+            return response()->json(['error' => 'Invalid export type.'], 400);
+        }
+
+        $fileName = 'billings_'.now()->format('Y_m_d_His').'.xlsx';
         $path = "exports/{$fileName}";
 
         $record = ExportRecord::create([
@@ -55,21 +70,22 @@ class ExportController extends Controller
             'type' => $type,
             'file_path' => $path,
             'status' => 'queued',
-            'message' => 'Export has been queued successfully.'
+            'message' => 'Export has been queued successfully.',
         ]);
 
+        $queue = (string) config('billing.export_queue', 'default');
+
         BulkExportBillByTypeJob::dispatch($userId, $type, $path, $record->id)
-            ->onQueue('data_sync_queue');
+            ->onQueue($queue);
 
         return response()->json([
             'message' => 'Export request queued successfully',
             'status' => 'queued',
-            'file' => asset('storage/' . $path),
-            'export_id' => $record->id
-        ]);
-
-
+            'export_id' => $record->id,
+            'download_url' => url("/api/export-download/{$record->id}"),
+        ], 202);
     }
+
     public function getExportStatus($id)
     {
         $record = ExportRecord::findOrFail($id);
@@ -77,52 +93,74 @@ class ExportController extends Controller
         return response()->json([
             'status' => $record->status,
             'message' => $record->message,
-            'file_url' => $record->status === 'completed' ? asset("storage/{$record->file_path}") : null,
+            'export_id' => $record->id,
+            'file_url' => $record->status === 'completed'
+                ? url("/api/export-download/{$record->id}")
+                : null,
         ]);
     }
 
-
-
     public function exportPaidBills(Request $request)
     {
+        if (! $request->filled('type')) {
+            $request->merge(['type' => 'paid-bills']);
+        }
 
+        return $this->exportExcel($request);
+    }
 
-        $type = $request->type ;
-        $userId = $request->user ;
-        return Excel::download(new PaidBillExport($userId,$type), 'billings.xlsx');
+    public function exportPartlyPaidBills(Request $request)
+    {
+        $request->merge(['type' => 'partly-paid-bills']);
+
+        return $this->exportExcel($request);
+    }
+
+    public function exportPendingBills(Request $request)
+    {
+        $request->merge(['type' => 'all-pending']);
+
+        return $this->exportExcel($request);
     }
 
     public function exportPropertyException(Request $request)
     {
-        return Excel::download(new PropertyExceptionExport(), 'property-exceptions.xlsx');
+        return Excel::download(new PropertyExceptionExport, 'property-exceptions.xlsx');
     }
 
     public function exportCustomerReport(Request $request)
     {
-        $validator = Validator::make($request->all(),[
-            'buildingCode'=>'required',
-            'from'=>'required',
-            'to'=>'required'
-        ],[
-            'buildingCode.required'=>"Building code is required" ,
-            'from.required'=>"Set a start date" ,
-            'to.required'=>"Set an end date"
+        $validator = Validator::make($request->all(), [
+            'buildingCode' => 'required',
+            'from' => 'required',
+            'to' => 'required',
+            'user' => 'required',
+        ], [
+            'buildingCode.required' => 'Building code is required',
+            'from.required' => 'Set a start date',
+            'to.required' => 'Set an end date',
+            'user.required' => 'User is required',
         ]);
-        if($validator->fails() ){
+        if ($validator->fails()) {
             return response()->json([
-                "errors"=>$validator->messages()
-            ],422);
+                'errors' => $validator->messages(),
+            ], 422);
         }
 
-        $buildingCode = $request->buildingCode ;
-        $from = $request->from ;
-        $to = $request->to ;
-        $bills =  BillPaymentLog::getCustomerStatementByKgtinDate($buildingCode, $from, $to);
+        $buildingCode = $request->buildingCode;
+        $from = $request->from;
+        $to = $request->to;
+        $user = User::find($request->user);
+        if (empty($user)) {
+            return response()->json(['errors' => 'No record found.'], 404);
+        }
+        $allowedLgaIds = $user->sectorLgaIds();
+        $bills = BillPaymentLog::getCustomerStatementByKgtinDate($buildingCode, $from, $to, $allowedLgaIds);
         $formattedData = [];
         foreach ($bills as $index => $billing) {
             $bill = Billing::find($billing->bill_master);
-            $narration = "N/A";
-            if(!empty($bill)){
+            $narration = 'N/A';
+            if (! empty($bill)) {
                 $pDate = date('d M, Y', strtotime($billing->entry_date));
                 $narration = "LUC: {$bill->bill_amount}, Payment Date: {$pDate}, BUEAREU OF LANDS, Mode of Payment: {$billing->pay_mode},
             Assessment No.: {$bill->assessment_no}, Transaction Reference: {$bill->trans_ref}, Year: {$bill->year}";
@@ -137,125 +175,133 @@ class ExportController extends Controller
             ];
         }
 
-
         return Excel::download(new CustomerReportExport($formattedData, $buildingCode, $from, $to), 'customer-report.xlsx');
     }
+
     public function exportBillDeliveryReport(Request $request)
     {
-        $validator = Validator::make($request->all(),[
-            'lga'=>'required',
-            'from'=>'required',
-            'to'=>'required'
-        ],[
-            'lga.required'=>"LGA is required" ,
-            'from.required'=>"Set a start date" ,
-            'to.required'=>"Set an end date"
+        $validator = Validator::make($request->all(), [
+            'lga' => 'required',
+            'from' => 'required',
+            'to' => 'required',
+        ], [
+            'lga.required' => 'LGA is required',
+            'from.required' => 'Set a start date',
+            'to.required' => 'Set an end date',
         ]);
-        if($validator->fails() ){
+        if ($validator->fails()) {
             return response()->json([
-                "errors"=>$validator->messages()
-            ],422);
+                'errors' => $validator->messages(),
+            ], 422);
         }
 
-        $lga = $request->lga ;
-        $from = $request->from ;
-        $to = $request->to ;
-        $bills =  Billing::getBillDeliveryReportNoPagination($lga, $from, $to);
+        $lga = $request->lga;
+        $from = $request->from;
+        $to = $request->to;
+        $bills = Billing::getBillDeliveryReportNoPagination($lga, $from, $to);
         $formattedData = [];
         foreach ($bills as $index => $billing) {
             $formattedData[] = [
                 '#' => $index + 1,
                 'DATE' => date('d M, Y', strtotime($billing->entry_date)),
-                'ASSESSMENT NO.'=> $billing->assessment_no,
-                'BUILDING CODE'=> $billing->building_code,
-                'YEAR'=> $billing->year,
-                'BILLING CODE'=> $billing->pav_code,
-                'ZONE'=> $billing->zone_name ?? '',
-                'CATEGORY'=> $billing->getPropertyClassification->class_name ?? '',
-                'PROPERTY USE'=> $billing->property_use,
-                'OCCUPANCY'=> $billing->property_use ?? '',
-                'PROPERTY NAME'=> $billing->getPropertyList->property_name ?? '',
-                'CHARGE RATE'=> $billing->cr ?? '',
-                'ASSESSED MKT. VALUE'=> number_format($billing->assessed_value, 2),
+                'ASSESSMENT NO.' => $billing->assessment_no,
+                'BUILDING CODE' => $billing->building_code,
+                'YEAR' => $billing->year,
+                'BILLING CODE' => $billing->pav_code,
+                'ZONE' => $billing->zone_name ?? '',
+                'CATEGORY' => $billing->getPropertyClassification->class_name ?? '',
+                'PROPERTY USE' => $billing->property_use,
+                'OCCUPANCY' => $billing->property_use ?? '',
+                'PROPERTY NAME' => $billing->getPropertyList->property_name ?? '',
+                'CHARGE RATE' => $billing->cr ?? '',
+                'ASSESSED MKT. VALUE' => number_format($billing->assessed_value, 2),
                 '(₦)LUC' => number_format($billing->bill_amount, 2),
             ];
         }
-
 
         return Excel::download(new BillDeliveryExport($formattedData, $lga, $from, $to), 'Bill-Delivery-report.xlsx');
     }
 
     public function exportBillPrintReport(Request $request)
     {
-        $validator = Validator::make($request->all(),[
-            'lga'=>'required',
-            'from'=>'required',
-            'to'=>'required'
-        ],[
-            'lga.required'=>"LGA is required" ,
-            'from.required'=>"Set a start date" ,
-            'to.required'=>"Set an end date"
+        $validator = Validator::make($request->all(), [
+            'lga' => 'required',
+            'from' => 'required',
+            'to' => 'required',
+        ], [
+            'lga.required' => 'LGA is required',
+            'from.required' => 'Set a start date',
+            'to.required' => 'Set an end date',
         ]);
-        if($validator->fails() ){
+        if ($validator->fails()) {
             return response()->json([
-                "errors"=>$validator->messages()
-            ],422);
+                'errors' => $validator->messages(),
+            ], 422);
         }
 
-        $lga = $request->lga ;
-        $from = $request->from ;
-        $to = $request->to ;
-        $bills =  Billing::getBillPrintReportNoPagination($lga, $from, $to);
+        $lga = $request->lga;
+        $from = $request->from;
+        $to = $request->to;
+        $bills = Billing::getBillPrintReportNoPagination($lga, $from, $to);
         $formattedData = [];
         foreach ($bills as $index => $billing) {
             $formattedData[] = [
                 '#' => $index + 1,
                 'DATE' => date('d M, Y', strtotime($billing->entry_date)),
-                'ASSESSMENT NO.'=> $billing->assessment_no,
-                'BUILDING CODE'=> $billing->building_code,
-                'YEAR'=> $billing->year,
-                'BILLING CODE'=> $billing->pav_code,
-                'ZONE'=> $billing->zone_name ?? '',
-                'CATEGORY'=> $billing->getPropertyClassification->class_name ?? '',
-                'PROPERTY USE'=> $billing->property_use,
-                'OCCUPANCY'=> $billing->property_use ?? '',
-                'PROPERTY NAME'=> $billing->getPropertyList->property_name ?? '',
-                'CHARGE RATE'=> $billing->cr ?? '',
-                'ASSESSED MKT. VALUE'=> number_format($billing->assessed_value, 2),
+                'ASSESSMENT NO.' => $billing->assessment_no,
+                'BUILDING CODE' => $billing->building_code,
+                'YEAR' => $billing->year,
+                'BILLING CODE' => $billing->pav_code,
+                'ZONE' => $billing->zone_name ?? '',
+                'CATEGORY' => $billing->getPropertyClassification->class_name ?? '',
+                'PROPERTY USE' => $billing->property_use,
+                'OCCUPANCY' => $billing->property_use ?? '',
+                'PROPERTY NAME' => $billing->getPropertyList->property_name ?? '',
+                'CHARGE RATE' => $billing->cr ?? '',
+                'ASSESSED MKT. VALUE' => number_format($billing->assessed_value, 2),
                 '(₦)LUC' => number_format($billing->bill_amount, 2),
             ];
         }
 
-
         return Excel::download(new BillPrintReportExport($formattedData, $lga, $from, $to), 'Bill-Print-report.xlsx');
     }
 
-
     public function exportPaymentReport(Request $request)
     {
-        $validator = Validator::make($request->all(),[
-            'keyword'=>'required',
-            'type'=>'required',
-            'from'=>'required',
-            'to'=>'required'
-        ],[
-            'keyword.required'=>"Something is missing" ,
-            'from.required'=>"Set a start date" ,
-            'to.required'=>"Set an end date",
-            'type.required'=>"Indicate type",
+        $validator = Validator::make($request->all(), [
+            'keyword' => 'required',
+            'type' => 'required',
+            'from' => 'required',
+            'to' => 'required',
+            'user' => 'required',
+        ], [
+            'keyword.required' => 'Something is missing',
+            'from.required' => 'Set a start date',
+            'to.required' => 'Set an end date',
+            'type.required' => 'Indicate type',
+            'user.required' => 'User is required',
         ]);
-        if($validator->fails() ){
+        if ($validator->fails()) {
             return response()->json([
-                "errors"=>$validator->messages()
-            ],422);
+                'errors' => $validator->messages(),
+            ], 422);
         }
-        $from = $request->from ;
-        $to = $request->to ;
-        $type = $request->type ;
-        $keyword = $request->keyword ; //LGA ID ||
-        switch ($type){
+        $from = $request->from;
+        $to = $request->to;
+        $type = $request->type;
+        $keyword = $request->keyword; // LGA ID ||
+        $user = User::find($request->user);
+        if (empty($user)) {
+            return response()->json(['errors' => 'No record found.'], 404);
+        }
+        $allowedLgaIds = $user->sectorLgaIds();
+        switch ($type) {
             case 'lga':
-                $bills =  BillPaymentLog::getPaymentReportByLGADateRange($keyword, $from, $to);
+                $keyword = (int) $keyword;
+                if (! empty($allowedLgaIds) && $keyword > 0 && ! in_array($keyword, $allowedLgaIds, true)) {
+                    return response()->json(['message' => 'Unauthorized LGA'], 403);
+                }
+                $bills = BillPaymentLog::getPaymentReportByLGADateRange($keyword, $from, $to, $allowedLgaIds);
                 $formattedData = [];
                 foreach ($bills as $index => $billing) {
                     $formattedData[] = [
@@ -271,12 +317,13 @@ class ExportController extends Controller
                         '(NGN)AMOUNT' => $billing->amount ?? 0,
                     ];
                 }
+
                 return Excel::download(new PaymentReportExport($formattedData, $from, $to, $type, $keyword), 'payment-report.xlsx');
             case 'ward':
-                $bills =  BillPaymentLog::getPaymentReportByWardDateRange($keyword, $from, $to);
+                $bills = BillPaymentLog::getPaymentReportByWardDateRange($keyword, $from, $to, $allowedLgaIds);
                 $formattedData = [];
                 foreach ($bills as $index => $billing) {
-                    //$lga = Lga::find($);
+                    // $lga = Lga::find($);
                     $formattedData[] = [
                         '#' => $index + 1,
                         'DATE' => date('d/m/Y', strtotime($billing->entry_date)),
@@ -290,9 +337,10 @@ class ExportController extends Controller
                         '(NGN)AMOUNT' => $billing->amount ?? 0,
                     ];
                 }
+
                 return Excel::download(new PaymentReportExport($formattedData, $from, $to, $type, $keyword), 'payment-report.xlsx');
             case 'zone':
-                $bills =  BillPaymentLog::getPaymentReportByZoneDateRange($keyword, $from, $to);
+                $bills = BillPaymentLog::getPaymentReportByZoneDateRange($keyword, $from, $to, $allowedLgaIds);
                 $formattedData = [];
                 foreach ($bills as $index => $billing) {
                     $formattedData[] = [
@@ -308,33 +356,42 @@ class ExportController extends Controller
                         '(NGN)AMOUNT' => $billing->amount ?? 0,
                     ];
                 }
+
                 return Excel::download(new PaymentReportExport($formattedData, $from, $to, $type, $keyword), 'payment-report.xlsx');
         }
     }
 
-
-    public function exportSettlementReport(Request $request){
+    public function exportSettlementReport(Request $request)
+    {
         $validator = Validator::make($request->all(), [
-            "from" => "required|date",
-            "to" => "required|date"
+            'from' => 'required|date',
+            'to' => 'required|date',
+            'user' => 'required',
         ], [
-            "from.required" => "Choose start date",
-            "to.required" => "Choose end date"
+            'from.required' => 'Choose start date',
+            'to.required' => 'Choose end date',
+            'user.required' => 'User is required',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                "errors" => $validator->messages(),
-                "message"=>"Validation error",
-                "detail"=>"All fields are required."
+                'errors' => $validator->messages(),
+                'message' => 'Validation error',
+                'detail' => 'All fields are required.',
             ], 422);
         }
         $from = $request->from;
         $to = $request->to;
+        $user = User::find($request->user);
+        if (empty($user)) {
+            return response()->json(['errors' => 'No record found.'], 404);
+        }
+        $allowedLgaIds = $user->sectorLgaIds();
         $data = DB::table('bill_payment_logs')
             ->join('lgas', 'lgas.id', '=', 'bill_payment_logs.lga_id')
             ->orderBy('lgas.id', 'ASC')
             ->whereBetween('entry_date', [$from, $to])
+            ->when(! empty($allowedLgaIds), fn ($q) => $q->whereIn('bill_payment_logs.lga_id', $allowedLgaIds))
             ->select('entry_date as date', 'building_code as buildingCode', 'assessment_no as assessmentNo', 'amount', 'lgas.lga_name as lgaName')
             ->get();
         $setup = SettlementReportSetup::first();
@@ -343,30 +400,31 @@ class ExportController extends Controller
         $kgirs = isset($setup->kgirs) ? $setup->kgirs : 0;
         $lgaList = Lga::fetchAllLGAs();
 
-        return Excel::download(new SettlementReportExport($data,$lgaList, $kgirs, $lga, $newWaves, $from, $to), 'settlement_report.xlsx');
+        return Excel::download(new SettlementReportExport($data, $lgaList, $kgirs, $lga, $newWaves, $from, $to), 'settlement_report.xlsx');
     }
 
-    public function exportReconciliationReport(Request $request){
+    public function exportReconciliationReport(Request $request)
+    {
         $validator = Validator::make($request->all(), [
-            "uuid" => "required",
+            'uuid' => 'required',
         ], [
-            "uuid.required" => "Field is required"
+            'uuid.required' => 'Field is required',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                "errors" => $validator->messages(),
-                "message"=>"Validation error",
-                "detail"=>"All fields are required."
+                'errors' => $validator->messages(),
+                'message' => 'Validation error',
+                'detail' => 'All fields are required.',
             ], 422);
         }
         $uuid = $request->uuid;
-        $record = ReconciliationMaster::where("uuid", $uuid)->first();
-        if(empty($record)){
+        $record = ReconciliationMaster::where('uuid', $uuid)->first();
+        if (empty($record)) {
             return response()->json([
-                "errors" => "Whoops!",
-                "message"=>"Something went wrong.",
-                "detail"=>"No record found."
+                'errors' => 'Whoops!',
+                'message' => 'Something went wrong.',
+                'detail' => 'No record found.',
             ], 422);
         }
         $details = Reconciliation::where('master_id', $record->id)->get();
@@ -374,20 +432,21 @@ class ExportController extends Controller
         return Excel::download(new ReconciliationReportExport($details), 'reconciliation_report.xlsx');
     }
 
-    public function exportUnreconciledReport(Request $request){
+    public function exportUnreconciledReport(Request $request)
+    {
         $validator = Validator::make($request->all(), [
-            "month" => "required",
-            "year" => "required",
+            'month' => 'required',
+            'year' => 'required',
         ], [
-            "month.required" => "Field is required",
-            "year.required" => "Field is required"
+            'month.required' => 'Field is required',
+            'year.required' => 'Field is required',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                "errors" => $validator->messages(),
-                "message"=>"Validation error",
-                "detail"=>"All fields are required."
+                'errors' => $validator->messages(),
+                'message' => 'Validation error',
+                'detail' => 'All fields are required.',
             ], 422);
         }
         $month = $request->month;
@@ -396,7 +455,7 @@ class ExportController extends Controller
             ->where('year', $year)
             ->where('reconciled', 0)
             ->get();
+
         return Excel::download(new UnreconciledReportExport($records), 'unreconciled_report.xlsx');
     }
-
 }

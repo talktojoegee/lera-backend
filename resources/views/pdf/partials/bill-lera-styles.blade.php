@@ -49,7 +49,6 @@
         position: relative;
         page-break-after: always;
         page-break-inside: avoid;
-        background-image: url('<?php echo e(asset('assets/images/background-22.png')); ?>');
         background-repeat: no-repeat;
         background-position: top center;
         background-size: 210mm 297mm;
@@ -89,7 +88,7 @@
         width: 100%;
         border-collapse: collapse;
         border: none;
-        margin-top: -30px;
+        margin-top: 0;
     }
     /* POD uses its own row density; min-height here made slip rows too tall */
     .lera-kv-table:not(.lera-pod-kv) tr {
@@ -124,7 +123,7 @@
         top: var(--lera-pod-top);
         left: var(--lera-pod-left);
         width: var(--lera-pod-width);
-        margin-top: 30px !important;
+        margin-top: 40px !important;
     }
     .lera-pod-kv tr.lera-pod-row {
         height: auto;
@@ -165,7 +164,7 @@
         width: var(--lera-qr-img-max);
         height: var(--lera-qr-img-max);
         object-fit: contain;
-        margin-top: -50px;
+        margin-top: -10px;
         margin-left: -100px;
     }
 
@@ -179,7 +178,7 @@
         border-collapse: collapse;
         border: none;
         table-layout: fixed;
-        margin-top: -30px;
+        margin-top: 10px;
     }
     .lera-assess-row td {
         vertical-align: middle;
@@ -209,7 +208,8 @@
         font-size: 13pt;
         font-weight: bold;
         letter-spacing: 0.02em;
-        margin-top: -50px;
+        margin-top: -5px;
+        margin-left: -90px;
     }
 
     .lera-total-words {
@@ -220,6 +220,6 @@
         text-align: right;
         font-size: 7.5pt;
         line-height: 1.2;
-        margin-top: -40px;
+        margin-top: 5px;
     }
 </style>
